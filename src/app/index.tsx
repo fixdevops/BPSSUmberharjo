@@ -2,7 +2,7 @@ import { useState } from "react";
 import {
   Alert,
   Clipboard,
-  Dimensions,
+  DimensionValue,
   FlatList,
   Linking,
   Modal,
@@ -13,14 +13,21 @@ import {
   Text,
   TextInput,
   ToastAndroid,
+  useWindowDimensions,
   View
 } from "react-native";
 import Svg, { Circle, Line, Path, Polyline, Rect } from "react-native-svg";
 
-const SCREEN_W    = Dimensions.get("window").width;
-const SHOW_SIDEBAR = SCREEN_W >= 768;
-const IS_MOBILE   = SCREEN_W < 480;   // hp kecil
-const IS_TABLET   = SCREEN_W >= 600;  // tablet / layar lebar
+// Helper breakpoint — dipanggil di dalam komponen
+function useBreakpoints() {
+  const { width } = useWindowDimensions();
+  return {
+    w:           width,
+    isMobile:    width < 480,
+    isTablet:    width >= 600,
+    showSidebar: width >= 768,
+  };
+}
 
 // ─── Design Tokens (Material You – BPS) ──────────────────────────────────────
 const T = {
@@ -111,13 +118,14 @@ function Badge({ text }: { text: string }) {
 
 // ─── Step Indicator ───────────────────────────────────────────────────────────
 function Stepper({ step }: { step: number }) {
+  const { w, isMobile } = useBreakpoints();
   const steps = ["Input Data", "Hasil"];
   return (
     <ScrollView
       horizontal
       showsHorizontalScrollIndicator={false}
-      scrollEnabled={IS_MOBILE}
-      contentContainerStyle={ui.stepperScroll}
+      scrollEnabled={isMobile}
+      contentContainerStyle={[ui.stepperScroll, { minWidth: w - 40 }]}
       style={ui.stepperWrap}
     >
       {steps.map((s, i) => {
@@ -167,10 +175,10 @@ function SectionCard({ icon, title, children }: { icon: string; title: string; c
 
 // ─── Select Field ─────────────────────────────────────────────────────────────
 function SelectField({
-  label, value, onPress,
-}: { label: string; value: string; onPress: () => void }) {
+  label, value, onPress, width = "100%",
+}: { label: string; value: string; onPress: () => void; width?: DimensionValue }) {
   return (
-    <View style={ui.fieldWrap}>
+    <View style={[ui.fieldWrap, { width: width as any }]}>
       <Text style={ui.fieldLabel}>{label}</Text>
       <Pressable
         style={({ pressed }) => [ui.select, pressed && { borderColor: T.primary }]}
@@ -186,13 +194,13 @@ function SelectField({
 
 // ─── Input Field ──────────────────────────────────────────────────────────────
 function InputField({
-  label, value, onChangeText, placeholder = "", keyboardType = "default",
+  label, value, onChangeText, placeholder = "", keyboardType = "default", width = "100%",
 }: {
   label: string; value: string; onChangeText: (v: string) => void;
-  placeholder?: string; keyboardType?: any;
+  placeholder?: string; keyboardType?: any; width?: DimensionValue;
 }) {
   return (
-    <View style={ui.fieldWrap}>
+    <View style={[ui.fieldWrap, { width: width as any }]}>
       <Text style={ui.fieldLabel}>{label}</Text>
       <TextInput
         style={ui.input}
@@ -208,10 +216,10 @@ function InputField({
 
 // ─── Luas + Satuan combo ──────────────────────────────────────────────────────
 function LuasField({
-  luas, setLuas, satLuas, onSatPress,
-}: { luas: string; setLuas: (v: string) => void; satLuas: string; onSatPress: () => void }) {
+  luas, setLuas, satLuas, onSatPress, width = "100%",
+}: { luas: string; setLuas: (v: string) => void; satLuas: string; onSatPress: () => void; width?: DimensionValue }) {
   return (
-    <View style={ui.fieldWrap}>
+    <View style={[ui.fieldWrap, { width: width as any }]}>
       <Text style={ui.fieldLabel}>Luas</Text>
       <View style={ui.luasRow}>
         <TextInput
@@ -476,6 +484,8 @@ function InfoCard() {
 // MAIN SCREEN
 // ═══════════════════════════════════════════════════════════════════════════════
 export default function HomeScreen() {
+  const { w, isMobile, isTablet, showSidebar } = useBreakpoints();
+
   // ── State Input ──
   const [kom, setKom]           = useState("Padi Rendengan");
   const [mode, setMode]         = useState("panen");       // default: berdasarkan hasil panen
@@ -755,11 +765,20 @@ export default function HomeScreen() {
       <TopNav />
 
       <View style={ui.body}>
-        {/* ── Sidebar (mobile: hidden) ── */}
-        <SideNav />
+        {/* ── Sidebar (tablet+: visible) ── */}
+        {showSidebar && <SideNav />}
 
         {/* ── Main ── */}
-        <ScrollView style={ui.main} contentContainerStyle={ui.mainContent}>
+        <ScrollView
+          style={ui.main}
+          contentContainerStyle={[
+            ui.mainContent,
+            {
+              padding:       isMobile ? 12 : 20,
+              paddingBottom: isMobile ? 90 : 48,
+            },
+          ]}
+        >
           {/* Dot pattern overlay */}
           <View style={ui.dotPattern} pointerEvents="none" />
 
@@ -778,9 +797,12 @@ export default function HomeScreen() {
           {activePage === "estimasi" && (<>
 
           {/* Branding header */}
-          <View style={ui.pageHeader}>
+          <View style={[
+            ui.pageHeader,
+            isMobile && { flexDirection: "column", alignItems: "flex-start" },
+          ]}>
             <View style={{ flex: 1 }}>
-              <Text style={ui.pageTitle}>Parameter Estimasi</Text>
+              <Text style={[ui.pageTitle, isMobile && { fontSize: 20 }]}>Parameter Estimasi</Text>
               <Text style={ui.pageSubtitle}>
                 Konfigurasikan data dasar untuk kalkulasi statistik Sensus Ekonomi 2026.
               </Text>
@@ -793,31 +815,25 @@ export default function HomeScreen() {
 
           {/* ── SECTION 1: KOMODITAS ── */}
           <SectionCard icon="inventory_2" title="Section 1: Data Komoditas">
-            <View style={ui.formGrid}>
-              <SelectField
-                label="Komoditas"
-                value={kom}
-                onPress={() => openPicker("Komoditas", Object.keys(db), kom, setKom)}
-              />
-              <SelectField
-                label="Mode Input"
+            <View style={[ui.formGrid, isTablet && { flexDirection: "row", flexWrap: "wrap" }]}>
+              <SelectField label="Komoditas" value={kom} width={isTablet ? "48%" : "100%"}
+                onPress={() => openPicker("Komoditas", Object.keys(db), kom, setKom)} />
+              <SelectField label="Mode Input" width={isTablet ? "48%" : "100%"}
                 value={mode === "luas" ? "Berdasarkan Luas Lahan" : "Berdasarkan Hasil Panen"}
-                onPress={() =>
-                  openPicker("Mode Input",
-                    ["Berdasarkan Luas Lahan", "Berdasarkan Hasil Panen"],
-                    mode === "luas" ? "Berdasarkan Luas Lahan" : "Berdasarkan Hasil Panen",
-                    (v) => setMode(v === "Berdasarkan Luas Lahan" ? "luas" : "panen")
-                  )
-                }
+                onPress={() => openPicker("Mode Input",
+                  ["Berdasarkan Luas Lahan", "Berdasarkan Hasil Panen"],
+                  mode === "luas" ? "Berdasarkan Luas Lahan" : "Berdasarkan Hasil Panen",
+                  (v) => setMode(v === "Berdasarkan Luas Lahan" ? "luas" : "panen")
+                )}
               />
               {mode === "luas" ? (
-                <LuasField luas={luas} setLuas={setLuas} satLuas={satLuas}
+                <LuasField luas={luas} setLuas={setLuas} satLuas={satLuas} width={isTablet ? "48%" : "100%"}
                   onSatPress={() => openPicker("Satuan Luas", ["BAHU", "HEKTAR", "M2"], satLuas, setSatLuas)} />
               ) : (
                 <>
                   <InputField label="Hasil Panen" value={panen} onChangeText={setPanen}
-                    placeholder="contoh: 100" keyboardType="numeric" />
-                  <SelectField label="Satuan Panen" value={satPanen}
+                    placeholder="contoh: 100" keyboardType="numeric" width={isTablet ? "48%" : "100%"} />
+                  <SelectField label="Satuan Panen" value={satPanen} width={isTablet ? "48%" : "100%"}
                     onPress={() => openPicker("Satuan Panen", ["KUINTAL", "KG", "TON"], satPanen, setSatPanen)} />
                 </>
               )}
@@ -826,13 +842,13 @@ export default function HomeScreen() {
 
           {/* ── SECTION 2: LAHAN & LOKASI ── */}
           <SectionCard icon="location_on" title="Section 2: Detail Lahan & Lokasi">
-            <View style={ui.formGrid}>
-              <SelectField label="Status Lahan" value={status}
+            <View style={[ui.formGrid, isTablet && { flexDirection: "row", flexWrap: "wrap" }]}>
+              <SelectField label="Status Lahan" value={status} width={isTablet ? "48%" : "100%"}
                 onPress={() => openPicker("Status Lahan", ["Milik Sendiri", "Sewa", "Bagi Hasil"], status, setStatus)} />
-              <SelectField label="Kecamatan" value={kec}
+              <SelectField label="Kecamatan" value={kec} width={isTablet ? "48%" : "100%"}
                 onPress={() => openPicker("Kecamatan", ["Balen","Kanor","Sumberrejo","Baureno","Kapas","Dander"], kec, setKec)} />
               <InputField label="Tahun Mulai Usaha" value={tahun} onChangeText={setTahun}
-                placeholder="YYYY" keyboardType="numeric" />
+                placeholder="YYYY" keyboardType="numeric" width={isTablet ? "48%" : "100%"} />
             </View>
           </SectionCard>
 
@@ -926,7 +942,7 @@ export default function HomeScreen() {
       </View>
 
       {/* ── BOTTOM NAV (mobile only) ── */}
-      {IS_MOBILE && <BottomNav active={activePage} onPress={setActivePage} />}
+      {isMobile && <BottomNav active={activePage} onPress={setActivePage} />}
 
       {/* ── PICKER MODAL ── */}
       <Modal visible={pickerVisible} transparent animationType="fade">
@@ -965,7 +981,7 @@ const ui = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: IS_MOBILE ? 14 : 20,
+    paddingHorizontal: 16,
     paddingVertical: 10,
     borderBottomWidth: 1,
     borderColor: T.outlineVariant,
@@ -975,7 +991,7 @@ const ui = StyleSheet.create({
     shadowOpacity: 0.06,
     shadowRadius: 4,
   },
-  topNavBrand:   { fontSize: IS_MOBILE ? 15 : 17, fontWeight: "700", color: T.primary, letterSpacing: 0.2 },
+  topNavBrand:   { fontSize: 16, fontWeight: "700", color: T.primary, letterSpacing: 0.2 },
   topNavActions: { flexDirection: "row", gap: 4 },
   topNavBtn:     { padding: 8, borderRadius: 20 },
 
@@ -984,12 +1000,12 @@ const ui = StyleSheet.create({
 
   // ── Side Nav ──
   sideNav: {
-    width: SHOW_SIDEBAR ? 220 : 0,
+    width: 220,
     overflow: "hidden",
     backgroundColor: T.surface,
-    paddingHorizontal: SHOW_SIDEBAR ? 12 : 0,
-    paddingVertical: SHOW_SIDEBAR ? 16 : 0,
-    borderRightWidth: SHOW_SIDEBAR ? 1 : 0,
+    paddingHorizontal: 12,
+    paddingVertical: 16,
+    borderRightWidth: 1,
     borderColor: T.outlineVariant,
   },
   sideNavBrand: {
@@ -1024,9 +1040,8 @@ const ui = StyleSheet.create({
   // ── Main content ──
   main:        { flex: 1 },
   mainContent: {
-    padding: IS_MOBILE ? 12 : 20,
-    paddingBottom: IS_MOBILE ? 90 : 48, // ruang ekstra agar tidak tertutup bottom nav
-    // batasi lebar konten agar tidak terlalu lebar di web/tablet
+    padding: 16,
+    paddingBottom: 80,
     maxWidth: 720,
     alignSelf: "center" as const,
     width: "100%",
@@ -1035,13 +1050,14 @@ const ui = StyleSheet.create({
 
   // ── Page header ──
   pageHeader: {
-    flexDirection: IS_MOBILE ? "column" : "row" as any,
-    alignItems: IS_MOBILE ? "flex-start" : "flex-end",
+    flexDirection: "row",
+    alignItems: "flex-end",
     justifyContent: "space-between",
     marginBottom: 16,
     gap: 8,
+    flexWrap: "wrap",
   },
-  pageTitle:    { fontSize: IS_MOBILE ? 20 : 26, fontWeight: "700", color: T.primary, letterSpacing: -0.3 },
+  pageTitle:    { fontSize: 22, fontWeight: "700", color: T.primary, letterSpacing: -0.3 },
   pageSubtitle: { fontSize: 12, color: T.onSurfaceVariant, marginTop: 3 },
 
   // ── Badge ──
@@ -1070,8 +1086,8 @@ const ui = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 1,
     borderColor: T.outlineVariant,
-    // Pastikan konten minimal selebar layar saat tidak di-scroll
-    minWidth: IS_MOBILE ? SCREEN_W - 40 : "100%",
+    // minWidth ditangani inline di Stepper via useBreakpoints
+    minWidth: "100%",
   },
   // Tiap step: flex:1 agar sama lebar kiri & kanan
   stepItem: {
@@ -1106,7 +1122,7 @@ const ui = StyleSheet.create({
     borderRadius: 14,
     borderWidth: 1,
     borderColor: T.outlineVariant,
-    padding: IS_MOBILE ? 14 : 18,
+    padding: 16,
     marginBottom: 14,
     elevation: 1,
     shadowColor: "#000",
@@ -1125,16 +1141,12 @@ const ui = StyleSheet.create({
   },
   sectionCardTitle: { fontSize: 16, fontWeight: "600", color: T.onSurface },
 
-  // ── Form ──
+  // ── Form ── (responsif ditangani inline di JSX)
   formGrid: {
-    flexDirection: IS_TABLET ? "row" : "column" as any,
-    flexWrap: IS_TABLET ? "wrap" : "nowrap" as any,
     gap: 14,
   },
-  // Tiap field ambil setengah lebar di tablet, full di mobile
   fieldWrap: {
     gap: 6,
-    width: IS_TABLET ? "48%" : "100%" as any,
   },
   fieldLabel: { fontSize: 13, fontWeight: "600", color: T.onSurface, letterSpacing: 0.1 },
   input: {
@@ -1298,8 +1310,8 @@ const ui = StyleSheet.create({
   },
   rowEven: { backgroundColor: "#f0f4ff" },
   rowOdd:  { backgroundColor: T.white },
-  rowLabel: { flex: IS_MOBILE ? 3 : 4, fontSize: IS_MOBILE ? 11 : 12, color: T.onSurface, paddingRight: 4, lineHeight: 16 },
-  rowValue: { flex: IS_MOBILE ? 3 : 4, fontSize: IS_MOBILE ? 11 : 13, color: T.primary, fontWeight: "700", textAlign: "right", paddingRight: 6 },
+  rowLabel: { flex: 3, fontSize: 12, color: T.onSurface, paddingRight: 4, lineHeight: 16 },
+  rowValue: { flex: 3, fontSize: 12, color: T.primary, fontWeight: "700", textAlign: "right", paddingRight: 6 },
   copyBtn: {
     width: 44, height: 34,
     alignItems: "center",
