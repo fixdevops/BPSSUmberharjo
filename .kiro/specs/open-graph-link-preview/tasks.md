@@ -43,7 +43,7 @@ Implementasi fitur ini hanya mencakup 3 perubahan file statis — tidak ada modi
     - Baca dan parse `vercel.json`, verifikasi pola rewrite tidak akan mencocokkan path `/gambargue.jpeg`
     - _Requirements: 2.3_
 
-- [~] 4. Checkpoint — Verifikasi file output build
+- [ ] 4. Checkpoint — Verifikasi file output build
   - Jalankan `npx expo export --platform web` dan periksa:
     - `dist/index.html` mengandung semua 5 OG meta tags di `<head>`
     - `dist/gambargue.jpeg` ada dan dapat diakses
@@ -58,7 +58,7 @@ Implementasi fitur ini hanya mencakup 3 perubahan file statis — tidak ada modi
     - Baca `src/app/_layout.tsx`, verifikasi komponen `<Stack>` dan `<ThemeProvider>` masih ada
     - _Requirements: 3.2_
 
-- [~] 6. Final checkpoint — Semua tests pass
+- [ ] 6. Final checkpoint — Semua tests pass
   - Pastikan semua tests pass, tanyakan kepada user jika ada pertanyaan.
 
 ## Notes

@@ -1,11 +1,10 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Alert,
   Clipboard,
   DimensionValue,
   FlatList,
   Linking,
-  Modal,
   Platform,
   Pressable,
   ScrollView,
@@ -17,6 +16,83 @@ import {
   View
 } from "react-native";
 import Svg, { Circle, Line, Path, Polyline, Rect } from "react-native-svg";
+
+// ─── Web-safe Modal menggunakan createPortal (menghindari bug ModalPortal di react-native-web + React 19) ──
+let createPortal: ((children: React.ReactNode, container: Element) => React.ReactNode) | null = null;
+if (Platform.OS === "web") {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    createPortal = require("react-dom").createPortal;
+  } catch (_) {}
+}
+
+function PickerModal({
+  visible,
+  onClose,
+  title,
+  options,
+  onSelect,
+}: {
+  visible: boolean;
+  onClose: () => void;
+  title: string;
+  options: string[];
+  onSelect: (v: string) => void;
+}) {
+  if (!visible) return null;
+
+  const content = (
+    <Pressable
+      style={{
+        position: "fixed" as any,
+        top: 0, left: 0, right: 0, bottom: 0,
+        backgroundColor: "rgba(0,0,0,0.5)",
+        justifyContent: "flex-end",
+        zIndex: 9999,
+      }}
+      onPress={onClose}
+    >
+      <View
+        style={{
+          backgroundColor: T.white,
+          borderTopLeftRadius: 20,
+          borderTopRightRadius: 20,
+          padding: 20,
+          maxHeight: "70%",
+        }}
+      >
+        <View style={{ width: 40, height: 4, borderRadius: 2, backgroundColor: T.outlineVariant, alignSelf: "center", marginBottom: 14 }} />
+        <Text style={{ fontSize: 15, fontWeight: "700", color: T.primary, marginBottom: 12, textAlign: "center" }}>{title}</Text>
+        <FlatList
+          data={options}
+          keyExtractor={(item) => item}
+          renderItem={({ item }) => (
+            <Pressable
+              style={({ pressed }) => [{
+                paddingVertical: 14,
+                borderBottomWidth: 1,
+                borderColor: T.surfaceContainer,
+                borderRadius: 4,
+                backgroundColor: pressed ? T.primaryFixed : "transparent",
+              }]}
+              onPress={() => { onSelect(item); onClose(); }}
+            >
+              <Text style={{ fontSize: 15, color: T.onSurface, textAlign: "center" }}>{item}</Text>
+            </Pressable>
+          )}
+        />
+      </View>
+    </Pressable>
+  );
+
+  // Di web: mount ke document.body via createPortal agar tidak konflik dengan tree React
+  if (Platform.OS === "web" && createPortal && typeof document !== "undefined") {
+    return createPortal(content, document.body) as React.ReactElement;
+  }
+
+  // Native: render biasa (tidak ada Portal issue di native)
+  return content as React.ReactElement;
+}
 
 // Helper breakpoint — dipanggil di dalam komponen
 // Menggunakan mounted guard agar SSR dan client hydration konsisten
@@ -483,12 +559,560 @@ function InfoCard() {
       <View style={{ flex: 1 }}>
         <Text style={ui.infoTitle}>Catatan Akurasi</Text>
         <Text style={ui.infoBody}>
-          Data yang diinputkan akan disinkronisasikan dengan basis data regional BPS Bojonegoro. Pastikan parameter Luas menggunakan satuan yang sesuai untuk meminimalisir deviasi statistik pada laporan SE2026.
+          Parameter default aplikasi ini berasal dari <b>Desa Sumberharjo.</b> Untuk penggunaan di wilayah lain, sesuaikan parameter lokal hubungi developer agar parameter dapat dikalibrasi sesuai kondisi wilayah Anda..
         </Text>
       </View>
     </View>
   );
 }
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// KALKULATOR PENDAPATAN SEBULAN (BERANDA)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+type SumberPendapatan = {
+  id: string;
+  jumlah: string;
+};
+
+function BerandaKalkulator() {
+  const { isMobile, isTablet } = useBreakpoints();
+
+  // Pendapatan utama
+  const [pendapatanUtama, setPendapatanUtama] = useState("");
+
+  // Sumber pendapatan tambahan
+  const [sumberTambahan, setSumberTambahan] = useState<SumberPendapatan[]>([]);
+
+  // Hasil hitung
+  const [hasilHitung, setHasilHitung] = useState<null | {
+    utamaPerBulan: number;
+    tambahanPerBulan: { nama: string; perBulan: number }[];
+    totalPerBulan: number;
+  }>(null);
+
+  const [sudahHitung, setSudahHitung] = useState(false);
+
+  function tambahSumber() {
+    const id = Date.now().toString();
+    setSumberTambahan((prev) => [...prev, { id, jumlah: "" }]);
+    setSudahHitung(false);
+  }
+
+  function hapusSumber(id: string) {
+    setSumberTambahan((prev) => prev.filter((s) => s.id !== id));
+    setSudahHitung(false);
+  }
+
+  function updateSumber(id: string, val: string) {
+    setSumberTambahan((prev) =>
+      prev.map((s) => (s.id === id ? { ...s, jumlah: val } : s))
+    );
+    setSudahHitung(false);
+  }
+
+  function parseRupiah(val: string): number {
+    // Bersihkan titik ribuan kalau ada, lalu parse
+    return parseFloat(val.replace(/\./g, "").replace(",", ".")) || 0;
+  }
+
+  function hitung() {
+    const utama = parseRupiah(pendapatanUtama);
+    if (utama <= 0 && sumberTambahan.every((s) => parseRupiah(s.jumlah) <= 0)) {
+      Alert.alert("Perhatian", "Masukkan minimal satu pendapatan terlebih dahulu.");
+      return;
+    }
+    const utamaPerBulan = utama / 12;
+    const tambahanPerBulan = sumberTambahan.map((s, idx) => ({
+      nama: `Sumber Lain #${idx + 1}`,
+      perBulan: parseRupiah(s.jumlah) / 12,
+    }));
+    const totalPerBulan =
+      utamaPerBulan + tambahanPerBulan.reduce((sum, t) => sum + t.perBulan, 0);
+    setHasilHitung({ utamaPerBulan, tambahanPerBulan, totalPerBulan });
+    setSudahHitung(true);
+  }
+
+  function reset() {
+    setPendapatanUtama("");
+    setSumberTambahan([]);
+    setHasilHitung(null);
+    setSudahHitung(false);
+  }
+
+  const totalSetahun = hasilHitung
+    ? parseRupiah(pendapatanUtama) +
+      sumberTambahan.reduce((sum, s) => sum + parseRupiah(s.jumlah), 0)
+    : 0;
+
+  return (
+    <View style={{ gap: 16 }}>
+      {/* Header halaman */}
+      <View style={[ui.pageHeader, isMobile && { flexDirection: "column", alignItems: "flex-start" }]}>
+        <View style={{ flex: 1 }}>
+          <Text style={[ui.pageTitle, isMobile && { fontSize: 20 }]}>Kalkulator Pendapatan</Text>
+          <Text style={ui.pageSubtitle}>
+            Hitung estimasi pendapatan per bulan dari berbagai sumber penghasilan.
+          </Text>
+        </View>
+        <View style={[ui.badge, { backgroundColor: "#e8f5e9" }]}>
+          <Icon name="bar-chart-2" size={13} color={T.secondary} />
+          <Text style={[ui.badgeText, { color: T.secondary }]}>Kalkulator Bulanan</Text>
+        </View>
+      </View>
+
+      {/* Card: Pendapatan Utama */}
+      <SectionCard icon="home" title="Pendapatan Utama (Opsional) ">
+        <View style={{ gap: 14 }}>
+          {/* Nominal */}
+          <View style={ui.fieldWrap}>
+            <TextInput
+              style={ui.input}
+              value={pendapatanUtama}
+              onChangeText={(v) => { setPendapatanUtama(v); setSudahHitung(false); }}
+              placeholder="contoh: 12000000"
+              placeholderTextColor={T.outline}
+              keyboardType="numeric"
+            />
+          </View>
+          {/* Preview ÷ 12 */}
+          {pendapatanUtama !== "" && parseRupiah(pendapatanUtama) > 0 && (
+            <View style={kalStyle.previewRow}>
+              <Icon name="chevron-down" size={13} color={T.secondary} />
+              <Text style={kalStyle.previewText}>
+                {rp(parseRupiah(pendapatanUtama))} ÷ 12 ={" "}
+                <Text style={{ fontWeight: "700", color: T.secondary }}>
+                  {rp(parseRupiah(pendapatanUtama) / 12)} / bulan
+                </Text>
+              </Text>
+            </View>
+          )}
+        </View>
+      </SectionCard>
+
+      {/* Card: Sumber Tambahan */}
+      <SectionCard icon="package" title="Sumber Pendapatan">
+        <View style={{ gap: 14 }}>
+          {sumberTambahan.length === 0 && (
+            <View style={kalStyle.emptyHint}>
+              <Icon name="info" size={14} color={T.onSurfaceVariant} />
+              <Text style={kalStyle.emptyHintText}>
+                Belum ada sumber tambahan. Tap tombol di bawah untuk menambahkan.
+              </Text>
+            </View>
+          )}
+
+          {sumberTambahan.map((s, idx) => (
+            <View
+              key={s.id}
+              style={[
+                kalStyle.sumberCard,
+                { borderColor: T.outlineVariant },
+              ]}
+            >
+              {/* Header baris sumber */}
+              <View style={kalStyle.sumberHeader}>
+                <View style={kalStyle.sumberBadgeNum}>
+                  <Text style={kalStyle.sumberBadgeNumText}>{idx + 1}</Text>
+                </View>
+                <Text style={kalStyle.sumberHeaderLabel}>Sumber Pendapatan #{idx + 1}</Text>
+                <Pressable
+                  style={kalStyle.hapusBtn}
+                  onPress={() => hapusSumber(s.id)}
+                  accessibilityLabel={`Hapus sumber pendapatan ${idx + 1}`}
+                >
+                  <Icon name="x" size={14} color={T.error} />
+                </Pressable>
+              </View>
+
+              {/* Jumlah setahun */}
+              <View style={[ui.fieldWrap, { marginTop: 10 }]}>
+                <TextInput
+                  style={ui.input}
+                  value={s.jumlah}
+                  onChangeText={(v) => updateSumber(s.id, v)}
+                  placeholder="contoh: 5000000"
+                  placeholderTextColor={T.outline}
+                  keyboardType="numeric"
+                />
+              </View>
+
+              {/* Preview ÷ 12 */}
+              {s.jumlah !== "" && parseRupiah(s.jumlah) > 0 && (
+                <View style={[kalStyle.previewRow, { marginTop: 8 }]}>
+                  <Icon name="chevron-down" size={13} color={T.secondary} />
+                  <Text style={kalStyle.previewText}>
+                    {rp(parseRupiah(s.jumlah))} ÷ 12 ={" "}
+                    <Text style={{ fontWeight: "700", color: T.secondary }}>
+                      {rp(parseRupiah(s.jumlah) / 12)} / bulan
+                    </Text>
+                  </Text>
+                </View>
+              )}
+            </View>
+          ))}
+
+          {/* Tombol tambah sumber */}
+          <Pressable
+            style={({ pressed }) => [kalStyle.tambahBtn, pressed && { opacity: 0.75 }]}
+            onPress={tambahSumber}
+            accessibilityLabel="Tambah sumber pendapatan"
+          >
+            <View style={kalStyle.tambahBtnInner}>
+              <View style={kalStyle.tambahIcon}>
+                <Text style={{ color: T.secondary, fontSize: 20, lineHeight: 22, fontWeight: "700" }}>+</Text>
+              </View>
+              <Text style={kalStyle.tambahBtnText}>Tambah Sumber Pendapatan</Text>
+            </View>
+          </Pressable>
+        </View>
+      </SectionCard>
+
+      {/* Tombol Hitung */}
+      <Pressable
+        style={({ pressed }) => [ui.submitBtn, pressed && { opacity: 0.85 }]}
+        onPress={hitung}
+        accessibilityLabel="Hitung pendapatan per bulan"
+      >
+        <Icon name="bar-chart-2" size={18} color={T.onPrimary} />
+        <Text style={ui.submitBtnText}>Hitung Pendapatan Per Bulan</Text>
+        <Icon name="arrow-right" size={16} color={T.onPrimary} />
+      </Pressable>
+
+      {/* Hasil */}
+      {sudahHitung && hasilHitung && (
+        <View style={kalStyle.hasilCard}>
+          {/* Header */}
+          <View style={kalStyle.hasilHeader}>
+            <View style={kalStyle.hasilIconBox}>
+              <Icon name="check-circle" size={22} color={T.onPrimary} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={kalStyle.hasilHeaderTitle}>Hasil Perhitungan</Text>
+              <Text style={kalStyle.hasilHeaderSub}>Estimasi pendapatan rata-rata per bulan</Text>
+            </View>
+            <Pressable
+              style={kalStyle.resetBtn}
+              onPress={reset}
+              accessibilityLabel="Reset kalkulator"
+            >
+              <Icon name="x" size={13} color={T.onSurfaceVariant} />
+              <Text style={kalStyle.resetBtnText}>Reset</Text>
+            </Pressable>
+          </View>
+
+          {/* Baris per sumber */}
+          <View style={kalStyle.hasilBody}>
+            {/* Pendapatan utama */}
+            <View style={kalStyle.hasilBaris}>
+              <View style={{ flex: 1 }}>
+                <Text style={kalStyle.hasilBarisNama}>{"Pendapatan Utama"}</Text>
+                <Text style={kalStyle.hasilBarisSetahun}>
+                  {rp(parseRupiah(pendapatanUtama))} ÷ 12
+                </Text>
+              </View>
+              <Text style={kalStyle.hasilBarisNilai}>
+                {rp(hasilHitung.utamaPerBulan)}
+              </Text>
+            </View>
+
+            {/* Sumber tambahan */}
+            {hasilHitung.tambahanPerBulan.map((t, idx) => (
+              <View key={idx} style={[kalStyle.hasilBaris, { backgroundColor: "#f0fdf4" }]}>
+                <View style={{ flex: 1 }}>
+                  <Text style={kalStyle.hasilBarisNama}>{t.nama}</Text>
+                  <Text style={kalStyle.hasilBarisSetahun}>
+                    {rp(parseRupiah(sumberTambahan[idx]?.jumlah ?? "0"))} ÷ 12
+                  </Text>
+                </View>
+                <Text style={[kalStyle.hasilBarisNilai, { color: T.secondary }]}>
+                  {rp(t.perBulan)}
+                </Text>
+              </View>
+            ))}
+
+            {/* Separator */}
+            <View style={kalStyle.separator} />
+
+            {/* Total */}
+            <View style={kalStyle.hasilTotal}>
+              <View style={{ flex: 1 }}>
+                <Text style={kalStyle.hasilTotalLabel}>Total Pendapatan / Bulan</Text>
+                <Text style={kalStyle.hasilTotalSetahun}>
+                  Setahun: {rp(totalSetahun)}
+                </Text>
+              </View>
+              <Pressable
+                onPress={() => {
+                  copyToClipboard(rp(hasilHitung.totalPerBulan));
+                }}
+                accessibilityLabel="Salin total pendapatan per bulan"
+              >
+                <View style={{ alignItems: "flex-end", gap: 4 }}>
+                  <Text style={kalStyle.hasilTotalNilai}>
+                    {rp(hasilHitung.totalPerBulan)}
+                  </Text>
+                  <View style={kalStyle.copyHint}>
+                    <Icon name="copy" size={11} color={T.primary} />
+                    <Text style={kalStyle.copyHintText}>Tap untuk salin</Text>
+                  </View>
+                </View>
+              </Pressable>
+            </View>
+          </View>
+
+          {/* Catatan */}
+          <View style={kalStyle.hasilNote}>
+            <Icon name="info" size={12} color={T.onSurfaceVariant} />
+            <Text style={kalStyle.hasilNoteText}>
+              Perhitungan menggunakan pembagian rata merata 12 bulan. Untuk pendapatan musiman,
+              nilai yang dimasukkan adalah total setahun.
+            </Text>
+          </View>
+        </View>
+      )}
+
+      {/* Footer */}
+      <View style={ui.footer}>
+        <Text style={ui.footerText}>© 2026 BPS Sumberharjo – SE2026</Text>
+        <Text style={ui.footerText}>Kalkulator Pendapatan Bulanan</Text>
+      </View>
+    </View>
+  );
+}
+
+// ─── Style khusus Beranda Kalkulator ─────────────────────────────────────────
+const kalStyle = StyleSheet.create({
+  previewRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: "rgba(0, 106, 99, 0.06)",
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderLeftWidth: 3,
+    borderLeftColor: T.secondary,
+  },
+  previewText: {
+    fontSize: 12,
+    color: T.onSurface,
+    flex: 1,
+  },
+  emptyHint: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    backgroundColor: T.surfaceContainerLow,
+    borderRadius: 10,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: T.outlineVariant,
+  },
+  emptyHintText: {
+    fontSize: 12,
+    color: T.onSurfaceVariant,
+    flex: 1,
+    lineHeight: 18,
+  },
+  sumberCard: {
+    backgroundColor: T.surfaceContainerLow,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    padding: 14,
+  },
+  sumberHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  sumberBadgeNum: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: T.primaryFixed,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  sumberBadgeNumText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: T.primary,
+  },
+  sumberHeaderLabel: {
+    flex: 1,
+    fontSize: 13,
+    fontWeight: "600",
+    color: T.onSurface,
+  },
+  hapusBtn: {
+    padding: 6,
+    borderRadius: 8,
+    backgroundColor: "#ffeaea",
+  },
+  tambahBtn: {
+    borderWidth: 1.5,
+    borderColor: T.secondary,
+    borderRadius: 12,
+    overflow: "hidden",
+  },
+  tambahBtnInner: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 10,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    backgroundColor: "rgba(0, 106, 99, 0.04)",
+  },
+  tambahIcon: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: T.secondaryContainer,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  tambahBtnText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: T.secondary,
+  },
+  hasilCard: {
+    backgroundColor: T.white,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: T.outlineVariant,
+    overflow: "hidden",
+    elevation: 3,
+    shadowColor: T.primary,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+  },
+  hasilHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    backgroundColor: T.primary,
+    padding: 16,
+  },
+  hasilIconBox: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: "rgba(255,255,255,0.2)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  hasilHeaderTitle: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: T.white,
+  },
+  hasilHeaderSub: {
+    fontSize: 11,
+    color: "rgba(255,255,255,0.8)",
+    marginTop: 2,
+  },
+  resetBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: "rgba(255,255,255,0.15)",
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+  },
+  resetBtnText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: T.white,
+  },
+  hasilBody: {
+    padding: 16,
+    gap: 4,
+  },
+  hasilBaris: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#f8f9ff",
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 4,
+    borderWidth: 1,
+    borderColor: T.outlineVariant,
+  },
+  hasilBarisNama: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: T.onSurface,
+  },
+  hasilBarisSetahun: {
+    fontSize: 11,
+    color: T.onSurfaceVariant,
+    marginTop: 2,
+  },
+  hasilBarisNilai: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: T.primary,
+    textAlign: "right",
+  },
+  separator: {
+    height: 1,
+    backgroundColor: T.outlineVariant,
+    marginVertical: 8,
+  },
+  hasilTotal: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: T.primaryFixed,
+    borderRadius: 12,
+    padding: 14,
+    borderWidth: 1.5,
+    borderColor: T.primary,
+  },
+  hasilTotalLabel: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: T.primary,
+  },
+  hasilTotalSetahun: {
+    fontSize: 11,
+    color: T.onSurfaceVariant,
+    marginTop: 3,
+  },
+  hasilTotalNilai: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: T.primary,
+  },
+  copyHint: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+  },
+  copyHintText: {
+    fontSize: 10,
+    color: T.primary,
+  },
+  hasilNote: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 8,
+    backgroundColor: T.surfaceContainerLow,
+    padding: 12,
+    borderTopWidth: 1,
+    borderColor: T.outlineVariant,
+  },
+  hasilNoteText: {
+    fontSize: 11,
+    color: T.onSurfaceVariant,
+    flex: 1,
+    lineHeight: 17,
+  },
+});
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // MAIN SCREEN
@@ -526,7 +1150,7 @@ export default function HomeScreen() {
   const [pickerVisible, setPickerVisible]   = useState(false);
   const [pickerType, setPickerType]         = useState("");
   const [pickerOptions, setPickerOptions]   = useState<string[]>([]);
-  const [pickerCallback, setPickerCallback] = useState<(v: string) => void>(() => {});
+  const pickerCallback = useRef<(v: string) => void>(() => {});
 
   const db: Record<string, { prod: number; harga: number; t: number; b: number }> = {
     Padi:           { prod: 6000,  harga: 6500,  t: 24, b: 0.30 },
@@ -575,7 +1199,7 @@ export default function HomeScreen() {
   function openPicker(label: string, options: string[], _cur: string, cb: (v: string) => void) {
     setPickerType(label);
     setPickerOptions(options);
-    setPickerCallback(() => cb);
+    pickerCallback.current = cb;
     setPickerVisible(true);
   }
 
@@ -1212,9 +1836,9 @@ export default function HomeScreen() {
           {/* Dot pattern overlay */}
           <View style={ui.dotPattern} pointerEvents="none" />
 
-          {/* ── Halaman non-estimasi: tampilkan "Belum Tersedia" ── */}
+          {/* ── Halaman Beranda: Kalkulator Pendapatan Sebulan ── */}
           {activePage === "home" && (
-            <PageComingSoon title="Beranda" icon="home" />
+            <BerandaKalkulator />
           )}
           {activePage === "data" && (
             <PageComingSoon title="Basis Data" icon="database" />
@@ -1525,26 +2149,13 @@ export default function HomeScreen() {
       {isMobile && <BottomNav active={activePage} onPress={setActivePage} />}
 
       {/* ── PICKER MODAL ── */}
-      <Modal visible={pickerVisible} transparent animationType="fade">
-        <Pressable style={ui.modalOverlay} onPress={() => setPickerVisible(false)}>
-          <View style={ui.modalSheet}>
-            <View style={ui.modalHandle} />
-            <Text style={ui.modalTitle}>Pilih {pickerType}</Text>
-            <FlatList
-              data={pickerOptions}
-              keyExtractor={(item) => item}
-              renderItem={({ item }) => (
-                <Pressable
-                  style={({ pressed }) => [ui.modalItem, pressed && { backgroundColor: T.primaryFixed }]}
-                  onPress={() => { pickerCallback(item); setPickerVisible(false); }}
-                >
-                  <Text style={ui.modalItemText}>{item}</Text>
-                </Pressable>
-              )}
-            />
-          </View>
-        </Pressable>
-      </Modal>
+      <PickerModal
+        visible={pickerVisible}
+        onClose={() => setPickerVisible(false)}
+        title={`Pilih ${pickerType}`}
+        options={pickerOptions}
+        onSelect={(item) => pickerCallback.current(item)}
+      />
     </View>
   );
 }
