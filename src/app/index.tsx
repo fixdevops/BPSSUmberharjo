@@ -188,7 +188,19 @@ function Icon({ name, size = 20, color = T.onSurfaceVariant }: { name: string; s
     case "chevron-up":   return <Svg width={size} height={size} viewBox={v}><Polyline {...s} points="18 15 12 9 6 15"/></Svg>;
     case "x":            return <Svg width={size} height={size} viewBox={v}><Line {...s} x1="18" y1="6" x2="6" y2="18"/><Line {...s} x1="6" y1="6" x2="18" y2="18"/></Svg>;
     case "cpu":          return <Svg width={size} height={size} viewBox={v}><Rect {...s} x="4" y="4" width="16" height="16" rx="2"/><Rect {...s} x="9" y="9" width="6" height="6"/><Line {...s} x1="9" y1="1" x2="9" y2="4"/><Line {...s} x1="15" y1="1" x2="15" y2="4"/><Line {...s} x1="9" y1="20" x2="9" y2="23"/><Line {...s} x1="15" y1="20" x2="15" y2="23"/><Line {...s} x1="20" y1="9" x2="23" y2="9"/><Line {...s} x1="20" y1="14" x2="23" y2="14"/><Line {...s} x1="1" y1="9" x2="4" y2="9"/><Line {...s} x1="1" y1="14" x2="4" y2="14"/></Svg>;
-    default:             return <Svg width={size} height={size} viewBox={v}><Circle {...s} cx="12" cy="12" r="10"/></Svg>;
+    // ── Alias / tambahan ──────────────────────────────────────────────────
+    // Material-style aliases dipetakan ke Feather equivalents
+    case "expand_more":     return <Svg width={size} height={size} viewBox={v}><Polyline {...s} points="6 9 12 15 18 9"/></Svg>;
+    case "expand_less":     return <Svg width={size} height={size} viewBox={v}><Polyline {...s} points="18 15 12 9 6 15"/></Svg>;
+    case "analytics":       return <Svg width={size} height={size} viewBox={v}><Line {...s} x1="18" y1="20" x2="18" y2="10"/><Line {...s} x1="12" y1="20" x2="12" y2="4"/><Line {...s} x1="6" y1="20" x2="6" y2="14"/></Svg>;
+    case "inventory_2":     return <Svg width={size} height={size} viewBox={v}><Line {...s} x1="16.5" y1="9.4" x2="7.5" y2="4.21"/><Path {...s} d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><Polyline {...s} points="3.27 6.96 12 12.01 20.73 6.96"/><Line {...s} x1="12" y1="22.08" x2="12" y2="12"/></Svg>;
+    case "location_on":     return <Svg width={size} height={size} viewBox={v}><Path {...s} d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><Circle {...s} cx="12" cy="10" r="3"/></Svg>;
+    case "notifications":   return <Svg width={size} height={size} viewBox={v}><Path {...s} d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><Path {...s} d="M13.73 21a2 2 0 0 1-3.46 0"/></Svg>;
+    case "account_circle":  return <Svg width={size} height={size} viewBox={v}><Path {...s} d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><Circle {...s} cx="12" cy="7" r="4"/></Svg>;
+    case "help":            return <Svg width={size} height={size} viewBox={v}><Circle {...s} cx="12" cy="12" r="10"/><Path {...s} d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><Line {...s} x1="12" y1="17" x2="12.01" y2="17"/></Svg>;
+    case "logout":          return <Svg width={size} height={size} viewBox={v}><Path {...s} d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><Polyline {...s} points="16 17 21 12 16 7"/><Line {...s} x1="21" y1="12" x2="9" y2="12"/></Svg>;
+    case "verified":        return <Svg width={size} height={size} viewBox={v}><Path {...s} d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><Polyline {...s} points="22 4 12 14.01 9 11.01"/></Svg>;
+    default:                return <Svg width={size} height={size} viewBox={v}><Circle {...s} cx="12" cy="12" r="10"/></Svg>;
   }
 }
 
@@ -559,7 +571,9 @@ function InfoCard() {
       <View style={{ flex: 1 }}>
         <Text style={ui.infoTitle}>Catatan Akurasi</Text>
         <Text style={ui.infoBody}>
-          Parameter default aplikasi ini berasal dari <b>Desa Sumberharjo.</b> Untuk penggunaan di wilayah lain, sesuaikan parameter lokal hubungi developer agar parameter dapat dikalibrasi sesuai kondisi wilayah Anda..
+          Parameter default aplikasi ini berasal dari{" "}
+          <Text style={{ fontWeight: "700", color: T.secondary }}>Desa Sumberharjo.</Text>
+          {" "}Untuk penggunaan di wilayah lain, sesuaikan parameter lokal — hubungi developer agar parameter dapat dikalibrasi sesuai kondisi wilayah Anda.
         </Text>
       </View>
     </View>
@@ -1336,44 +1350,44 @@ export default function HomeScreen() {
         const pohon    = parseFloat(jumlahPohon) || 1000;
         const luasM2_t = parseFloat(luasTembakau) || 15;
         const ribuan   = pohon / 1000; // kelipatan 1.000 pohon
-        const T        = TEMBAKAU;
+        const TB       = TEMBAKAU;    // alias lokal — hindari shadow design-token T
         const isKering = jenisTembakau === "Tembakau Kering";
 
         // Produksi
-        const kgBasah  = T.prodBasah * ribuan;        // kg daun basah
-        const kgKering = kgBasah * T.susut;            // kg kering (susut 90%)
+        const kgBasah  = TB.prodBasah * ribuan;        // kg daun basah
+        const kgKering = kgBasah * TB.susut;            // kg kering (susut 90%)
 
         // Nilai produksi & biaya per ribuan pohon
-        const nilaiProd  = (isKering ? T.keringNilaiProd : T.basahNilaiProd) * ribuan;
-        const biayaProd  = (isKering ? T.keringBiayaProd : T.basahBiayaProd) * ribuan;
-        const ops        = (isKering ? T.keringOps       : T.basahOps)       * ribuan;
+        const nilaiProd  = (isKering ? TB.keringNilaiProd : TB.basahNilaiProd) * ribuan;
+        const biayaProd  = (isKering ? TB.keringBiayaProd : TB.basahBiayaProd) * ribuan;
+        const ops        = (isKering ? TB.keringOps       : TB.basahOps)       * ribuan;
 
         // Gaji TK
         let gajiTK = 0;
         let tkKowak = 0, tkMacul = 0, tkPanen = 0, tkRajang = 0, tkMepe = 0;
         if (!isKering) {
           // Tembakau Basah
-          gajiTK   = (T.basahGajiKowak + T.basahGajiMacul + T.basahGajiPanen) * ribuan;
+          gajiTK   = (TB.basahGajiKowak + TB.basahGajiMacul + TB.basahGajiPanen) * ribuan;
           tkKowak  = Math.max(1, Math.round(2 * ribuan));
           tkMacul  = Math.max(1, Math.round(3 * ribuan));
           tkPanen  = Math.max(1, Math.round(5 * ribuan));
         } else {
           // Tembakau Kering — upah per kg basah
-          gajiTK   = (T.keringUpahRajang + T.keringUpahMepe) * kgBasah;
+          gajiTK   = (TB.keringUpahRajang + TB.keringUpahMepe) * kgBasah;
           tkRajang = Math.max(1, Math.round(kgBasah / 50));  // ~50 kg/orang/hari
           tkMepe   = Math.max(1, Math.round(kgBasah / 100)); // ~100 kg/orang/hari
         }
 
         // Non-tunai (PBB lahan)
-        const pbb    = luasM2_t * T.pbbPerM2;
+        const pbb    = luasM2_t * TB.pbbPerM2;
         const nonT   = isKering ? 0 : pbb;
 
         const totalPeng = gajiTK + biayaProd + ops + nonT;
         const pendBersih = nilaiProd - totalPeng;
 
         // Aset
-        const asetTanah_t = T.asetTanah;
-        const asetLain_t  = T.asetMesin + T.asetWidek;
+        const asetTanah_t = TB.asetTanah;
+        const asetLain_t  = TB.asetMesin + TB.asetWidek;
         const totalAset   = asetTanah_t + asetLain_t;
 
         // Pekerja SE2026 (24)
