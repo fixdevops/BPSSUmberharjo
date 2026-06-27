@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Alert,
   Clipboard,
@@ -19,13 +19,23 @@ import {
 import Svg, { Circle, Line, Path, Polyline, Rect } from "react-native-svg";
 
 // Helper breakpoint — dipanggil di dalam komponen
+// Menggunakan mounted guard agar SSR dan client hydration konsisten
 function useBreakpoints() {
   const { width } = useWindowDimensions();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  // Sebelum mounted (SSR / hydration pass pertama), kembalikan nilai default
+  // yang sama agar tidak terjadi mismatch antara server dan client.
+  const w = mounted ? width : 375;
   return {
-    w:           width,
-    isMobile:    width < 480,
-    isTablet:    width >= 600,
-    showSidebar: width >= 768,
+    w,
+    isMobile:    w < 480,
+    isTablet:    w >= 600,
+    showSidebar: w >= 768,
   };
 }
 
@@ -487,12 +497,19 @@ export default function HomeScreen() {
   const { w, isMobile, isTablet, showSidebar } = useBreakpoints();
 
   // ── State Input ──
-  const [kom, setKom]           = useState("Padi Rendengan");
+  const [kategori, setKategori]   = useState("Tanaman Pangan"); // kategori besar
+  const [kom, setKom]           = useState("Padi");
   const [mode, setMode]         = useState("panen");       // default: berdasarkan hasil panen
   const [luas, setLuas]         = useState("1");
   const [satLuas, setSatLuas]   = useState("BAHU");
   const [panen, setPanen]       = useState("100");          // default 100 kuintal
   const [satPanen, setSatPanen] = useState("KUINTAL");      // default kuintal
+  const [jumlahTandur, setJumlahTandur] = useState("");   // input manual penandur
+  const [musimTanam, setMusimTanam]     = useState("Rendengan"); // hanya untuk Padi
+  // ── State khusus Tembakau ──
+  const [jenisTembakau, setJenisTembakau] = useState("Tembakau Basah");
+  const [jumlahPohon, setJumlahPohon]     = useState("1000"); // input pohon tembakau
+  const [luasTembakau, setLuasTembakau]   = useState("15");   // luas m² untuk PBB
   const [status, setStatus]     = useState("Milik Sendiri");
   const [kec, setKec]           = useState("Sumberrejo");
   const [tahun, setTahun]       = useState("2002");
@@ -514,11 +531,45 @@ export default function HomeScreen() {
     Padi:           { prod: 6000,  harga: 6500,  t: 24, b: 0.30 },
     Jagung:         { prod: 7000,  harga: 5000,  t: 8,  b: 0.25 },
     Kedelai:        { prod: 2000,  harga: 10000, t: 10, b: 0.30 },
-    Tembakau:       { prod: 1500,  harga: 45000, t: 20, b: 0.55 },
+    "Kacang Hijau": { prod: 1200,  harga: 12000, t: 10, b: 0.28 },
+    Palawija:       { prod: 3000,  harga: 4000,  t: 8,  b: 0.25 },
     "Bawang Merah": { prod: 10000, harga: 25000, t: 25, b: 0.65 },
     Cabai:          { prod: 8000,  harga: 30000, t: 20, b: 0.70 },
     Tebu:           { prod: 80000, harga: 700,   t: 12, b: 0.45 },
   };
+
+  // ── Konstanta Tembakau (per 1.000 pohon) ─────────────────────────────────
+  const TEMBAKAU = {
+    prodBasah:        700,   // kg basah default per 1.000 pohon
+    susut:            0.1,   // 1 kg basah → 0,1 kg kering
+    // Tembakau Basah
+    basahNilaiProd:   3_000_000,
+    basahBiayaProd:   400_000,
+    basahOps:         180_000,
+    basahGajiKowak:   2 * 2 * 70_000,   // 2org × 2hari × Rp70rb = 280.000
+    basahGajiMacul:   3 * 3 * 70_000,   // 3org × 3hari × Rp70rb = 630.000
+    basahGajiPanen:   5 * 1 * 70_000,   // 5org × 1hari × Rp70rb = 350.000
+    // Tembakau Kering (biaya per kg basah)
+    keringNilaiProd:  4_800_000,
+    keringBiayaProd:  800_000,
+    keringOps:        100_000,
+    keringUpahRajang: 200_000 / 100,    // Rp200rb per kuintal = Rp2.000/kg basah
+    keringUpahMepe:   50_000  / 100,    // Rp50rb per kuintal  = Rp500/kg basah
+    // Aset (tetap)
+    asetTanah:        15 * 100_000,     // 15m² × Rp100rb = 1.500.000
+    asetMesin:        2_000_000,
+    asetWidek:        800_000,
+    luasProduksi:     15,               // m²
+    pbbPerM2:         500,              // estimasi PBB per m² sawah per tahun
+  };
+
+  // ── Peta kategori → daftar komoditas ──────────────────────────────────────
+  const kategoriMap: Record<string, string[]> = {
+    "Tanaman Pangan": ["Padi", "Jagung", "Kedelai", "Kacang Hijau", "Palawija"],
+    "Perkebunan":     ["Tembakau", "Tebu", "Bawang Merah", "Cabai"],
+    "Ternak":         [], // belum tersedia
+  };
+  const daftarKategori = Object.keys(kategoriMap);
 
   function openPicker(label: string, options: string[], _cur: string, cb: (v: string) => void) {
     setPickerType(label);
@@ -530,7 +581,81 @@ export default function HomeScreen() {
   function hitung() {
     setLoading(true);
     try {
+      // ══════════════════════════════════════════════════════════════════════
+      // JALUR TEMBAKAU — perhitungan berbeda dari komoditas lain
+      // ══════════════════════════════════════════════════════════════════════
+      if (kom === "Tembakau") {
+        const pohon    = parseFloat(jumlahPohon) || 1000;
+        const luasM2_t = parseFloat(luasTembakau) || 15;
+        const ribuan   = pohon / 1000; // kelipatan 1.000 pohon
+        const T        = TEMBAKAU;
+        const isKering = jenisTembakau === "Tembakau Kering";
+
+        // Produksi
+        const kgBasah  = T.prodBasah * ribuan;        // kg daun basah
+        const kgKering = kgBasah * T.susut;            // kg kering (susut 90%)
+
+        // Nilai produksi & biaya per ribuan pohon
+        const nilaiProd  = (isKering ? T.keringNilaiProd : T.basahNilaiProd) * ribuan;
+        const biayaProd  = (isKering ? T.keringBiayaProd : T.basahBiayaProd) * ribuan;
+        const ops        = (isKering ? T.keringOps       : T.basahOps)       * ribuan;
+
+        // Gaji TK
+        let gajiTK = 0;
+        let tkKowak = 0, tkMacul = 0, tkPanen = 0, tkRajang = 0, tkMepe = 0;
+        if (!isKering) {
+          // Tembakau Basah
+          gajiTK   = (T.basahGajiKowak + T.basahGajiMacul + T.basahGajiPanen) * ribuan;
+          tkKowak  = Math.max(1, Math.round(2 * ribuan));
+          tkMacul  = Math.max(1, Math.round(3 * ribuan));
+          tkPanen  = Math.max(1, Math.round(5 * ribuan));
+        } else {
+          // Tembakau Kering — upah per kg basah
+          gajiTK   = (T.keringUpahRajang + T.keringUpahMepe) * kgBasah;
+          tkRajang = Math.max(1, Math.round(kgBasah / 50));  // ~50 kg/orang/hari
+          tkMepe   = Math.max(1, Math.round(kgBasah / 100)); // ~100 kg/orang/hari
+        }
+
+        // Non-tunai (PBB lahan)
+        const pbb    = luasM2_t * T.pbbPerM2;
+        const nonT   = isKering ? 0 : pbb;
+
+        const totalPeng = gajiTK + biayaProd + ops + nonT;
+        const pendBersih = nilaiProd - totalPeng;
+
+        // Aset
+        const asetTanah_t = T.asetTanah;
+        const asetLain_t  = T.asetMesin + T.asetWidek;
+        const totalAset   = asetTanah_t + asetLain_t;
+
+        // Pekerja SE2026 (24)
+        const dibayar_t = tkKowak + tkMacul + tkPanen + tkRajang + tkMepe;
+        const tidak_t   = 2;
+        const total_t   = Math.max(dibayar_t, 1) + tidak_t;
+
+        setHasil({
+          isTembakau: true,
+          jenis: jenisTembakau,
+          pohon, ribuan, kgBasah, kgKering,
+          nilaiProd, biayaProd, ops, gajiTK, nonT, totalPeng, pendBersih,
+          asetTanah_t, asetLain_t, totalAset, luasM2_t,
+          tkKowak, tkMacul, tkPanen, tkRajang, tkMepe,
+          dibayar: Math.max(dibayar_t, 1), tidak: tidak_t, total: total_t,
+          musim: musimTanam,
+        });
+        setStep(1);
+        return;
+      }
+
+      // ══════════════════════════════════════════════════════════════════════
+      // JALUR KOMODITAS BIASA
+      // ══════════════════════════════════════════════════════════════════════
       const d = db[kom];
+      if (!d) {
+        Alert.alert("Error", `Komoditas "${kom}" tidak ditemukan. Pilih komoditas yang tersedia.`);
+        setLoading(false);
+        return;
+      }
       let ha = 0, prod = 0, bahu = 0;
 
       if (mode === "luas") {
@@ -538,20 +663,27 @@ export default function HomeScreen() {
         if (satLuas === "BAHU")        { bahu = n; ha = n * 0.666; }
         else if (satLuas === "HEKTAR") { ha = n; bahu = n / 0.666; }
         else                           { ha = n / 10000; bahu = ha / 0.666; }
-        prod = kom === "Padi" ? ha * 10000 * 0.7 : ha * d.prod;
+        // Padi Walikan produktivitas lebih rendah ~15% dibanding Rendengan
+        const prodPerM2 = (kom === "Padi" && musimTanam === "Walikan") ? 0.595 : 0.7;
+        prod = kom === "Padi" ? ha * 10000 * prodPerM2 : ha * d.prod;
       } else {
         const n = parseFloat(panen) || 0;
         if      (satPanen === "TON")     prod = n * 1000;
         else if (satPanen === "KUINTAL") prod = n * 100;
         else                             prod = n;
-        const m2 = kom === "Padi" ? prod / 0.7 : (prod / d.prod) * 10000;
+        // Hitung luas mundur dari produksi
+        const prodPerM2 = (kom === "Padi" && musimTanam === "Walikan") ? 0.595 : 0.7;
+        const m2 = kom === "Padi" ? prod / prodPerM2 : (prod / d.prod) * 10000;
         ha = m2 / 10000; bahu = ha / 0.666;
       }
 
       const kuintal   = prod / 100;
-      const pend      = prod * d.harga;
+      const hargaJual = (kom === "Padi" && musimTanam === "Walikan") ? 6800 : d.harga;
+      const pend      = prod * hargaJual;
       const upah      = pend * 0.10;
-      let   biaya     = pend * d.b;
+      // Walikan: rasio biaya saprotan lebih tinggi 5% karena biaya pompanisasi
+      const rasioB    = (kom === "Padi" && musimTanam === "Walikan") ? d.b + 0.05 : d.b;
+      let   biaya     = pend * rasioB;
       const oper      = pend * 0.05;
       const non       = pend * 0.02;
       if (status !== "Milik Sendiri") biaya += ha * 12000000;
@@ -562,16 +694,35 @@ export default function HomeScreen() {
       const tidak    = 2;
       const total    = dibayar + tidak;
       const luasM2_f = ha * 10000;
-      const asetTanah = status === "Milik Sendiri" ? luasM2_f * 100000 : 0;
-      const asetLain  = bahu < 0.5 ? 1_000_000 : bahu < 1 ? 2_000_000 : bahu < 2 ? 4_000_000 : bahu < 5 ? 7_500_000 : 15_000_000;
+      const asetTanah = luasM2_f * 100000;
+      // ── Database alat pertanian ──
+      const alatDb = [
+        { id: "A001", nama: "Pompa Air (Alkon)",      kategori: "Mesin",        harga: 1_500_000 },
+        { id: "A002", nama: "Sprayer Elektrik (16L)", kategori: "Alat Semprot", harga: 250_000  },
+        { id: "S001", nama: "Sabit / Arit",           kategori: "Alat Tangan",  harga: 50_000   },
+        { id: "P001", nama: "Cangkul (Pacul)",        kategori: "Alat Tangan",  harga: 75_000   },
+      ];
+
+      // Estimasi jumlah unit per alat berdasarkan luas m²
+      // Setiap 3.000 m² butuh 1 unit alat tangan, setiap 10.000 m² butuh 1 mesin/sprayer
+      const unitAlkon   = Math.max(1, Math.round(luasM2_f / 10000));
+      const unitSprayer = Math.max(1, Math.round(luasM2_f / 10000));
+      const unitSabit   = Math.max(1, Math.round(luasM2_f / 3000));
+      const unitCangkul = Math.max(1, Math.round(luasM2_f / 3000));
+
+      const alatUnits = [unitAlkon, unitSprayer, unitSabit, unitCangkul];
+      const asetLain  = alatDb.reduce((sum, alat, i) => sum + alat.harga * alatUnits[i], 0);
       const tamping   = Math.max(1, Math.round(ha * 10));
-      const tandur    = Math.max(1, Math.round(ha * 20));
+      // Jika pengguna input jumlah penandur, pakai itu; jika kosong pakai estimasi otomatis
+      const inputTandur = parseInt(jumlahTandur) || 0;
+      const tandur    = inputTandur > 0 ? inputTandur : Math.max(1, Math.round(ha * 20));
       const matun     = Math.max(1, Math.round(ha * 15));
       const daut      = Math.max(1, Math.round(ha * 10));
       const traktorCost = (kuintal / 8) * 150000;
 
       setHasil({ total, dibayar, tidak, upah, biaya, oper, non, totalPeng, pend, prod,
-        bahu, luasM2_f, asetTanah, asetLain, tamping, tandur, matun, daut, traktorCost });
+        bahu, luasM2_f, asetTanah, asetLain, tamping, tandur, matun, daut, traktorCost,
+        alatUnits, musim: musimTanam });
       setStep(1);
     } catch (e) {
       Alert.alert("Error", "Terjadi kesalahan saat menghitung. Periksa input Anda.");
@@ -584,6 +735,150 @@ export default function HomeScreen() {
   function buildRows() {
     if (!hasil) return [];
     const h  = hasil;
+
+    // ══════════════════════════════════════════════════════════════════════
+    // TEMBAKAU — baris hasil khusus
+    // ══════════════════════════════════════════════════════════════════════
+    if (h.isTembakau) {
+      const isKering = h.jenis === "Tembakau Kering";
+      return [
+        // ── PEKERJA ────────────────────────────────────────────────────────
+        { section: "24 — Pekerja Tetap & Tidak Tetap" },
+        {
+          label: "24.a1  Laki-laki Tetap",
+          value: String(Math.ceil(h.total * 0.6)),
+          explain: `Total pekerja (${h.total} orang) × 60% = ${Math.ceil(h.total * 0.6)} orang laki-laki.`,
+        },
+        {
+          label: "24.b1  Perempuan Tetap",
+          value: String(Math.floor(h.total * 0.4)),
+          explain: `Total pekerja (${h.total} orang) × 40% = ${Math.floor(h.total * 0.4)} orang perempuan.`,
+        },
+        {
+          label: "24.c1  Total Pekerja",
+          value: String(h.total),
+          explain: `Dibayar (${h.dibayar}) + Tidak Dibayar (${h.tidak}) = ${h.total} orang.`,
+        },
+        {
+          label: "24.a2  Dibayar",
+          value: String(h.dibayar),
+          explain: isKering
+            ? `Ngrajang: ~${h.tkRajang} org  |  Mepe: ~${h.tkMepe} org\n` +
+              `Dihitung dari ${Math.round(h.kgBasah).toLocaleString("id-ID")} kg basah ÷ kapasitas per orang.`
+            : `Kowak: ${h.tkKowak} org  |  Macul: ${h.tkMacul} org  |  Panen: ${h.tkPanen} org\n` +
+              `Per ${(h.ribuan).toFixed(2)}× lipat 1.000 pohon.`,
+        },
+        {
+          label: "24.b2  Tidak Dibayar",
+          value: String(h.tidak),
+          explain: `2 orang anggota keluarga (standar BPS SE2026).`,
+        },
+
+        // ── PENGELUARAN ─────────────────────────────────────────────────────
+        { section: "26 — Pengeluaran Usaha" },
+        {
+          label: "26.a   Gaji Tenaga Kerja",
+          value: rp(h.gajiTK),
+          explain: isKering
+            ? `Ngrajang: ${Math.round(h.kgBasah).toLocaleString()} kg × Rp ${(TEMBAKAU.keringUpahRajang).toLocaleString()}/kg = ${rp(TEMBAKAU.keringUpahRajang * h.kgBasah)}\n` +
+              `Mepe:     ${Math.round(h.kgBasah).toLocaleString()} kg × Rp ${(TEMBAKAU.keringUpahMepe).toLocaleString()}/kg   = ${rp(TEMBAKAU.keringUpahMepe * h.kgBasah)}\n` +
+              `Total = ${rp(h.gajiTK)}`
+            : `Kowak : ${h.tkKowak} org × 2 hari × Rp 70.000 = ${rp(TEMBAKAU.basahGajiKowak * h.ribuan)}\n` +
+              `Macul : ${h.tkMacul} org × 3 hari × Rp 70.000 = ${rp(TEMBAKAU.basahGajiMacul * h.ribuan)}\n` +
+              `Panen : ${h.tkPanen} org × 1 hari × Rp 70.000 = ${rp(TEMBAKAU.basahGajiPanen * h.ribuan)}\n` +
+              `Total = ${rp(h.gajiTK)}`,
+        },
+        {
+          label: "26.b   Biaya Produksi (Saprotan)",
+          value: rp(h.biayaProd),
+          explain:
+            `Rp ${(isKering ? TEMBAKAU.keringBiayaProd : TEMBAKAU.basahBiayaProd).toLocaleString()} per 1.000 pohon\n` +
+            `× ${h.ribuan.toFixed(2)} (${Math.round(h.pohon).toLocaleString()} pohon ÷ 1.000)\n` +
+            `= ${rp(h.biayaProd)}`,
+        },
+        {
+          label: "26.d   Biaya Operasional",
+          value: rp(h.ops),
+          explain:
+            `Rp ${(isKering ? TEMBAKAU.keringOps : TEMBAKAU.basahOps).toLocaleString()} per 1.000 pohon\n` +
+            `× ${h.ribuan.toFixed(2)} = ${rp(h.ops)}`,
+        },
+        {
+          label: "26.e   Non-Tunai (PBB)",
+          value: isKering ? "Rp 0" : rp(h.nonT),
+          explain: isKering
+            ? `Tembakau Kering: tidak ada biaya non-tunai.`
+            : `PBB lahan: ${h.luasM2_t} m² × Rp ${TEMBAKAU.pbbPerM2.toLocaleString()}/m² = ${rp(h.nonT)}.`,
+        },
+        {
+          label: "26.f   Total Pengeluaran",
+          value: rp(h.totalPeng),
+          explain:
+            `Gaji TK    : ${rp(h.gajiTK)}\n` +
+            `Saprotan   : ${rp(h.biayaProd)}\n` +
+            `Operasional: ${rp(h.ops)}\n` +
+            `Non-Tunai  : ${rp(h.nonT)}\n` +
+            `Total = ${rp(h.totalPeng)}`,
+        },
+
+        // ── PENDAPATAN ──────────────────────────────────────────────────────
+        { section: "27 — Pendapatan Usaha" },
+        {
+          label: "27.a   Nilai Produksi",
+          value: rp(h.nilaiProd),
+          explain:
+            `Rp ${(isKering ? TEMBAKAU.keringNilaiProd : TEMBAKAU.basahNilaiProd).toLocaleString()} per 1.000 pohon\n` +
+            `× ${h.ribuan.toFixed(2)} = ${rp(h.nilaiProd)}\n` +
+            (isKering
+              ? `(Hasil kering: ${Math.round(h.kgBasah).toLocaleString()} kg basah × 0,1 = ${Math.round(h.kgKering).toLocaleString()} kg kering)`
+              : `(Hasil basah: ${Math.round(h.kgBasah).toLocaleString()} kg)`),
+        },
+        {
+          label: "27.c   Pendapatan Bersih",
+          value: rp(h.pendBersih),
+          explain: `Nilai Produksi − Total Pengeluaran\n${rp(h.nilaiProd)} − ${rp(h.totalPeng)} = ${rp(h.pendBersih)}`,
+        },
+        {
+          label: "Hasil Produksi",
+          value: isKering
+            ? `${Math.round(h.kgKering).toLocaleString("id-ID")} kg kering`
+            : `${Math.round(h.kgBasah).toLocaleString("id-ID")} kg basah`,
+          explain: isKering
+            ? `${Math.round(h.kgBasah).toLocaleString()} kg basah × susut 0,1 = ${Math.round(h.kgKering).toLocaleString()} kg kering`
+            : `${h.ribuan.toFixed(2)} × ${TEMBAKAU.prodBasah} kg/1.000 pohon = ${Math.round(h.kgBasah).toLocaleString()} kg basah`,
+        },
+
+        // ── ASET ────────────────────────────────────────────────────────────
+        { section: "28 — Aset Usaha" },
+        {
+          label: "28.a   Nilai Tanah & Bangunan",
+          value: rp(h.asetTanah_t),
+          explain: `Luas produksi 15 m² × Rp 100.000/m² = ${rp(h.asetTanah_t)}`,
+        },
+        {
+          label: "28.b   Aset Lainnya",
+          value: rp(h.asetLain_t),
+          explain:
+            `Mesin sedang : Rp 2.000.000\n` +
+            `Widek        : Rp   800.000\n` +
+            `Total = ${rp(h.asetLain_t)}`,
+        },
+        {
+          label: "28.c   Total Aset",
+          value: rp(h.totalAset),
+          explain: `${rp(h.asetTanah_t)} + ${rp(h.asetLain_t)} = ${rp(h.totalAset)}`,
+        },
+        {
+          label: "28.d   Luas Produksi",
+          value: `${h.luasM2_t} m²`,
+          explain: `Luas tempat produksi tembakau: ${h.luasM2_t} m² (3 × 5 m standar).`,
+        },
+      ];
+    }
+
+    // ══════════════════════════════════════════════════════════════════════
+    // KOMODITAS BIASA
+    // ══════════════════════════════════════════════════════════════════════
     const d  = db[kom];
     const ha = h.luasM2_f / 10000;
 
@@ -712,11 +1007,10 @@ export default function HomeScreen() {
       },
       {
         label: "Estimasi Luas",
-        value: h.bahu.toFixed(2) + " Bahu",
+        value: Math.round(h.luasM2_f).toLocaleString("id-ID") + " m²",
         explain:
-          `1 Bahu = 0,666 Hektar (standar Jawa).\n` +
-          `${ha.toFixed(4)} ha ÷ 0,666 = ${h.bahu.toFixed(4)} Bahu\n` +
-          `≈ ${h.bahu.toFixed(2)} Bahu = ${Math.round(h.luasM2_f).toLocaleString()} m².`,
+          `${h.bahu.toFixed(4)} Bahu × 0,666 ha/Bahu = ${ha.toFixed(6)} ha\n` +
+          `× 10.000 m²/ha = ${Math.round(h.luasM2_f).toLocaleString()} m².`,
       },
 
       // ── ASET ─────────────────────────────────────────────────────────────────
@@ -724,30 +1018,32 @@ export default function HomeScreen() {
       {
         label: "28.a   Nilai Tanah",
         value: rp(h.asetTanah),
-        explain: status === "Milik Sendiri"
-          ? `Lahan milik sendiri dinilai Rp 100.000/m² (standar estimasi BPS pedesaan Bojonegoro).\n` +
-            `Rumus: ${Math.round(h.luasM2_f).toLocaleString()} m² × Rp 100.000 = ${rp(h.asetTanah)}.`
-          : `Lahan status "${status}" — nilai tanah tidak dihitung (Rp 0) karena bukan milik sendiri.`,
+        explain: `Lahan dinilai Rp 100.000/m² (standar estimasi BPS pedesaan Bojonegoro).\n` +
+            `Rumus: ${Math.round(h.luasM2_f).toLocaleString()} m² × Rp 100.000 = ${rp(h.asetTanah)}.`,
       },
-      {
+      // 28.b hanya tampil kalau bukan Walikan
+      ...(h.musim !== "Walikan" ? [{
         label: "28.b   Aset Lainnya",
         value: rp(h.asetLain),
         explain:
-          `Estimasi aset peralatan & sarana usaha berdasarkan skala lahan:\n` +
-          `  < 0,5 Bahu → Rp 1.000.000\n` +
-          `  0,5–1 Bahu → Rp 2.000.000\n` +
-          `  1–2 Bahu   → Rp 4.000.000\n` +
-          `  2–5 Bahu   → Rp 7.500.000\n` +
-          `  > 5 Bahu   → Rp 15.000.000\n` +
-          `Lahan Anda: ${h.bahu.toFixed(2)} Bahu → ${rp(h.asetLain)}.`,
-      },
-      {
+          `Estimasi nilai peralatan usaha berdasarkan luas lahan ${Math.round(h.luasM2_f).toLocaleString("id-ID")} m²:\n\n` +
+          `  ID    Nama Alat               Jml   Harga Satuan    Subtotal\n` +
+          `  A001  Pompa Air (Alkon)       ${String(h.alatUnits[0]).padStart(3)}×  Rp 1.500.000  =  ${rp(h.alatUnits[0] * 1_500_000)}\n` +
+          `  A002  Sprayer Elektrik (16L)  ${String(h.alatUnits[1]).padStart(3)}×  Rp   250.000  =  ${rp(h.alatUnits[1] * 250_000)}\n` +
+          `  S001  Sabit / Arit            ${String(h.alatUnits[2]).padStart(3)}×  Rp    50.000  =  ${rp(h.alatUnits[2] * 50_000)}\n` +
+          `  P001  Cangkul (Pacul)         ${String(h.alatUnits[3]).padStart(3)}×  Rp    75.000  =  ${rp(h.alatUnits[3] * 75_000)}\n\n` +
+          `  Acuan: Mesin/Sprayer = 1 unit per 10.000 m²\n` +
+          `         Alat Tangan   = 1 unit per  3.000 m²\n\n` +
+          `  Total Aset Lainnya = ${rp(h.asetLain)}`,
+      }] : []),
+      // 28.c hanya tampil kalau bukan Walikan
+      ...(h.musim !== "Walikan" ? [{
         label: "28.c   Total Aset",
         value: rp(h.asetTanah + h.asetLain),
         explain:
           `Nilai Tanah + Aset Lainnya:\n` +
           `${rp(h.asetTanah)} + ${rp(h.asetLain)} = ${rp(h.asetTanah + h.asetLain)}.`,
-      },
+      }] : []),
       {
         label: "28.d   Luas Lahan",
         value: Math.round(h.luasM2_f).toLocaleString("id-ID") + " m²",
@@ -758,7 +1054,6 @@ export default function HomeScreen() {
     ];
   }
   const rows = buildRows();
-  let dataIdx = 0;
 
   return (
     <View style={ui.screen}>
@@ -816,8 +1111,46 @@ export default function HomeScreen() {
           {/* ── SECTION 1: KOMODITAS ── */}
           <SectionCard icon="inventory_2" title="Section 1: Data Komoditas">
             <View style={[ui.formGrid, isTablet && { flexDirection: "row", flexWrap: "wrap" }]}>
-              <SelectField label="Komoditas" value={kom} width={isTablet ? "48%" : "100%"}
-                onPress={() => openPicker("Komoditas", Object.keys(db), kom, setKom)} />
+
+              {/* Pilih Kategori dulu */}
+              <SelectField
+                label="Kategori Usaha"
+                value={kategori}
+                width={isTablet ? "48%" : "100%"}
+                onPress={() => openPicker("Kategori Usaha", daftarKategori, kategori, (v) => {
+                  setKategori(v);
+                  // Reset komoditas ke pilihan pertama kategori baru
+                  const first = kategoriMap[v]?.[0];
+                  if (first) setKom(first);
+                })}
+              />
+
+              {/* Komoditas — hanya muncul kalau bukan Ternak */}
+              {kategori !== "Ternak" && (
+                <SelectField
+                  label="Komoditas"
+                  value={kom}
+                  width={isTablet ? "48%" : "100%"}
+                  onPress={() => openPicker(
+                    "Komoditas",
+                    kategoriMap[kategori] ?? [],
+                    kom,
+                    setKom
+                  )}
+                />
+              )}
+
+              {/* Placeholder Ternak — belum tersedia */}
+              {kategori === "Ternak" && (
+                <View style={ui.warningBox}>
+                  <Icon name="info" size={15} color={T.secondary} />
+                  <Text style={ui.warningText}>
+                    Data estimasi komoditas Ternak belum tersedia. Akan hadir di versi berikutnya.
+                  </Text>
+                </View>
+              )}
+              {/* Mode Input, Luas, Panen — disembunyikan untuk Tembakau */}
+              {kom !== "Tembakau" && (<>
               <SelectField label="Mode Input" width={isTablet ? "48%" : "100%"}
                 value={mode === "luas" ? "Berdasarkan Luas Lahan" : "Berdasarkan Hasil Panen"}
                 onPress={() => openPicker("Mode Input",
@@ -837,6 +1170,62 @@ export default function HomeScreen() {
                     onPress={() => openPicker("Satuan Panen", ["KUINTAL", "KG", "TON"], satPanen, setSatPanen)} />
                 </>
               )}
+              </>)}
+              {/* Jumlah Penandur & Musim Tanam — hanya untuk Padi */}
+              {kom === "Padi" && (
+                <InputField
+                  label="Jumlah Penandur (opsional)"
+                  value={jumlahTandur}
+                  onChangeText={setJumlahTandur}
+                  placeholder="Kosongkan untuk estimasi otomatis"
+                  keyboardType="numeric"
+                  width="100%"
+                />
+              )}
+              {kom === "Padi" && (
+                <SelectField
+                  label="Musim Tanam"
+                  value={musimTanam}
+                  width="100%"
+                  onPress={() => openPicker(
+                    "Musim Tanam",
+                    ["Rendengan", "Walikan"],
+                    musimTanam,
+                    setMusimTanam
+                  )}
+                />
+              )}
+
+              {/* ── Field khusus Tembakau ── */}
+              {kom === "Tembakau" && (<>
+                <SelectField
+                  label="Jenis Tembakau"
+                  value={jenisTembakau}
+                  width="100%"
+                  onPress={() => openPicker(
+                    "Jenis Tembakau",
+                    ["Tembakau Basah", "Tembakau Kering"],
+                    jenisTembakau,
+                    setJenisTembakau
+                  )}
+                />
+                <InputField
+                  label="Jumlah Pohon"
+                  value={jumlahPohon}
+                  onChangeText={setJumlahPohon}
+                  placeholder="contoh: 1000"
+                  keyboardType="numeric"
+                  width={isTablet ? "48%" : "100%"}
+                />
+                <InputField
+                  label="Luas Lahan (m²) — untuk PBB"
+                  value={luasTembakau}
+                  onChangeText={setLuasTembakau}
+                  placeholder="contoh: 15"
+                  keyboardType="numeric"
+                  width={isTablet ? "48%" : "100%"}
+                />
+              </>)}
             </View>
           </SectionCard>
 
@@ -896,11 +1285,28 @@ export default function HomeScreen() {
                     <Text style={[ui.detailCell, { flex: 2, textAlign: "center", fontWeight: "700", color: T.onSurface }]}>Jumlah</Text>
                     <Text style={[ui.detailCell, { flex: 3, textAlign: "right", fontWeight: "700", color: T.onSurface }]}>Estimasi</Text>
                   </View>
-                  <DetailRow label="Tamping Galeng (Rp 65rb)" qty={`${hasil.tamping} org`} amount={rp(hasil.tamping * 65000)} />
-                  <DetailRow label="Tandur (Rp 50rb)"         qty={`${hasil.tandur} org`}  amount={rp(hasil.tandur * 50000)} />
-                  <DetailRow label="Matun (Rp 50rb)"          qty={`${hasil.matun} org`}   amount={rp(hasil.matun * 50000)} />
-                  <DetailRow label="Pekerja Daut (Rp 60rb)"   qty={`${hasil.daut} org`}    amount={rp(hasil.daut * 60000)} />
-                  <DetailRow label="Traktor (Rp 150rb/8 kw)"  qty="—"                      amount={rp(hasil.traktorCost)} />
+
+                  {/* Tembakau Basah */}
+                  {hasil.isTembakau && hasil.jenis === "Tembakau Basah" && (<>
+                    <DetailRow label="Kowak / Bajak (Rp 70rb)"   qty={`${hasil.tkKowak} org × 2 hr`}  amount={rp(hasil.tkKowak * 2 * 70000)} />
+                    <DetailRow label="Macul / Bedengan (Rp 70rb)" qty={`${hasil.tkMacul} org × 3 hr`}  amount={rp(hasil.tkMacul * 3 * 70000)} />
+                    <DetailRow label="Panen / Petik (Rp 70rb)"    qty={`${hasil.tkPanen} org × 1 hr`}  amount={rp(hasil.tkPanen * 1 * 70000)} />
+                  </>)}
+
+                  {/* Tembakau Kering */}
+                  {hasil.isTembakau && hasil.jenis === "Tembakau Kering" && (<>
+                    <DetailRow label="Ngrajang (Rp 200rb/kw)" qty={`${Math.round(hasil.kgBasah).toLocaleString()} kg`} amount={rp(TEMBAKAU.keringUpahRajang * hasil.kgBasah)} />
+                    <DetailRow label="Mepe / Jemur (Rp 50rb/kw)" qty={`${Math.round(hasil.kgBasah).toLocaleString()} kg`} amount={rp(TEMBAKAU.keringUpahMepe * hasil.kgBasah)} />
+                  </>)}
+
+                  {/* Komoditas biasa (Padi dll) */}
+                  {!hasil.isTembakau && (<>
+                    <DetailRow label="Tamping Galeng (Rp 65rb)" qty={`${hasil.tamping} org`} amount={rp(hasil.tamping * 65000)} />
+                    <DetailRow label="Tandur (Rp 50rb)"         qty={`${hasil.tandur} org`}  amount={rp(hasil.tandur * 50000)} />
+                    <DetailRow label="Matun (Rp 50rb)"          qty={`${hasil.matun} org`}   amount={rp(hasil.matun * 50000)} />
+                    <DetailRow label="Pekerja Daut (Rp 60rb)"   qty={`${hasil.daut} org`}    amount={rp(hasil.daut * 60000)} />
+                    <DetailRow label="Traktor (Rp 150rb/8 kw)"  qty="—"                      amount={rp(hasil.traktorCost)} />
+                  </>)}
                 </View>
               )}
 
@@ -913,22 +1319,25 @@ export default function HomeScreen() {
               </View>
 
               {/* Rows */}
-              {rows.map((item, idx) => {
-                if ("section" in item) {
-                  return <ResultSection key={idx} title={item.section as string} />;
-                }
-                const even = dataIdx % 2 === 0;
-                dataIdx++;
-                return (
-                  <ResultRow
-                    key={idx}
-                    label={item.label}
-                    value={item.value}
-                    isEven={even}
-                    explain={(item as any).explain}
-                  />
-                );
-              })}
+              {(() => {
+                let localIdx = 0;
+                return rows.map((item, idx) => {
+                  if ("section" in item) {
+                    return <ResultSection key={idx} title={item.section as string} />;
+                  }
+                  const even = localIdx % 2 === 0;
+                  localIdx++;
+                  return (
+                    <ResultRow
+                      key={idx}
+                      label={item.label}
+                      value={item.value}
+                      isEven={even}
+                      explain={(item as any).explain}
+                    />
+                  );
+                });
+              })()}
             </View>
           )}
 
@@ -1486,6 +1895,24 @@ const ui = StyleSheet.create({
     fontSize: 14,
     fontWeight: "700",
     letterSpacing: 0.3,
+  },
+
+  // ── Warning / info box ────────────────────────────────────────────────────
+  warningBox: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 10,
+    backgroundColor: T.secondaryContainer,
+    borderWidth: 1,
+    borderColor: T.outlineVariant,
+    borderRadius: 10,
+    padding: 12,
+  },
+  warningText: {
+    flex: 1,
+    fontSize: 13,
+    color: T.onSecondaryContainer,
+    lineHeight: 19,
   },
 
   // ── Bottom Navigation Bar ─────────────────────────────────────────────────
