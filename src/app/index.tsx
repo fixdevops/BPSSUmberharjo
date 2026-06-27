@@ -505,7 +505,8 @@ export default function HomeScreen() {
   const [panen, setPanen]       = useState("100");          // default 100 kuintal
   const [satPanen, setSatPanen] = useState("KUINTAL");      // default kuintal
   const [jumlahTandur, setJumlahTandur] = useState("");   // input manual penandur
-  const [musimTanam, setMusimTanam]     = useState("Rendengan"); // hanya untuk Padi
+  // Multi-pilih musim: bisa ["Rendengan"], ["Walikan"], atau ["Rendengan","Walikan"]
+  const [musimTanam, setMusimTanam]     = useState<string[]>(["Rendengan"]);
   // ── State khusus Tembakau ──
   const [jenisTembakau, setJenisTembakau] = useState("Tembakau Basah");
   const [jumlahPohon, setJumlahPohon]     = useState("1000"); // input pohon tembakau
@@ -578,6 +579,75 @@ export default function HomeScreen() {
     setPickerVisible(true);
   }
 
+  // ── Helper: hitung 1 musim Padi/komoditas biasa, kembalikan objek hasil ──
+  function hitungSatuMusim(musim: string) {
+    const d = db[kom]!;
+    let ha = 0, prod = 0, bahu = 0;
+    if (mode === "luas") {
+      const n = parseFloat(luas) || 0;
+      if (satLuas === "BAHU")        { bahu = n; ha = n * 0.666; }
+      else if (satLuas === "HEKTAR") { ha = n; bahu = n / 0.666; }
+      else                           { ha = n / 10000; bahu = ha / 0.666; }
+      const prodPerM2 = (kom === "Padi" && musim === "Walikan") ? 0.595 : 0.7;
+      prod = kom === "Padi" ? ha * 10000 * prodPerM2 : ha * d.prod;
+    } else {
+      const n = parseFloat(panen) || 0;
+      if      (satPanen === "TON")     prod = n * 1000;
+      else if (satPanen === "KUINTAL") prod = n * 100;
+      else                             prod = n;
+      const prodPerM2 = (kom === "Padi" && musim === "Walikan") ? 0.595 : 0.7;
+      const m2 = kom === "Padi" ? prod / prodPerM2 : (prod / d.prod) * 10000;
+      ha = m2 / 10000; bahu = ha / 0.666;
+    }
+    const kuintal   = prod / 100;
+    const hargaJual = (kom === "Padi" && musim === "Walikan") ? 6800 : d.harga;
+    const pend      = prod * hargaJual;
+    const upah      = pend * 0.10;
+    const rasioB    = (kom === "Padi" && musim === "Walikan") ? d.b + 0.05 : d.b;
+    let   biaya     = pend * rasioB;
+    // Biaya operasional: Combi (panen+angkut) + BBM irigasi (Walikan saja)
+    const combiCost = kom === "Padi" ? kuintal * 50_000 : pend * 0.05;
+    const bbmCost   = (kom === "Padi" && musim === "Walikan") ? bahu * 125_000 : 0;
+    const oper      = combiCost + bbmCost;
+    // Biaya non-tunai: PBB lahan + penyusutan alat (bukan % dari penerimaan)
+    // Dihitung dulu setelah aset tersedia, simpan komponen untuk explain
+    if (status !== "Milik Sendiri") biaya += ha * 12000000;
+    const totalPeng_tanpaNon = upah + biaya + oper;
+    let dibayar = Math.round((2 + d.t + 5 + 8 + 3) * ha);
+    if (dibayar < 1) dibayar = 1;
+    const tidak    = 2;
+    const total    = dibayar + tidak;
+    const luasM2_f = ha * 10000;
+    const asetTanah = luasM2_f * 100000;
+    const alatDb = [
+      { harga: 1_500_000 },
+      { harga: 250_000  },
+      { harga: 50_000   },
+      { harga: 75_000   },
+    ];
+    const unitAlkon   = Math.max(1, Math.round(luasM2_f / 10000));
+    const unitSprayer = Math.max(1, Math.round(luasM2_f / 10000));
+    const unitSabit   = Math.max(1, Math.round(luasM2_f / 3000));
+    const unitCangkul = Math.max(1, Math.round(luasM2_f / 3000));
+    const alatUnits = [unitAlkon, unitSprayer, unitSabit, unitCangkul];
+    const asetLain  = alatDb.reduce((sum, alat, i) => sum + alat.harga * alatUnits[i], 0);
+    // Komponen non-tunai: hanya PBB sawah flat Rp 20.000/tahun
+    const pbbLahan       = 20_000;
+    const penyusutanAlat = 0;
+    const non            = pbbLahan;
+    const totalPeng = totalPeng_tanpaNon + non;
+    const inputTandur = parseInt(jumlahTandur) || 0;
+    const tamping = Math.max(1, Math.round(ha * 10));
+    const tandur  = inputTandur > 0 ? inputTandur : Math.max(1, Math.round(ha * 20));
+    const matun   = Math.max(1, Math.round(ha * 15));
+    const daut    = Math.max(1, Math.round(ha * 10));
+    const traktorCost = (kuintal / 8) * 150000;
+    return { total, dibayar, tidak, upah, biaya, oper, combiCost, bbmCost,
+      pbbLahan, penyusutanAlat, non, totalPeng, pend, prod,
+      bahu, luasM2_f, asetTanah, asetLain, tamping, tandur,
+      matun, daut, traktorCost, alatUnits, musim };
+  }
+
   function hitung() {
     setLoading(true);
     try {
@@ -641,7 +711,7 @@ export default function HomeScreen() {
           asetTanah_t, asetLain_t, totalAset, luasM2_t,
           tkKowak, tkMacul, tkPanen, tkRajang, tkMepe,
           dibayar: Math.max(dibayar_t, 1), tidak: tidak_t, total: total_t,
-          musim: musimTanam,
+          musim: musimTanam[0] ?? "Rendengan",
         });
         setStep(1);
         return;
@@ -656,73 +726,50 @@ export default function HomeScreen() {
         setLoading(false);
         return;
       }
-      let ha = 0, prod = 0, bahu = 0;
 
-      if (mode === "luas") {
-        const n = parseFloat(luas) || 0;
-        if (satLuas === "BAHU")        { bahu = n; ha = n * 0.666; }
-        else if (satLuas === "HEKTAR") { ha = n; bahu = n / 0.666; }
-        else                           { ha = n / 10000; bahu = ha / 0.666; }
-        // Padi Walikan produktivitas lebih rendah ~15% dibanding Rendengan
-        const prodPerM2 = (kom === "Padi" && musimTanam === "Walikan") ? 0.595 : 0.7;
-        prod = kom === "Padi" ? ha * 10000 * prodPerM2 : ha * d.prod;
+      const musimList = kom === "Padi" && musimTanam.length > 0 ? musimTanam : [""];
+      const hasilPerMusim = musimList.map((m) => hitungSatuMusim(m === "" ? musimTanam[0] ?? "Rendengan" : m));
+
+      if (hasilPerMusim.length === 1) {
+        // Satu musim — perilaku sama seperti sebelumnya
+        setHasil({ ...hasilPerMusim[0], musimList });
       } else {
-        const n = parseFloat(panen) || 0;
-        if      (satPanen === "TON")     prod = n * 1000;
-        else if (satPanen === "KUINTAL") prod = n * 100;
-        else                             prod = n;
-        // Hitung luas mundur dari produksi
-        const prodPerM2 = (kom === "Padi" && musimTanam === "Walikan") ? 0.595 : 0.7;
-        const m2 = kom === "Padi" ? prod / prodPerM2 : (prod / d.prod) * 10000;
-        ha = m2 / 10000; bahu = ha / 0.666;
+        // Dua musim — akumulasi nilai ekonomi, aset & lahan pakai musim pertama
+        const a = hasilPerMusim[0];
+        const b = hasilPerMusim[1];
+        const merged = {
+          ...a,
+          musimList,
+          perMusim: hasilPerMusim,
+          // Akumulasi semua nilai finansial
+          upah:      a.upah  + b.upah,
+          biaya:     a.biaya + b.biaya,
+          oper:      a.oper  + b.oper,
+          // Non-tunai (PBB + penyusutan): tahunan, tidak dijumlah per musim
+          non:            a.non,
+          pbbLahan:       a.pbbLahan,
+          penyusutanAlat: a.penyusutanAlat,
+          // totalPeng = akumulasi upah+biaya+oper dari 2 musim + non-tunai 1x
+          totalPeng: (a.totalPeng - a.non) + (b.totalPeng - b.non) + a.non,
+          pend:      a.pend  + b.pend,
+          prod:      a.prod  + b.prod,
+          traktorCost: a.traktorCost + b.traktorCost,
+          // Pekerja: dijumlahkan dari 2 musim (tiap musim bisa ada pekerja berbeda)
+          dibayar: a.dibayar + b.dibayar,
+          total:   a.total   + b.total,
+          // Aset hanya dihitung sekali (lahan sama)
+          asetTanah: a.asetTanah,
+          asetLain:  a.asetLain,
+          alatUnits: a.alatUnits,
+          luasM2_f:  a.luasM2_f,
+          bahu:      a.bahu,
+          tamping: Math.max(a.tamping, b.tamping),
+          tandur:  a.tandur + b.tandur,
+          matun:   a.matun  + b.matun,
+          daut:    a.daut   + b.daut,
+        };
+        setHasil(merged);
       }
-
-      const kuintal   = prod / 100;
-      const hargaJual = (kom === "Padi" && musimTanam === "Walikan") ? 6800 : d.harga;
-      const pend      = prod * hargaJual;
-      const upah      = pend * 0.10;
-      // Walikan: rasio biaya saprotan lebih tinggi 5% karena biaya pompanisasi
-      const rasioB    = (kom === "Padi" && musimTanam === "Walikan") ? d.b + 0.05 : d.b;
-      let   biaya     = pend * rasioB;
-      const oper      = pend * 0.05;
-      const non       = pend * 0.02;
-      if (status !== "Milik Sendiri") biaya += ha * 12000000;
-      const totalPeng = upah + biaya + oper + non;
-
-      let dibayar = Math.round((2 + d.t + 5 + 8 + 3) * ha);
-      if (dibayar < 1) dibayar = 1;
-      const tidak    = 2;
-      const total    = dibayar + tidak;
-      const luasM2_f = ha * 10000;
-      const asetTanah = luasM2_f * 100000;
-      // ── Database alat pertanian ──
-      const alatDb = [
-        { id: "A001", nama: "Pompa Air (Alkon)",      kategori: "Mesin",        harga: 1_500_000 },
-        { id: "A002", nama: "Sprayer Elektrik (16L)", kategori: "Alat Semprot", harga: 250_000  },
-        { id: "S001", nama: "Sabit / Arit",           kategori: "Alat Tangan",  harga: 50_000   },
-        { id: "P001", nama: "Cangkul (Pacul)",        kategori: "Alat Tangan",  harga: 75_000   },
-      ];
-
-      // Estimasi jumlah unit per alat berdasarkan luas m²
-      // Setiap 3.000 m² butuh 1 unit alat tangan, setiap 10.000 m² butuh 1 mesin/sprayer
-      const unitAlkon   = Math.max(1, Math.round(luasM2_f / 10000));
-      const unitSprayer = Math.max(1, Math.round(luasM2_f / 10000));
-      const unitSabit   = Math.max(1, Math.round(luasM2_f / 3000));
-      const unitCangkul = Math.max(1, Math.round(luasM2_f / 3000));
-
-      const alatUnits = [unitAlkon, unitSprayer, unitSabit, unitCangkul];
-      const asetLain  = alatDb.reduce((sum, alat, i) => sum + alat.harga * alatUnits[i], 0);
-      const tamping   = Math.max(1, Math.round(ha * 10));
-      // Jika pengguna input jumlah penandur, pakai itu; jika kosong pakai estimasi otomatis
-      const inputTandur = parseInt(jumlahTandur) || 0;
-      const tandur    = inputTandur > 0 ? inputTandur : Math.max(1, Math.round(ha * 20));
-      const matun     = Math.max(1, Math.round(ha * 15));
-      const daut      = Math.max(1, Math.round(ha * 10));
-      const traktorCost = (kuintal / 8) * 150000;
-
-      setHasil({ total, dibayar, tidak, upah, biaya, oper, non, totalPeng, pend, prod,
-        bahu, luasM2_f, asetTanah, asetLain, tamping, tandur, matun, daut, traktorCost,
-        alatUnits, musim: musimTanam });
       setStep(1);
     } catch (e) {
       Alert.alert("Error", "Terjadi kesalahan saat menghitung. Periksa input Anda.");
@@ -881,8 +928,26 @@ export default function HomeScreen() {
     // ══════════════════════════════════════════════════════════════════════
     const d  = db[kom];
     const ha = h.luasM2_f / 10000;
+    const isDuaMusim = Array.isArray(h.musimList) && h.musimList.length === 2;
+    const musimLabel = isDuaMusim
+      ? `${h.musimList[0]} + ${h.musimList[1]}`
+      : (Array.isArray(h.musimList) ? h.musimList[0] : h.musim) ?? "—";
+    const brkPend      = isDuaMusim ? h.perMusim.map((m: any) => `  ${m.musim}: ${rp(m.pend)}`).join("\n") : "";
+    const brkTotalPeng = isDuaMusim ? h.perMusim.map((m: any) => `  ${m.musim}: ${rp(m.totalPeng)}`).join("\n") : "";
+    const brkProd      = isDuaMusim ? h.perMusim.map((m: any) => `  ${m.musim}: ${Math.round(m.prod).toLocaleString("id-ID")} kg`).join("\n") : "";
 
     return [
+      // ── INFO MUSIM (hanya Padi) ───────────────────────────────────────────────
+      ...(kom === "Padi" ? [{
+        label: "Musim Tanam",
+        value: musimLabel,
+        explain: isDuaMusim
+          ? `Kalkulasi mencakup 2 musim dalam 1 tahun:\n• ${h.musimList[0]}: produktivitas 0,7 kg/m², harga Rp 6.500/kg\n• ${h.musimList[1]}: produktivitas 0,595 kg/m² (−15%), harga Rp 6.800/kg\nSemua nilai keuangan di bawah adalah akumulasi kedua musim.`
+          : musimLabel === "Walikan"
+            ? `Musim Walikan (musim kering/pengairan):\n• Produktivitas −15% (0,595 kg/m²)\n• Harga jual lebih tinggi: Rp 6.800/kg\n• Biaya saprotan +5% (pompanisasi)`
+            : `Musim Rendengan (musim hujan):\n• Produktivitas standar 0,7 kg/m²\n• Harga jual: Rp 6.500/kg`,
+      }] : []),
+
       // ── PEKERJA ──────────────────────────────────────────────────────────────
       { section: "24 — Pekerja Tetap & Tidak Tetap" },
       {
@@ -903,7 +968,8 @@ export default function HomeScreen() {
         label: "24.c1  Total Pekerja",
         value: String(h.total),
         explain:
-          `Penjumlahan laki-laki + perempuan = ${Math.ceil(h.total * 0.6)} + ${Math.floor(h.total * 0.4)} = ${h.total} orang.`,
+          `Penjumlahan laki-laki + perempuan = ${Math.ceil(h.total * 0.6)} + ${Math.floor(h.total * 0.4)} = ${h.total} orang.` +
+          (isDuaMusim ? "\n(Total pekerja dari 2 musim dijumlahkan.)" : ""),
       },
       {
         label: "24.a2  Dibayar",
@@ -911,7 +977,11 @@ export default function HomeScreen() {
         explain:
           `Estimasi pekerja dibayar dihitung dari koefisien kebutuhan TK komoditas ${kom}.\n` +
           `Rumus: round((2 + ${d.t} + 5 + 8 + 3) × ${ha.toFixed(3)} ha) = ${h.dibayar} orang.\n` +
-          `(2=pengurus, ${d.t}=pekerja lapang komoditas, 5=panen, 8=pasca panen, 3=angkut)`,
+          `(2=pengurus, ${d.t}=pekerja lapang komoditas, 5=panen, 8=pasca panen, 3=angkut)` +
+          (isDuaMusim ? (() => {
+            const a = h.perMusim[0]; const b = h.perMusim[1];
+            return `\n\nMusim ${a.musim} = ${a.dibayar} orang\nMusim ${b.musim} = ${b.dibayar} orang\n\n${a.dibayar} + ${b.dibayar} = ${h.dibayar} orang`;
+          })() : ""),
       },
       {
         label: "24.b2  Tidak Dibayar",
@@ -926,91 +996,158 @@ export default function HomeScreen() {
       },
 
       // ── PENGELUARAN ───────────────────────────────────────────────────────────
-      { section: "26 — Pengeluaran Usaha" },
+      { section: "26 — Pengeluaran Usaha" + (isDuaMusim ? " (Akumulasi 2 Musim)" : "") },
       {
         label: "26.a   Upah Tenaga Kerja",
         value: rp(h.upah),
         explain:
           `10% dari penerimaan kotor diasumsikan untuk upah tenaga kerja.\n` +
-          `Rumus: ${rp(h.pend)} × 10% = ${rp(h.upah)}.`,
+          `Rumus: ${rp(h.pend)} × 10% = ${rp(h.upah)}.` +
+          (isDuaMusim ? `\n\nBreakdown:\n${h.perMusim.map((m: any) => `  ${m.musim}: ${rp(m.upah)}`).join("\n")}` : ""),
       },
       {
         label: "26.b   Biaya Saprotan",
         value: rp(h.biaya),
         explain: status === "Milik Sendiri"
-          ? `Komoditas ${kom} menggunakan rasio biaya input ${(d.b * 100).toFixed(0)}% dari penerimaan.\n` +
-            `Rumus: ${rp(h.pend)} × ${(d.b * 100).toFixed(0)}% = ${rp(h.biaya)}.\n` +
-            `(Termasuk benih, pupuk, pestisida sesuai standar produksi ${kom})`
-          : `Komoditas ${kom}: ${rp(h.pend)} × ${(d.b * 100).toFixed(0)}% = ${rp(h.pend * d.b)}\n` +
-            `+ Biaya sewa lahan: ${ha.toFixed(3)} ha × Rp 12.000.000 = ${rp(ha * 12000000)}\n` +
-            `Total: ${rp(h.biaya)} (status lahan: ${status})`,
+          ? `Komoditas ${kom}: rasio biaya ~${(d.b * 100).toFixed(0)}% dari penerimaan.\n` +
+            `Rumus: ${rp(h.pend)} × ~${(d.b * 100).toFixed(0)}% = ${rp(h.biaya)}.` +
+            (isDuaMusim ? `\n(Walikan +5% pompanisasi)\n\nBreakdown:\n${h.perMusim.map((m: any) => `  ${m.musim}: ${rp(m.biaya)}`).join("\n")}` : "")
+          : `Komoditas ${kom}: ~${(d.b * 100).toFixed(0)}% × penerimaan + sewa lahan\n` +
+            `Sewa: ${ha.toFixed(3)} ha × Rp 12.000.000 = ${rp(ha * 12000000)}\n` +
+            `Total: ${rp(h.biaya)} (${status})`,
       },
       {
         label: "26.d   Biaya Operasional",
         value: rp(h.oper),
-        explain:
-          `5% dari penerimaan kotor untuk biaya operasional (transport, bahan bakar, dll).\n` +
-          `Rumus: ${rp(h.pend)} × 5% = ${rp(h.oper)}.`,
+        explain: kom === "Padi"
+          ? isDuaMusim
+            ? (() => {
+                const a = h.perMusim[0]; const b = h.perMusim[1];
+                return (
+                  `Musim ${a.musim}:\n` +
+                  `  Combi panen : ${(a.prod / 100).toFixed(1)} kwintal × Rp 50.000 = ${rp(a.combiCost)}\n` +
+                  `  BBM irigasi : -\n` +
+                  `  Subtotal    = ${rp(a.oper)}\n\n` +
+                  `Musim ${b.musim}:\n` +
+                  `  Combi panen : ${(b.prod / 100).toFixed(1)} kwintal × Rp 50.000 = ${rp(b.combiCost)}\n` +
+                  `  BBM irigasi : ${b.bahu.toFixed(2)} bahu × Rp 125.000 = ${rp(b.bbmCost)}\n` +
+                  `  Subtotal    = ${rp(b.oper)}\n\n` +
+                  `${rp(a.oper)} + ${rp(b.oper)} = ${rp(h.oper)}`
+                );
+              })()
+            : musimLabel === "Walikan"
+              ? `Combi panen : ${(h.prod / 100).toFixed(1)} kwintal × Rp 50.000 = ${rp(h.combiCost)}\n` +
+                `BBM irigasi : ${h.bahu.toFixed(2)} bahu × Rp 125.000 = ${rp(h.bbmCost)}\n\n` +
+                `Total = ${rp(h.combiCost)} + ${rp(h.bbmCost)} = ${rp(h.oper)}`
+              : `Combi panen : ${(h.prod / 100).toFixed(1)} kwintal × Rp 50.000 = ${rp(h.combiCost)}\n` +
+                `(Combi sudah termasuk angkut sampai rumah)\n\n` +
+                `Total = ${rp(h.oper)}`
+          : `5% dari penerimaan kotor untuk biaya operasional.\n` +
+            `Rumus: ${rp(h.pend)} × 5% = ${rp(h.oper)}.`,
       },
       {
         label: "26.e   Biaya Non-Tunai",
         value: rp(h.non),
-        explain:
-          `2% dari penerimaan kotor untuk biaya non-tunai (penyusutan alat, dll).\n` +
-          `Rumus: ${rp(h.pend)} × 2% = ${rp(h.non)}.`,
+        explain: isDuaMusim
+          ? (() => {
+              const a = h.perMusim[0];
+              return (
+                `Biaya non-tunai dihitung 1x per tahun (tidak per musim):\n\n` +
+                `  PBB lahan : Rp 20.000/tahun (SPPT flat sawah desa)\n\n` +
+                `Total = ${rp(h.non)}\n` +
+                `(Tidak dikalikan 2 meskipun 2 musim)`
+              );
+            })()
+          : `Biaya non-tunai:\n` +
+            `  PBB lahan : Rp 20.000/tahun (SPPT flat sawah desa)\n\n` +
+            `Total = ${rp(h.non)}`,
       },
       {
         label: "26.f   Total Pengeluaran",
         value: rp(h.totalPeng),
         explain:
-          `Penjumlahan semua komponen pengeluaran:\n` +
           `  Upah TK    : ${rp(h.upah)}\n` +
           `  Saprotan   : ${rp(h.biaya)}\n` +
           `  Operasional: ${rp(h.oper)}\n` +
-          `  Non-Tunai  : ${rp(h.non)}\n` +
-          `Total = ${rp(h.totalPeng)}`,
+          `  Non-Tunai  : ${rp(h.non)} ${isDuaMusim ? "(1x/tahun)" : ""}\n` +
+          `Total = ${rp(h.totalPeng)}` +
+          (isDuaMusim ? (() => {
+            const a = h.perMusim[0]; const b = h.perMusim[1];
+            return `\n\nMusim ${a.musim} = ${rp(a.totalPeng)}\nMusim ${b.musim} = ${rp(b.totalPeng)}\n\n${rp(a.totalPeng)} + ${rp(b.totalPeng)}\n= ${rp(h.totalPeng)}`;
+          })() : ""),
       },
 
       // ── PENDAPATAN ────────────────────────────────────────────────────────────
-      { section: "27 — Pendapatan Usaha" },
+      { section: "27 — Pendapatan Usaha" + (isDuaMusim ? " (Akumulasi 2 Musim)" : "") },
       {
         label: "27.a   Penerimaan Kotor",
         value: rp(h.pend),
-        explain:
-          `Produksi × Harga jual komoditas ${kom}.\n` +
-          `Rumus: ${Math.round(h.prod).toLocaleString("id-ID")} kg × Rp ${d.harga.toLocaleString("id-ID")}/kg\n` +
-          `= ${rp(h.pend)}.`,
+        explain: isDuaMusim
+          ? (() => {
+              const a = h.perMusim[0];
+              const b = h.perMusim[1];
+              return (
+                `Musim ${a.musim} = ${rp(a.pend)}\n` +
+                `Musim ${b.musim} = ${rp(b.pend)}\n\n` +
+                `${rp(a.pend)} + ${rp(b.pend)}\n` +
+                `= ${rp(h.pend)}`
+              );
+            })()
+          : `Rumus: ${Math.round(h.prod).toLocaleString("id-ID")} kg × Rp ${d.harga.toLocaleString("id-ID")}/kg = ${rp(h.pend)}.`,
       },
       {
         label: "27.c   Pendapatan Bersih",
         value: rp(h.pend - h.totalPeng),
         explain:
-          `Penerimaan Kotor dikurangi Total Pengeluaran.\n` +
-          `Rumus: ${rp(h.pend)} − ${rp(h.totalPeng)} = ${rp(h.pend - h.totalPeng)}.`,
+          `${rp(h.pend)} − ${rp(h.totalPeng)} = ${rp(h.pend - h.totalPeng)}.` +
+          (isDuaMusim
+            ? (() => {
+                const a = h.perMusim[0];
+                const b = h.perMusim[1];
+                return (
+                  `\n\nMusim ${a.musim} = ${rp(a.pend - a.totalPeng)}\n` +
+                  `Musim ${b.musim} = ${rp(b.pend - b.totalPeng)}\n\n` +
+                  `${rp(a.pend - a.totalPeng)} + ${rp(b.pend - b.totalPeng)}\n` +
+                  `= ${rp(h.pend - h.totalPeng)}`
+                );
+              })()
+            : ""),
       },
       {
         label: "Hasil Panen",
-        value: h.prod.toLocaleString("id-ID") + " kg",
-        explain: mode === "luas"
-          ? kom === "Padi"
-            ? `Luas ${h.bahu.toFixed(2)} Bahu = ${ha.toFixed(4)} ha = ${Math.round(ha * 10000).toLocaleString()} m².\n` +
-              `Produktivitas Padi: 0,7 kg/m².\n` +
-              `Rumus: ${Math.round(ha * 10000).toLocaleString()} m² × 0,7 = ${Math.round(h.prod).toLocaleString()} kg.`
-            : `Luas ${h.bahu.toFixed(2)} Bahu = ${ha.toFixed(4)} ha.\n` +
-              `Produktivitas ${kom}: ${d.prod.toLocaleString()} kg/ha.\n` +
-              `Rumus: ${ha.toFixed(4)} ha × ${d.prod.toLocaleString()} = ${Math.round(h.prod).toLocaleString()} kg.`
-          : satPanen === "KUINTAL"
-            ? `Input: ${panen} kuintal × 100 = ${Math.round(h.prod).toLocaleString()} kg.`
-            : satPanen === "TON"
-            ? `Input: ${panen} ton × 1.000 = ${Math.round(h.prod).toLocaleString()} kg.`
-            : `Input langsung: ${Math.round(h.prod).toLocaleString()} kg.`,
+        value: Math.round(h.prod).toLocaleString("id-ID") + " kg",
+        explain: isDuaMusim
+          ? (() => {
+              const a = h.perMusim[0];
+              const b = h.perMusim[1];
+              return (
+                `Musim ${a.musim} = ${Math.round(a.prod).toLocaleString("id-ID")} kg\n` +
+                `Musim ${b.musim} = ${Math.round(b.prod).toLocaleString("id-ID")} kg\n\n` +
+                `${Math.round(a.prod).toLocaleString("id-ID")} kg + ${Math.round(b.prod).toLocaleString("id-ID")} kg\n` +
+                `= ${Math.round(h.prod).toLocaleString("id-ID")} kg`
+              );
+            })()
+          : mode === "luas"
+            ? kom === "Padi"
+              ? `Luas ${h.bahu.toFixed(2)} Bahu = ${ha.toFixed(4)} ha = ${Math.round(ha * 10000).toLocaleString()} m².\n` +
+                `Produktivitas: ${musimLabel === "Walikan" ? "0,595" : "0,7"} kg/m².\n` +
+                `Rumus: ${Math.round(ha * 10000).toLocaleString()} m² × ${musimLabel === "Walikan" ? "0,595" : "0,7"} = ${Math.round(h.prod).toLocaleString()} kg.`
+              : `Luas ${h.bahu.toFixed(2)} Bahu = ${ha.toFixed(4)} ha.\n` +
+                `Produktivitas ${kom}: ${d.prod.toLocaleString()} kg/ha.\n` +
+                `Rumus: ${ha.toFixed(4)} ha × ${d.prod.toLocaleString()} = ${Math.round(h.prod).toLocaleString()} kg.`
+            : satPanen === "KUINTAL"
+              ? `Input: ${panen} kuintal × 100 = ${Math.round(h.prod).toLocaleString()} kg.`
+              : satPanen === "TON"
+              ? `Input: ${panen} ton × 1.000 = ${Math.round(h.prod).toLocaleString()} kg.`
+              : `Input langsung: ${Math.round(h.prod).toLocaleString()} kg.`,
       },
       {
         label: "Estimasi Luas",
         value: Math.round(h.luasM2_f).toLocaleString("id-ID") + " m²",
         explain:
           `${h.bahu.toFixed(4)} Bahu × 0,666 ha/Bahu = ${ha.toFixed(6)} ha\n` +
-          `× 10.000 m²/ha = ${Math.round(h.luasM2_f).toLocaleString()} m².`,
+          `× 10.000 m²/ha = ${Math.round(h.luasM2_f).toLocaleString()} m².` +
+          (isDuaMusim ? "\n(Lahan sama untuk kedua musim.)" : ""),
       },
 
       // ── ASET ─────────────────────────────────────────────────────────────────
@@ -1021,8 +1158,7 @@ export default function HomeScreen() {
         explain: `Lahan dinilai Rp 100.000/m² (standar estimasi BPS pedesaan Bojonegoro).\n` +
             `Rumus: ${Math.round(h.luasM2_f).toLocaleString()} m² × Rp 100.000 = ${rp(h.asetTanah)}.`,
       },
-      // 28.b hanya tampil kalau bukan Walikan
-      ...(h.musim !== "Walikan" ? [{
+      {
         label: "28.b   Aset Lainnya",
         value: rp(h.asetLain),
         explain:
@@ -1035,15 +1171,14 @@ export default function HomeScreen() {
           `  Acuan: Mesin/Sprayer = 1 unit per 10.000 m²\n` +
           `         Alat Tangan   = 1 unit per  3.000 m²\n\n` +
           `  Total Aset Lainnya = ${rp(h.asetLain)}`,
-      }] : []),
-      // 28.c hanya tampil kalau bukan Walikan
-      ...(h.musim !== "Walikan" ? [{
+      },
+      {
         label: "28.c   Total Aset",
         value: rp(h.asetTanah + h.asetLain),
         explain:
           `Nilai Tanah + Aset Lainnya:\n` +
           `${rp(h.asetTanah)} + ${rp(h.asetLain)} = ${rp(h.asetTanah + h.asetLain)}.`,
-      }] : []),
+      },
       {
         label: "28.d   Luas Lahan",
         value: Math.round(h.luasM2_f).toLocaleString("id-ID") + " m²",
@@ -1183,17 +1318,53 @@ export default function HomeScreen() {
                 />
               )}
               {kom === "Padi" && (
-                <SelectField
-                  label="Musim Tanam"
-                  value={musimTanam}
-                  width="100%"
-                  onPress={() => openPicker(
-                    "Musim Tanam",
-                    ["Rendengan", "Walikan"],
-                    musimTanam,
-                    setMusimTanam
+                <View style={[ui.fieldWrap, { width: "100%" }]}>
+                  <Text style={ui.fieldLabel}>Musim Tanam</Text>
+                  <View style={ui.musimToggleRow}>
+                    {(["Rendengan", "Walikan"] as const).map((m) => {
+                      const active = musimTanam.includes(m);
+                      return (
+                        <Pressable
+                          key={m}
+                          style={({ pressed }) => [
+                            ui.musimToggleBtn,
+                            active && ui.musimToggleBtnActive,
+                            pressed && { opacity: 0.75 },
+                          ]}
+                          onPress={() => {
+                            setMusimTanam((prev) => {
+                              if (active) {
+                                // Jangan hapus kalau hanya 1 pilihan tersisa
+                                if (prev.length === 1) return prev;
+                                return prev.filter((x) => x !== m);
+                              } else {
+                                return [...prev, m];
+                              }
+                            });
+                          }}
+                          accessibilityLabel={`${active ? "Hapus" : "Pilih"} musim ${m}`}
+                        >
+                          <Icon
+                            name={active ? "check" : "chevron-down"}
+                            size={13}
+                            color={active ? T.onPrimary : T.onSurfaceVariant}
+                          />
+                          <Text style={[ui.musimToggleTxt, active && ui.musimToggleTxtActive]}>
+                            {m}
+                          </Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                  {musimTanam.length === 2 && (
+                    <View style={ui.musimInfoRow}>
+                      <Icon name="info" size={12} color={T.secondary} />
+                      <Text style={ui.musimInfoTxt}>
+                        Hasil akan diakumulasi dari 2 musim tanam
+                      </Text>
+                    </View>
                   )}
-                />
+                </View>
               )}
 
               {/* ── Field khusus Tembakau ── */}
@@ -1956,5 +2127,49 @@ const ui = StyleSheet.create({
   bottomNavLabelActive: {
     color: T.primary,
     fontWeight: "700",
+  },
+
+  // ── Musim Tanam multi-toggle ──────────────────────────────────────────────
+  musimToggleRow: {
+    flexDirection: "row",
+    gap: 10,
+    marginTop: 4,
+  },
+  musimToggleBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    flex: 1,
+    justifyContent: "center",
+    borderWidth: 1.5,
+    borderColor: T.outlineVariant,
+    borderRadius: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    backgroundColor: T.surfaceContainerLow,
+  },
+  musimToggleBtnActive: {
+    backgroundColor: T.primary,
+    borderColor: T.primary,
+  },
+  musimToggleTxt: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: T.onSurfaceVariant,
+  },
+  musimToggleTxtActive: {
+    color: T.onPrimary,
+  },
+  musimInfoRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginTop: 8,
+    paddingHorizontal: 4,
+  },
+  musimInfoTxt: {
+    fontSize: 12,
+    color: T.secondary,
+    fontStyle: "italic",
   },
 });
