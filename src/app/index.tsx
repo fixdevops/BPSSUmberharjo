@@ -1138,8 +1138,8 @@ export default function HomeScreen() {
   const [kategori, setKategori]   = useState("Tanaman Pangan"); // kategori besar
   const [kom, setKom]           = useState("Padi");
   const [mode, setMode]         = useState("panen");       // default: berdasarkan hasil panen
-  const [luas, setLuas]         = useState("1");
-  const [satLuas, setSatLuas]   = useState("BAHU");
+  const [luas, setLuas]         = useState("6660");  // default 6.660 m²
+  const [satLuas, setSatLuas]   = useState("M2");
   const [panen, setPanen]       = useState("100");          // default 100 kuintal
   const [satPanen, setSatPanen] = useState("KUINTAL");      // default kuintal
   const [jumlahTandur, setJumlahTandur] = useState("");   // input manual penandur
@@ -1218,22 +1218,19 @@ export default function HomeScreen() {
   // ── Helper: hitung 1 musim Padi/komoditas biasa, kembalikan objek hasil ──
   function hitungSatuMusim(musim: string) {
     const d = db[kom]!;
-    let ha = 0, prod = 0, bahu = 0;
+    let ha = 0, prod = 0;
+    const PROD_PER_M2 = (kom === "Padi" && musim === "Walikan") ? 0.595 : 0.7;
     if (mode === "luas") {
       const n = parseFloat(luas) || 0;
-      if (satLuas === "BAHU")        { bahu = n; ha = n * 0.666; }
-      else if (satLuas === "HEKTAR") { ha = n; bahu = n / 0.666; }
-      else                           { ha = n / 10000; bahu = ha / 0.666; }
-      const prodPerM2 = (kom === "Padi" && musim === "Walikan") ? 0.595 : 0.7;
-      prod = kom === "Padi" ? ha * 10000 * prodPerM2 : ha * d.prod;
+      ha   = n / 10000;                  // M2 → ha
+      prod = ha * 10000 * PROD_PER_M2;   // luas × 0,7 kg/m² (konsisten semua komoditas)
     } else {
       const n = parseFloat(panen) || 0;
       if      (satPanen === "TON")     prod = n * 1000;
       else if (satPanen === "KUINTAL") prod = n * 100;
       else                             prod = n;
-      const prodPerM2 = (kom === "Padi" && musim === "Walikan") ? 0.595 : 0.7;
-      const m2 = kom === "Padi" ? prod / prodPerM2 : (prod / d.prod) * 10000;
-      ha = m2 / 10000; bahu = ha / 0.666;
+      // Luas balik: konsisten luas = hasil_panen / 0,7  (semua komoditas)
+      ha = prod / (10000 * PROD_PER_M2);
     }
     const kuintal   = prod / 100;
     const hargaJual = (kom === "Padi" && musim === "Walikan") ? 6800 : d.harga;
@@ -1243,7 +1240,7 @@ export default function HomeScreen() {
     let   biaya     = pend * rasioB;
     // Biaya operasional: Combi (panen+angkut) + BBM irigasi (Walikan saja)
     const combiCost = kom === "Padi" ? kuintal * 50_000 : pend * 0.05;
-    const bbmCost   = (kom === "Padi" && musim === "Walikan") ? bahu * 125_000 : 0;
+    const bbmCost   = (kom === "Padi" && musim === "Walikan") ? ha * 187_500 : 0;
     const oper      = combiCost + bbmCost;
 
     // ── Status lahan ──────────────────────────────────────────────────────
@@ -1328,7 +1325,7 @@ export default function HomeScreen() {
     return { total, dibayar, tidak, upah, biaya, oper, combiCost, bbmCost,
       pbbLahan, penyusutanAlat, non, totalPeng, pend, pendPetani,
       sewaLahan, bagiHasilPot,
-      prod, bahu, luasM2_f, asetTanah, asetLain, musim,
+      prod, luasM2_f, asetTanah, asetLain, musim,
       // Padi
       tamping, tandur, matun, daut, traktorCost, alatUnits,
       // Kedelai
@@ -1457,7 +1454,6 @@ export default function HomeScreen() {
           asetLain:  a.asetLain,
           alatUnits: a.alatUnits,
           luasM2_f:  a.luasM2_f,
-          bahu:      a.bahu,
           // Padi
           tamping: Math.max(a.tamping, b.tamping),
           tandur:  a.tandur + b.tandur,
@@ -1796,14 +1792,14 @@ export default function HomeScreen() {
                   `  Subtotal    = ${rp(a.oper)}\n\n` +
                   `Musim ${b.musim}:\n` +
                   `  Combi panen : ${(b.prod / 100).toFixed(1)} kwintal × Rp 50.000 = ${rp(b.combiCost)}\n` +
-                  `  BBM irigasi : ${b.bahu.toFixed(2)} bahu × Rp 125.000 = ${rp(b.bbmCost)}\n` +
+                  `  BBM irigasi : ${Math.round(b.luasM2_f).toLocaleString()} m² × Rp 18,75/m² = ${rp(b.bbmCost)}\n` +
                   `  Subtotal    = ${rp(b.oper)}\n\n` +
                   `${rp(a.oper)} + ${rp(b.oper)} = ${rp(h.oper)}`
                 );
               })()
             : musimLabel === "Walikan"
               ? `Combi panen : ${(h.prod / 100).toFixed(1)} kwintal × Rp 50.000 = ${rp(h.combiCost)}\n` +
-                `BBM irigasi : ${h.bahu.toFixed(2)} bahu × Rp 125.000 = ${rp(h.bbmCost)}\n\n` +
+                `BBM irigasi : ${Math.round(h.luasM2_f).toLocaleString()} m² × Rp 18,75/m² = ${rp(h.bbmCost)}\n\n` +
                 `Total = ${rp(h.combiCost)} + ${rp(h.bbmCost)} = ${rp(h.oper)}`
               : `Combi panen : ${(h.prod / 100).toFixed(1)} kwintal × Rp 50.000 = ${rp(h.combiCost)}\n` +
                 `(Combi sudah termasuk angkut sampai rumah)\n\n` +
@@ -1907,25 +1903,23 @@ export default function HomeScreen() {
               );
             })()
           : mode === "luas"
-            ? kom === "Padi"
-              ? `Luas ${h.bahu.toFixed(2)} Bahu = ${ha.toFixed(4)} ha = ${Math.round(ha * 10000).toLocaleString()} m².\n` +
-                `Produktivitas: ${musimLabel === "Walikan" ? "0,595" : "0,7"} kg/m².\n` +
-                `Rumus: ${Math.round(ha * 10000).toLocaleString()} m² × ${musimLabel === "Walikan" ? "0,595" : "0,7"} = ${Math.round(h.prod).toLocaleString()} kg.`
-              : `Luas ${h.bahu.toFixed(2)} Bahu = ${ha.toFixed(4)} ha.\n` +
-                `Produktivitas ${kom}: ${d.prod.toLocaleString()} kg/ha.\n` +
-                `Rumus: ${ha.toFixed(4)} ha × ${d.prod.toLocaleString()} = ${Math.round(h.prod).toLocaleString()} kg.`
+            ? `Luas ${Math.round(h.luasM2_f).toLocaleString("id-ID")} m² = ${ha.toFixed(4)} ha.\n` +
+              `Produktivitas: ${musimLabel === "Walikan" ? "0,595" : "0,7"} kg/m².\n` +
+              `Rumus: ${Math.round(h.luasM2_f).toLocaleString()} m² × ${musimLabel === "Walikan" ? "0,595" : "0,7"} = ${Math.round(h.prod).toLocaleString()} kg.`
             : satPanen === "KUINTAL"
-              ? `Input: ${panen} kuintal × 100 = ${Math.round(h.prod).toLocaleString()} kg.`
+              ? `Input: ${panen} kuintal × 100 = ${Math.round(h.prod).toLocaleString()} kg.\n` +
+                `Estimasi luas: ${Math.round(h.prod).toLocaleString()} kg ÷ ${musimLabel === "Walikan" ? "0,595" : "0,7"} kg/m² = ${Math.round(h.luasM2_f).toLocaleString()} m².`
               : satPanen === "TON"
-              ? `Input: ${panen} ton × 1.000 = ${Math.round(h.prod).toLocaleString()} kg.`
-              : `Input langsung: ${Math.round(h.prod).toLocaleString()} kg.`,
+              ? `Input: ${panen} ton × 1.000 = ${Math.round(h.prod).toLocaleString()} kg.\n` +
+                `Estimasi luas: ${Math.round(h.prod).toLocaleString()} kg ÷ ${musimLabel === "Walikan" ? "0,595" : "0,7"} kg/m² = ${Math.round(h.luasM2_f).toLocaleString()} m².`
+              : `Input langsung: ${Math.round(h.prod).toLocaleString()} kg.\n` +
+                `Estimasi luas: ${Math.round(h.prod).toLocaleString()} kg ÷ ${musimLabel === "Walikan" ? "0,595" : "0,7"} kg/m² = ${Math.round(h.luasM2_f).toLocaleString()} m².`,
       },
       {
         label: "Estimasi Luas",
         value: Math.round(h.luasM2_f).toLocaleString("id-ID") + " m²",
         explain:
-          `${h.bahu.toFixed(4)} Bahu × 0,666 ha/Bahu = ${ha.toFixed(6)} ha\n` +
-          `× 10.000 m²/ha = ${Math.round(h.luasM2_f).toLocaleString()} m².` +
+          `${Math.round(h.luasM2_f).toLocaleString("id-ID")} m² = ${ha.toFixed(4)} ha.` +
           (isDuaMusim ? "\n(Lahan sama untuk kedua musim.)" : ""),
       },
 
@@ -1962,8 +1956,7 @@ export default function HomeScreen() {
         label: "28.d   Luas Lahan",
         value: Math.round(h.luasM2_f).toLocaleString("id-ID") + " m²",
         explain:
-          `${h.bahu.toFixed(4)} Bahu × 0,666 ha/Bahu = ${ha.toFixed(6)} ha\n` +
-          `× 10.000 m²/ha = ${Math.round(h.luasM2_f).toLocaleString()} m².`,
+          `${Math.round(h.luasM2_f).toLocaleString("id-ID")} m² = ${ha.toFixed(4)} ha.`,
       },
     ];
   }
@@ -2064,7 +2057,7 @@ export default function HomeScreen() {
               />
               {mode === "luas" ? (
                 <LuasField luas={luas} setLuas={setLuas} satLuas={satLuas} width={isTablet ? "48%" : "100%"}
-                  onSatPress={() => openPicker("Satuan Luas", ["BAHU", "HEKTAR", "M2"], satLuas, setSatLuas)} />
+                  onSatPress={() => openPicker("Satuan Luas", ["M2"], satLuas, setSatLuas)} />
               ) : (
                 <>
                   <InputField label="Hasil Panen" value={panen} onChangeText={setPanen}
