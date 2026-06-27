@@ -6,13 +6,13 @@ Implementasi fitur ini hanya mencakup 3 perubahan file statis — tidak ada modi
 
 ## Tasks
 
-- [ ] 1. Salin gambar OG ke folder `public/`
+- [x] 1. Salin gambar OG ke folder `public/`
   - Salin file `assets/images/gambargue.jpeg` ke `public/gambargue.jpeg`
   - Buat folder `public/` jika belum ada
   - _Requirements: 2.2_
 
-- [ ] 2. Buat `public/index.html` dengan OG meta tags
-  - [ ] 2.1 Buat file `public/index.html` sebagai template HTML Expo
+- [x] 2. Buat `public/index.html` dengan OG meta tags
+  - [x] 2.1 Buat file `public/index.html` sebagai template HTML Expo
     - Buat file HTML dengan struktur `<!DOCTYPE html>`, `<html>`, `<head>`, `<body>`
     - Tambahkan 5 OG meta tags di dalam `<head>`: `og:title`, `og:description`, `og:image`, `og:url`, `og:type`
     - Nilai `og:title`: `"BPS Sumberharjo – SE2026 Smart Estimator"`
@@ -43,14 +43,14 @@ Implementasi fitur ini hanya mencakup 3 perubahan file statis — tidak ada modi
     - Baca dan parse `vercel.json`, verifikasi pola rewrite tidak akan mencocokkan path `/gambargue.jpeg`
     - _Requirements: 2.3_
 
-- [ ] 4. Checkpoint — Verifikasi file output build
+- [~] 4. Checkpoint — Verifikasi file output build
   - Jalankan `npx expo export --platform web` dan periksa:
     - `dist/index.html` mengandung semua 5 OG meta tags di `<head>`
     - `dist/gambargue.jpeg` ada dan dapat diakses
   - Pastikan semua tests pass, tanyakan kepada user jika ada pertanyaan.
 
-- [ ] 5. Verifikasi smoke test ketersediaan gambar
-  - [ ] 5.1 Tulis smoke test untuk memverifikasi keberadaan file gambar
+- [x] 5. Verifikasi smoke test ketersediaan gambar
+  - [x] 5.1 Tulis smoke test untuk memverifikasi keberadaan file gambar
     - Verifikasi `public/gambargue.jpeg` ada di filesystem sebelum build — _Requirements: 2.2_
     - Verifikasi `dist/gambargue.jpeg` ada setelah build — _Requirements: 2.2_
 
@@ -58,7 +58,7 @@ Implementasi fitur ini hanya mencakup 3 perubahan file statis — tidak ada modi
     - Baca `src/app/_layout.tsx`, verifikasi komponen `<Stack>` dan `<ThemeProvider>` masih ada
     - _Requirements: 3.2_
 
-- [ ] 6. Final checkpoint — Semua tests pass
+- [~] 6. Final checkpoint — Semua tests pass
   - Pastikan semua tests pass, tanyakan kepada user jika ada pertanyaan.
 
 ## Notes
