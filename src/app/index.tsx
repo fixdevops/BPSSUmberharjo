@@ -519,7 +519,7 @@ export default function HomeScreen() {
 
   function hitung() {
     setLoading(true);
-    setTimeout(() => {
+    try {
       const d = db[kom];
       let ha = 0, prod = 0, bahu = 0;
 
@@ -527,31 +527,31 @@ export default function HomeScreen() {
         const n = parseFloat(luas) || 0;
         if (satLuas === "BAHU")        { bahu = n; ha = n * 0.666; }
         else if (satLuas === "HEKTAR") { ha = n; bahu = n / 0.666; }
-        else                            { ha = n / 10000; bahu = ha / 0.666; }
+        else                           { ha = n / 10000; bahu = ha / 0.666; }
         prod = kom === "Padi" ? ha * 10000 * 0.7 : ha * d.prod;
       } else {
-        // Konversi ke KG dulu
         const n = parseFloat(panen) || 0;
         if      (satPanen === "TON")     prod = n * 1000;
         else if (satPanen === "KUINTAL") prod = n * 100;
-        else                             prod = n;           // KG
+        else                             prod = n;
         const m2 = kom === "Padi" ? prod / 0.7 : (prod / d.prod) * 10000;
         ha = m2 / 10000; bahu = ha / 0.666;
       }
 
-      const kuintal = prod / 100;
-      const pend    = prod * d.harga;
-      const upah    = pend * 0.10;
-      let   biaya   = pend * d.b;
-      const oper    = pend * 0.05;
-      const non     = pend * 0.02;
+      const kuintal   = prod / 100;
+      const pend      = prod * d.harga;
+      const upah      = pend * 0.10;
+      let   biaya     = pend * d.b;
+      const oper      = pend * 0.05;
+      const non       = pend * 0.02;
       if (status !== "Milik Sendiri") biaya += ha * 12000000;
       const totalPeng = upah + biaya + oper + non;
 
       let dibayar = Math.round((2 + d.t + 5 + 8 + 3) * ha);
       if (dibayar < 1) dibayar = 1;
-      const tidak = 2, total = dibayar + tidak;
-      const luasM2_f  = ha * 10000;
+      const tidak    = 2;
+      const total    = dibayar + tidak;
+      const luasM2_f = ha * 10000;
       const asetTanah = status === "Milik Sendiri" ? luasM2_f * 100000 : 0;
       const asetLain  = bahu < 0.5 ? 1_000_000 : bahu < 1 ? 2_000_000 : bahu < 2 ? 4_000_000 : bahu < 5 ? 7_500_000 : 15_000_000;
       const tamping   = Math.max(1, Math.round(ha * 10));
@@ -562,18 +562,20 @@ export default function HomeScreen() {
 
       setHasil({ total, dibayar, tidak, upah, biaya, oper, non, totalPeng, pend, prod,
         bahu, luasM2_f, asetTanah, asetLain, tamping, tandur, matun, daut, traktorCost });
-      setLoading(false);
       setStep(1);
-    }, 800);
+    } catch (e) {
+      Alert.alert("Error", "Terjadi kesalahan saat menghitung. Periksa input Anda.");
+    } finally {
+      setLoading(false);
+    }
   }
 
   // ── Build result rows ──
   function buildRows() {
     if (!hasil) return [];
-    const h   = hasil;
-    const d   = db[kom];
-    const ha  = h.luasM2_f / 10000;
-    const pct = (v: number, p: number) => `${rp(v)} = ${rp(h.pend)} × ${(p * 100).toFixed(0)}%`;
+    const h  = hasil;
+    const d  = db[kom];
+    const ha = h.luasM2_f / 10000;
 
     return [
       // ── PEKERJA ──────────────────────────────────────────────────────────────
