@@ -90,6 +90,8 @@ export async function googleSignIn(): Promise<string> {
           }
           _accessToken = response.access_token;
           _tokenExpiry = Date.now() + ((response.expires_in ?? 3600) - 60) * 1000;
+          // Expose token ke window agar bisa dipakai upload foto
+          (window as any).__se2026_gtoken = _accessToken;
           resolve(_accessToken!);
         },
         error_callback: (err: any) => {
@@ -252,6 +254,74 @@ export async function downloadFromDrive(): Promise<{
   );
   if (!res.ok) throw new Error(`Download gagal (${res.status}): ${res.statusText}`);
   return res.json();
+}
+
+// ─── Upload foto (data URI / base64) ke Drive, kembalikan public URL ─────────
+// Digunakan oleh FormBangunanScreen saat menyimpan foto depan/dalam
+export async function uploadFotoBase64ToDrive(
+  dataUri: string,
+  fileName: string,
+  folderId?: string
+): Promise<string | null> {
+  try {
+    if (!isSignedIn()) await googleSignIn();
+
+    // Tentukan folder tujuan
+    const targetFolderId = folderId ?? await getOrCreateFolder();
+
+    // Parse data URI: "data:image/jpeg;base64,XXXX..."
+    const commaIdx = dataUri.indexOf(",");
+    if (commaIdx === -1) throw new Error("Format data URI tidak valid");
+    const header   = dataUri.substring(0, commaIdx);
+    const b64data  = dataUri.substring(commaIdx + 1);
+    const mimeType = header.match(/:(.*?);/)?.[1] ?? "image/jpeg";
+
+    // Decode base64 → Uint8Array
+    const byteStr = atob(b64data);
+    const bytes   = new Uint8Array(byteStr.length);
+    for (let i = 0; i < byteStr.length; i++) bytes[i] = byteStr.charCodeAt(i);
+    const blob = new Blob([bytes], { type: mimeType });
+
+    // Multipart upload ke Drive
+    const meta     = JSON.stringify({ name: fileName, parents: [targetFolderId] });
+    const boundary = "foto_bdr_" + Date.now();
+    const CRLF     = "\r\n";
+
+    // Build multipart body menggunakan Blob concat
+    const bodyParts: BlobPart[] = [
+      `--${boundary}${CRLF}`,
+      `Content-Type: application/json; charset=UTF-8${CRLF}${CRLF}`,
+      meta, CRLF,
+      `--${boundary}${CRLF}`,
+      `Content-Type: ${mimeType}${CRLF}${CRLF}`,
+      blob,
+      `${CRLF}--${boundary}--`,
+    ];
+    const multipartBody = new Blob(bodyParts, { type: `multipart/related; boundary=${boundary}` });
+
+    const res = await fetch(
+      "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id",
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${_accessToken}`,
+          "Content-Type": `multipart/related; boundary=${boundary}`,
+        },
+        body: multipartBody,
+      }
+    );
+
+    if (!res.ok) {
+      console.warn("Upload foto gagal:", res.status, await res.text().catch(() => ""));
+      return null;
+    }
+    const result = await res.json();
+    // Kembalikan URL preview Drive
+    return `https://drive.google.com/uc?export=view&id=${result.id}`;
+  } catch (e: any) {
+    console.warn("uploadFotoBase64ToDrive error:", e.message);
+    return null;
+  }
 }
 
 // ─── Restore ke localStorage ──────────────────────────────────────────────────

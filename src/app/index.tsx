@@ -178,45 +178,48 @@ export default function HomeScreen() {
   // ─── Root: Tab navigator ──────────────────────────────────────────────────
   return (
     <View style={ui.screen}>
-      <TopNav />
+      <TopNav onSettingsPress={() => setActivePage("settings")} />
 
       <View style={ui.body}>
-        {showSidebar && <SideNav />}
+        {showSidebar && <SideNav active={activePage} onPress={setActivePage} />}
 
         {/* ── TAB: MAP ────────────────────────────────────────────────────── */}
-        {activePage === "map" && (
-          <View style={{ flex: 1 }}>
-            <MapScreen
-              onDetailBangunan={(id) => setScreen({ type: "detail_bangunan", id })}
-            />
-          </View>
-        )}
+        <View style={{ flex: 1, display: activePage === "map" ? "flex" : "none" }}>
+          <MapScreen
+            onDetailBangunan={(id) => setScreen({ type: "detail_bangunan", id })}
+          />
+        </View>
 
         {/* ── TAB: DATA LAPANGAN ──────────────────────────────────────────── */}
-        {activePage === "lapangan" && (
-          <View style={{ flex: 1 }}>
-            <DataLapanganScreen
-              onTambahBangunan={() => setScreen("tambah_bangunan")}
-              onDetailBangunan={(id) => setScreen({ type: "detail_bangunan", id })}
-              onKelolaSLS={() => setScreen("kelola_sls")}
-            />
+        <View style={{ flex: 1, display: activePage === "lapangan" ? "flex" : "none" }}>
+          <DataLapanganScreen
+            onTambahBangunan={() => setScreen("tambah_bangunan")}
+            onDetailBangunan={(id) => setScreen({ type: "detail_bangunan", id })}
+            onKelolaSLS={() => setScreen("kelola_sls")}
+          />
+        </View>
+
+        {/* ── TAB: BERANDA + ESTIMASI + SETTINGS ──────────────────────────── */}
+        {/* Dibungkus satu ScrollView, visibility diatur per tab agar state tidak hilang */}
+        <ScrollView
+          style={[ui.main, { display: (activePage === "home" || activePage === "estimasi" || activePage === "settings") ? "flex" : "none" }]}
+          contentContainerStyle={[
+            ui.mainContent,
+            { padding: isMobile ? 12 : 20, paddingBottom: isMobile ? 90 : 48 },
+          ]}
+        >
+          <View style={[ui.dotPattern, { pointerEvents: "none" } as any]} />
+
+          {/* Semua tab tetap mounted, visibility dikendalikan dengan display */}
+          <View style={{ display: activePage === "home" ? "flex" : "none" }}>
+            <BerandaKalkulator />
           </View>
-        )}
+          <View style={{ display: activePage === "settings" ? "flex" : "none" }}>
+            <SettingsScreen />
+          </View>
 
-        {/* ── TAB: BERANDA + ESTIMASI + SETTINGS (pakai ScrollView) ──────── */}
-        {(activePage === "home" || activePage === "estimasi" || activePage === "settings") && (
-          <ScrollView
-            style={ui.main}
-            contentContainerStyle={[
-              ui.mainContent,
-              { padding: isMobile ? 12 : 20, paddingBottom: isMobile ? 90 : 48 },
-            ]}
-          >
-            <View style={[ui.dotPattern, { pointerEvents: "none" } as any]} />
-
-            {activePage === "home"     && <BerandaKalkulator />}
-            {activePage === "settings" && <SettingsScreen />}
-
+          {/* Tab estimasi — selalu mounted agar state tidak hilang saat pindah tab */}
+          <View style={{ display: activePage === "estimasi" ? "flex" : "none" }}>
             {activePage === "estimasi" && (
               <>
                 {/* Header */}
@@ -266,8 +269,7 @@ export default function HomeScreen() {
                           )}
                         />
                         {mode === "luas" ? (
-                          <LuasField luas={luas} setLuas={setLuas} satLuas={satLuas} width={isTablet ? "48%" : "100%"}
-                            onSatPress={() => openPicker("Satuan Luas", ["M2"], satLuas, setSatLuas)} />
+                          <LuasField luas={luas} setLuas={setLuas} width={isTablet ? "48%" : "100%"} />
                         ) : (
                           <>
                             <InputField label="Hasil Panen" value={panen} onChangeText={setPanen}
@@ -472,8 +474,9 @@ export default function HomeScreen() {
                 </View>
               </>
             )}
-          </ScrollView>
-        )}
+          </View>{/* /estimasi view */}
+        </ScrollView>
+
       </View>
 
       {/* Bottom nav — sembunyikan saat screen stack aktif */}

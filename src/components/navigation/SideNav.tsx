@@ -1,19 +1,25 @@
-// ─── SideNav — Sidebar navigasi (tablet/desktop) ─────────────────────────────
-import { Text, View } from "react-native";
+// ─── SideNav — Sidebar navigasi fungsional (tablet/desktop) ──────────────────
+import { Pressable, Text, View } from "react-native";
 import Svg, { Rect } from "react-native-svg";
 import { T } from "../../constants/theme";
 import { ui } from "../../styles/ui";
 import { Icon } from "../Icon";
 
-export function SideNav() {
-  const items = [
-    { icon: "home",      label: "Beranda",            active: false },
-    { icon: "analytics", label: "Parameter Estimasi", active: true  },
-    { icon: "map-pin",   label: "Peta GPS",           active: false },
-    { icon: "database",  label: "Data Lapangan",       active: false },
-    { icon: "settings",  label: "Pengaturan",          active: false },
-  ];
+const NAV_ITEMS = [
+  { icon: "home",      label: "Beranda",            page: "home"      },
+  { icon: "analytics", label: "Parameter Estimasi", page: "estimasi"  },
+  { icon: "map-pin",   label: "Peta GPS",           page: "map"       },
+  { icon: "database",  label: "Data Lapangan",      page: "lapangan"  },
+  { icon: "settings",  label: "Pengaturan",         page: "settings"  },
+];
 
+export function SideNav({
+  active   = "estimasi",
+  onPress  = (_: string) => {},
+}: {
+  active?:  string;
+  onPress?: (page: string) => void;
+}) {
   return (
     <View style={ui.sideNav}>
       {/* Brand */}
@@ -33,25 +39,45 @@ export function SideNav() {
       </View>
 
       {/* Menu */}
-      {items.map((item) => (
-        <View key={item.label} style={[ui.sideNavItem, item.active && ui.sideNavItemActive]}>
-          <Icon name={item.icon} size={18} color={item.active ? T.onPrimaryFixed : T.onSurfaceVariant} />
-          <Text style={[ui.sideNavLabel, item.active && { color: T.onPrimaryFixed, fontWeight: "700" }]}>
-            {item.label}
-          </Text>
-        </View>
-      ))}
+      {NAV_ITEMS.map((item) => {
+        const isActive = active === item.page;
+        return (
+          <Pressable
+            key={item.page}
+            style={({ pressed }) => [
+              ui.sideNavItem,
+              isActive && ui.sideNavItemActive,
+              pressed && { opacity: 0.75 },
+            ]}
+            onPress={() => onPress(item.page)}
+            accessibilityLabel={item.label}
+            accessibilityRole="button"
+          >
+            <Icon
+              name={item.icon}
+              size={18}
+              color={isActive ? T.onPrimaryFixed : T.onSurfaceVariant}
+            />
+            <Text style={[
+              ui.sideNavLabel,
+              isActive && { color: T.onPrimaryFixed, fontWeight: "700" },
+            ]}>
+              {item.label}
+            </Text>
+          </Pressable>
+        );
+      })}
 
       {/* Bottom */}
       <View style={ui.sideNavBottom}>
-        <View style={ui.sideNavItem}>
+        <Pressable
+          style={({ pressed }) => [ui.sideNavItem, pressed && { opacity: 0.75 }]}
+          onPress={() => onPress("settings")}
+          accessibilityLabel="Pengaturan"
+        >
           <Icon name="help" size={18} color={T.onSurfaceVariant} />
           <Text style={ui.sideNavLabel}>Bantuan</Text>
-        </View>
-        <View style={[ui.sideNavItem, { marginTop: 2 }]}>
-          <Icon name="logout" size={18} color={T.error} />
-          <Text style={[ui.sideNavLabel, { color: T.error }]}>Keluar</Text>
-        </View>
+        </Pressable>
       </View>
     </View>
   );

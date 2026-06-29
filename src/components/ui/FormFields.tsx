@@ -62,37 +62,40 @@ export function InputField({
   );
 }
 
-// ── LuasField ─────────────────────────────────────────────────────────────────
+// ── LuasField — input luas dalam M2 (satuan tetap, tidak bisa diganti) ────────
 export function LuasField({
   luas,
   setLuas,
-  satLuas,
-  onSatPress,
   width = "100%",
 }: {
   luas: string;
   setLuas: (v: string) => void;
-  satLuas: string;
-  onSatPress: () => void;
+  satLuas?: string;       // diabaikan — selalu M2
+  onSatPress?: () => void; // diabaikan — satuan tetap M2
   width?: DimensionValue;
 }) {
   return (
     <View style={[ui.fieldWrap, { width: width as any }]}>
-      <Text style={ui.fieldLabel}>Luas</Text>
+      <Text style={ui.fieldLabel}>Luas Lahan</Text>
       <View style={ui.luasRow}>
         <TextInput
           style={[ui.input, { flex: 1, borderTopRightRadius: 0, borderBottomRightRadius: 0, borderRightWidth: 0 }]}
           value={luas}
           onChangeText={setLuas}
-          placeholder="0.00"
+          placeholder="contoh: 6660"
           placeholderTextColor={T.outline}
           keyboardType="numeric"
         />
-        <Pressable style={ui.luasSat} onPress={onSatPress}>
-          <Text style={ui.luasSatText}>{satLuas}</Text>
-          <Icon name="expand_more" size={14} color={T.onSurfaceVariant} />
-        </Pressable>
+        {/* Label M2 tetap — tidak bisa diubah */}
+        <View style={[ui.luasSat, { backgroundColor: T.surfaceContainerLow }]}>
+          <Text style={[ui.luasSatText, { color: T.onSurfaceVariant, fontWeight: "700" }]}>m²</Text>
+        </View>
       </View>
+      {luas && !isNaN(parseFloat(luas)) && (
+        <Text style={{ fontSize: 10, color: T.secondary, marginTop: 3 }}>
+          = {(parseFloat(luas) / 10000).toFixed(4)} ha
+        </Text>
+      )}
     </View>
   );
 }

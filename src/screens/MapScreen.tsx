@@ -82,15 +82,28 @@ function buildMapHTML(buildings: Bangunan[], centerLat: number, centerLng: numbe
     .filter((b) => b.lat != null && b.lng != null)
     .map((b) => {
       const color = colorOf(b.jenis);
+      const nama   = b.catatan ? b.catatan.replace(/'/g, "\\'") : "—";
+      const alamat = (b.alamat ?? "").replace(/'/g, "\\'");
+      const kkInfo = b.jumlah_kk != null ? `${b.jumlah_kk} KK` : "";
       return `
         var icon_${b.id} = L.divIcon({
           className: '',
-          html: '<div style="width:28px;height:28px;border-radius:50%;background:${color};border:3px solid white;box-shadow:0 2px 6px rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;font-size:10px;color:white;font-weight:700;">${b.nomor_urut}</div>',
+          html: '<div style="min-width:28px;height:28px;border-radius:14px;background:${color};border:3px solid white;box-shadow:0 2px 6px rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;font-size:10px;color:white;font-weight:700;padding:0 6px;">${b.nomor_urut}</div>',
           iconSize: [28,28], iconAnchor: [14,14]
         });
+        var popupContent_${b.id} = '<div style="min-width:180px;font-family:sans-serif;">'
+          + '<div style="font-weight:700;font-size:13px;color:#004ec7;margin-bottom:4px;">🏠 No. ${b.nomor_urut} — ${b.jenis}</div>'
+          + '<div style="font-size:12px;margin-bottom:2px;">👤 <b>' + '${nama}' + '</b></div>'
+          + '<div style="font-size:11px;color:#555;margin-bottom:2px;">📋 No. KK: ${kkInfo}</div>'
+          + '<div style="font-size:11px;color:#555;margin-bottom:6px;">📍 ${alamat}</div>'
+          + '<div style="font-size:10px;color:#888;margin-bottom:8px;">🌐 Lat: ${b.lat?.toFixed(6)}, Lng: ${b.lng?.toFixed(6)}</div>'
+          + '<div style="display:flex;gap:6px;">'
+          + '<button onclick="postMsg({type:\\'detail\\',id:${b.id}})" style="flex:1;padding:5px 8px;background:#004ec7;color:white;border:none;border-radius:6px;cursor:pointer;font-size:11px;">Detail</button>'
+          + '<button onclick="postMsg({type:\\'rute\\',lat:${b.lat},lng:${b.lng}})" style="flex:1;padding:5px 8px;background:#22c55e;color:white;border:none;border-radius:6px;cursor:pointer;font-size:11px;">Rute</button>'
+          + '</div></div>';
         var marker_${b.id} = L.marker([${b.lat}, ${b.lng}], {icon: icon_${b.id}})
           .addTo(map)
-          .bindPopup('<b>[${b.nomor_urut}] ${b.jenis}</b><br>${b.alamat ?? ""}<br><small>${b.jumlah_kk ?? 0} KK</small><br><button onclick="postMsg({type:\\'detail\\',id:${b.id}})" style="margin-top:6px;padding:4px 10px;background:#004ec7;color:white;border:none;border-radius:6px;cursor:pointer;">Detail</button><br><button onclick="postMsg({type:\\'rute\\',lat:${b.lat},lng:${b.lng}})" style="margin-top:4px;padding:4px 10px;background:#22c55e;color:white;border:none;border-radius:6px;cursor:pointer;">Rute</button>');
+          .bindPopup(popupContent_${b.id}, {maxWidth: 240});
       `;
     })
     .join("\n");

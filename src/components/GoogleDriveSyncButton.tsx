@@ -6,23 +6,23 @@ import { T } from "../constants/theme";
 import {
     googleSignIn,
     googleSignOut,
+    isConfigured,
     isSignedIn,
     restoreFromDrive,
-    uploadToDrive
+    uploadToDrive,
 } from "../lib/googleDriveSync";
 import { Icon } from "./Icon";
 
 export function GoogleDriveSyncButton({ onRestored }: { onRestored?: () => void }) {
-  const [loading,  setLoading]  = useState(false);
-  const [status,   setStatus]   = useState<string | null>(null);
-  const [loggedIn, setLoggedIn] = useState(false);
-  const [error,    setError]    = useState<string | null>(null);
+  const [loading,    setLoading]    = useState(false);
+  const [status,     setStatus]     = useState<string | null>(null);
+  const [loggedIn,   setLoggedIn]   = useState(isSignedIn());
+  const [error,      setError]      = useState<string | null>(null);
+  // isConfigured() adalah fungsi murni (tidak async, tidak side-effect) — aman dipanggil di render
+  const configured = isConfigured();
 
   // Hanya tampilkan di web
   if (Platform.OS !== "web") return null;
-
-  // Cek apakah Client ID sudah dikonfigurasi dengan benar
-  const configured = isConfigured();
 
   async function handleUpload() {
     setLoading(true);

@@ -29,6 +29,7 @@ import {
     insertKK,
     nextNomorKK,
 } from "../lib/database";
+import { googleSignIn, isConfigured, isSignedIn, uploadToDrive } from "../lib/googleDriveSync";
 import { ui } from "../styles/ui";
 
 // Lazy-import ImagePicker hanya di native
@@ -240,6 +241,39 @@ export function DetailBangunanScreen({
   const reload = useCallback(() => load(), [bangunanId]);
 
   async function handleAddFoto(fromCamera: boolean) {
+    if (Platform.OS === "web") {
+      // Web: pakai input[type=file]
+      const uri = await new Promise<string | null>((resolve) => {
+        const input = document.createElement("input");
+        input.type   = "file";
+        input.accept = "image/*";
+        if (fromCamera) input.capture = "environment";
+        input.onchange = () => {
+          const file = input.files?.[0];
+          if (!file) { resolve(null); return; }
+          const reader = new FileReader();
+          reader.onload = (e) => resolve((e.target?.result as string) ?? null);
+          reader.readAsDataURL(file);
+        };
+        input.click();
+      });
+      if (!uri) return;
+      setAddingFoto(true);
+      try {
+        await insertFoto({ bangunan_id: bangunanId, uri });
+        // Sync ke Drive
+        if (isConfigured()) {
+          try {
+            if (!isSignedIn()) await googleSignIn();
+            await uploadToDrive();
+          } catch (_) {}
+        }
+        reload();
+      } catch { Alert.alert("Error", "Gagal menyimpan foto."); }
+      finally { setAddingFoto(false); }
+      return;
+    }
+
     if (!ImagePicker) {
       Alert.alert("Tidak Didukung", "Fitur foto hanya tersedia di aplikasi mobile (Android/iOS).");
       return;
@@ -284,6 +318,11 @@ export function DetailBangunanScreen({
   }
 
   function showFotoOptions() {
+    if (Platform.OS === "web") {
+      // Di web langsung buka file picker
+      handleAddFoto(false);
+      return;
+    }
     Alert.alert("Tambah Foto", "Pilih sumber foto:", [
       { text: "Kamera",  onPress: () => handleAddFoto(true)  },
       { text: "Galeri",  onPress: () => handleAddFoto(false) },
