@@ -1,7 +1,7 @@
 // ─── buildRows: Susun baris hasil estimasi untuk ditampilkan di ResultCard ────
 // Versi BPS Realistis — semua explain berbasis ha, HOK, kg/ha
 import { rp } from "./helpers";
-import { db, explainSaprotan, TEMBAKAU } from "./kalkulatorData";
+import { db, explainSaprotan, kondisiPanenLabel, TEMBAKAU } from "./kalkulatorData";
 
 export type ResultRowItem = {
   label:    string;
@@ -32,13 +32,13 @@ export function buildRows(params: {
       // ── KONDISI PANEN ────────────────────────────────────────────────────
       {
         label: "Kondisi Hasil Panen",
-        value: kondisiPanenLabel[h.kondisiPanen as keyof typeof kondisiPanenLabel] ?? h.kondisiPanen,
+        value: kondisiPanenLabel[h.kondisiPanen as keyof typeof kondisiPanenLabel] ?? h.kondisiPanen ?? "Sedang (normal)",
         explain:
           `Faktor pengali produktivitas:\n` +
           `  • Sedang      → ×1,00 (baseline BPS)\n` +
           `  • Baik        → ×1,15 (+15%)\n` +
           `  • Sangat Baik → ×1,30 (+30%)\n\n` +
-          `Kondisi dipilih: ${h.kondisiPanen} (×${h.faktorKondisi?.toFixed(2) ?? "1,00"})\n` +
+          `Kondisi dipilih: ${h.kondisiPanen ?? "Sedang"} (×${(h.faktorKondisi ?? 1).toFixed(2)})\n` +
           `Mempengaruhi jumlah kg produksi dan nilai jual.`,
       },
       // ── HOK ────────────────────────────────────────────────────────────

@@ -93,21 +93,34 @@ export default function HomeScreen() {
   // ── Hitung estimasi ───────────────────────────────────────────────────────
   function hitung() {
     setLoading(true);
-    try {
-      const res = hitungEstimasi({
-        kom, mode, luas, satLuas, panen, satPanen,
-        musimTanam, jenisTembakau, jumlahPohon, luasTembakau, status,
-        kondisiPanen,
-      });
-      if (res) { setHasil(res); setStep(1); }
-    } catch {
-      Alert.alert("Error", "Terjadi kesalahan saat menghitung. Periksa input Anda.");
-    } finally {
-      setLoading(false);
-    }
+    // Pakai setTimeout agar React sempat render state loading sebelum kalkulasi
+    setTimeout(() => {
+      try {
+        const res = hitungEstimasi({
+          kom, mode, luas, satLuas, panen, satPanen,
+          musimTanam, jenisTembakau, jumlahPohon, luasTembakau, status,
+          kondisiPanen,
+        });
+        if (res) {
+          setHasil(res);
+          setStep(1);
+        }
+      } catch (err) {
+        console.error("[hitung] error:", err);
+        Alert.alert("Error", "Terjadi kesalahan saat menghitung. Periksa input Anda.");
+      } finally {
+        setLoading(false);
+      }
+    }, 0);
   }
 
-  const rows = buildRows({ hasil, kom, mode, panen, satPanen, status, musimTanam });
+  // buildRows dipanggil di render — bungkus supaya tidak crash halaman
+  let rows: ReturnType<typeof buildRows> = [];
+  try {
+    rows = buildRows({ hasil, kom, mode, panen, satPanen, status, musimTanam });
+  } catch (err) {
+    console.error("[buildRows] error:", err);
+  }
 
   // ─── DB belum siap ────────────────────────────────────────────────────────
   if (!dbReady) {

@@ -344,7 +344,8 @@ export function hitungSatuMusim(params: {
   const d = db[kom]!;
 
   // Faktor kondisi panen (default: Sedang = 1.0)
-  const faktorKondisi = kondisiPanenFaktor[kondisiPanen ?? "Sedang"];
+  // Guard: pastikan faktor tidak pernah 0 agar tidak ada pembagian dengan nol
+  const faktorKondisi = kondisiPanenFaktor[kondisiPanen ?? "Sedang"] || 1.0;
 
   // ── 1. Hitung ha & prod ───────────────────────────────────────────────────
   // Walikan (musim kering) → produktivitas −15%
@@ -353,7 +354,8 @@ export function hitungSatuMusim(params: {
   const PROD_PER_HA_BASE = (kom === "Padi" && musim === "Walikan")
     ? d.prod * 0.85
     : d.prod;
-  const PROD_PER_HA = PROD_PER_HA_BASE * faktorKondisi;
+  // Guard: PROD_PER_HA tidak boleh 0 (hindari pembagian nol)
+  const PROD_PER_HA = Math.max(1, PROD_PER_HA_BASE * faktorKondisi);
 
   let ha = 0, prod = 0;
   if (mode === "luas") {
@@ -474,7 +476,8 @@ export function hitungEstimasi(params: HitungParams): any | null {
     const isKering = jenisTembakau === "Tembakau Kering";
 
     // Produksi
-    const kgBasah  = TB.kgPer1000 * ribuan * (kondisiPanenFaktor[kondisiPanen ?? "Sedang"]);
+    const _faktorTembakau = kondisiPanenFaktor[kondisiPanen ?? "Sedang"] || 1.0;
+    const kgBasah  = TB.kgPer1000 * ribuan * _faktorTembakau;
     const kgKering = kgBasah * TB.susut;
 
     // Nilai produksi
@@ -535,7 +538,7 @@ export function hitungEstimasi(params: HitungParams): any | null {
       tkKowak, tkMacul, tkPanen, tkRajang, tkMepe,
       musim: musimTanam[0] ?? "—",
       kondisiPanen: kondisiPanen ?? "Sedang",
-      faktorKondisi: kondisiPanenFaktor[kondisiPanen ?? "Sedang"],
+      faktorKondisi: kondisiPanenFaktor[kondisiPanen ?? "Sedang"] || 1.0,
     };
   }
 
