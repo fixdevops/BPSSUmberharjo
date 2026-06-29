@@ -1,6 +1,6 @@
 // ─── MapScreen — Peta Bangunan via WebView + OpenStreetMap/Leaflet ────────────
 // Native (Android/iOS): WebView + Leaflet
-// Web browser: fallback pesan (WebView tidak tersedia di react-native-web)
+// Web browser: iframe + Leaflet langsung (tanpa WebView)
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
     ActivityIndicator,
@@ -27,6 +27,37 @@ if (Platform.OS !== "web") {
   } catch (_) {}
 }
 
+// ─── Web-only: komponen IframeMap menggunakan dangerouslySetInnerHTML ────────
+function IframeMap({ html, onMessage }: { html: string; onMessage: (data: any) => void }) {
+  const containerRef = useRef<any>(null);
+
+  useEffect(() => {
+    // Dengarkan pesan dari iframe (pengganti ReactNativeWebView.postMessage)
+    function handleMessage(e: MessageEvent) {
+      try {
+        const data = typeof e.data === "string" ? JSON.parse(e.data) : e.data;
+        onMessage(data);
+      } catch (_) {}
+    }
+    window.addEventListener("message", handleMessage);
+    return () => window.removeEventListener("message", handleMessage);
+  }, [onMessage]);
+
+  if (Platform.OS !== "web") return null;
+
+  // Render via srcdoc pada iframe — aman karena konten kita sendiri
+  return (
+    <div ref={containerRef} style={{ flex: 1, display: "flex", flexDirection: "column", height: "100%" }}>
+      <iframe
+        title="Peta Bangunan"
+        srcDoc={html}
+        style={{ flex: 1, border: "none", width: "100%", height: "100%", minHeight: 400 }}
+        sandbox="allow-scripts allow-same-origin"
+      />
+    </div>
+  );
+}
+
 // ─── Warna marker per jenis bangunan ─────────────────────────────────────────
 const JENIS_COLOR: Record<string, string> = {
   "Rumah":    "#004ec7",
@@ -41,12 +72,16 @@ function colorOf(jenis: string) {
 }
 
 // ─── Build HTML Leaflet map ───────────────────────────────────────────────────
-function buildMapHTML(buildings: Bangunan[], centerLat: number, centerLng: number): string {
+// postMsg: di native pakai ReactNativeWebView.postMessage, di web pakai window.parent.postMessage
+function buildMapHTML(buildings: Bangunan[], centerLat: number, centerLng: number, isWeb = false): string {
+  const postFn = isWeb
+    ? `function postMsg(d){ window.parent.postMessage(JSON.stringify(d),'*'); }`
+    : `function postMsg(d){ window.ReactNativeWebView.postMessage(JSON.stringify(d)); }`;
+
   const markers = buildings
     .filter((b) => b.lat != null && b.lng != null)
     .map((b) => {
-      const color   = colorOf(b.jenis);
-      const popupId = `popup_${b.id}`;
+      const color = colorOf(b.jenis);
       return `
         var icon_${b.id} = L.divIcon({
           className: '',
@@ -55,7 +90,7 @@ function buildMapHTML(buildings: Bangunan[], centerLat: number, centerLng: numbe
         });
         var marker_${b.id} = L.marker([${b.lat}, ${b.lng}], {icon: icon_${b.id}})
           .addTo(map)
-          .bindPopup('<b>[${b.nomor_urut}] ${b.jenis}</b><br>${b.alamat ?? ""}<br><small>${b.jumlah_kk ?? 0} KK</small><br><button onclick="window.ReactNativeWebView.postMessage(JSON.stringify({type:\\"detail\\",id:${b.id}}))" style="margin-top:6px;padding:4px 10px;background:#004ec7;color:white;border:none;border-radius:6px;cursor:pointer;">Detail</button><br><button onclick="window.ReactNativeWebView.postMessage(JSON.stringify({type:\\"rute\\",lat:${b.lat},lng:${b.lng}}))" style="margin-top:4px;padding:4px 10px;background:#22c55e;color:white;border:none;border-radius:6px;cursor:pointer;">Rute</button>');
+          .bindPopup('<b>[${b.nomor_urut}] ${b.jenis}</b><br>${b.alamat ?? ""}<br><small>${b.jumlah_kk ?? 0} KK</small><br><button onclick="postMsg({type:\\'detail\\',id:${b.id}})" style="margin-top:6px;padding:4px 10px;background:#004ec7;color:white;border:none;border-radius:6px;cursor:pointer;">Detail</button><br><button onclick="postMsg({type:\\'rute\\',lat:${b.lat},lng:${b.lng}})" style="margin-top:4px;padding:4px 10px;background:#22c55e;color:white;border:none;border-radius:6px;cursor:pointer;">Rute</button>');
       `;
     })
     .join("\n");
@@ -75,6 +110,7 @@ function buildMapHTML(buildings: Bangunan[], centerLat: number, centerLng: numbe
 <body>
 <div id="map"></div>
 <script>
+  ${postFn}
   var map = L.map('map', {zoomControl: true}).setView([${centerLat}, ${centerLng}], 15);
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     attribution: '© OpenStreetMap',
@@ -82,25 +118,24 @@ function buildMapHTML(buildings: Bangunan[], centerLat: number, centerLng: numbe
   }).addTo(map);
   ${markers}
 
-  // Locate me button
-  L.control.locate = function() {
-    var btn = L.control({position:'bottomright'});
-    btn.onAdd = function() {
-      var div = L.DomUtil.create('button','locate-btn');
-      div.innerHTML = '📍';
-      div.style.cssText = 'padding:8px 12px;font-size:20px;border:none;background:white;border-radius:8px;box-shadow:0 2px 6px rgba(0,0,0,.3);cursor:pointer;';
-      div.onclick = function(){
-        map.locate({setView: true, maxZoom: 17});
-      };
-      return div;
-    };
-    return btn;
-  }
-  L.control.locate().addTo(map);
+  // Tombol lokasi saya
+  var locBtn = L.control({position:'bottomright'});
+  locBtn.onAdd = function() {
+    var div = L.DomUtil.create('button','locate-btn');
+    div.innerHTML = '📍';
+    div.title = 'Lokasi Saya';
+    div.style.cssText = 'padding:8px 12px;font-size:20px;border:none;background:white;border-radius:8px;box-shadow:0 2px 6px rgba(0,0,0,.3);cursor:pointer;';
+    div.onclick = function(){ map.locate({setView:true, maxZoom:17}); };
+    return div;
+  };
+  locBtn.addTo(map);
 
   map.on('locationfound', function(e) {
-    L.circleMarker(e.latlng, {radius:8, color:'#ef4444', fillColor:'#ef4444', fillOpacity:0.8}).addTo(map)
-      .bindPopup('Lokasi Anda').openPopup();
+    L.circleMarker(e.latlng, {radius:8, color:'#ef4444', fillColor:'#ef4444', fillOpacity:0.8})
+      .addTo(map).bindPopup('📍 Lokasi Anda').openPopup();
+  });
+  map.on('locationerror', function(e) {
+    alert('Tidak dapat mengakses lokasi: ' + e.message);
   });
 </script>
 </body>
@@ -124,7 +159,7 @@ export function MapScreen({ onDetailBangunan }: {
   const [buildings, setBuildings] = useState<Bangunan[]>([]);
   const [loading,   setLoading]   = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const webRef = useRef<WebView>(null);
+  const webRef = useRef<any>(null);
 
   // Center default: Sumberharjo, Bojonegoro
   const CENTER_LAT = -7.1167;
@@ -152,19 +187,31 @@ export function MapScreen({ onDetailBangunan }: {
   function handleWebMessage(event: any) {
     try {
       const msg = JSON.parse(event.nativeEvent.data);
-      if (msg.type === "detail") {
-        onDetailBangunan(msg.id);
-      } else if (msg.type === "rute") {
-        Linking.openURL(
-          `https://www.google.com/maps/dir/?api=1&destination=${msg.lat},${msg.lng}&travelmode=walking`
-        );
-      }
+      handleMapMessage(msg);
     } catch (_) {}
   }
 
   const withGPS  = buildings.filter((b) => b.lat != null).length;
   const noGPS    = buildings.length - withGPS;
-  const mapHTML  = buildMapHTML(buildings, CENTER_LAT, CENTER_LNG);
+  const mapHTML  = buildMapHTML(buildings, CENTER_LAT, CENTER_LNG, Platform.OS === "web");
+
+  // Handler pesan dari iframe (web) atau WebView (native)
+  function handleMapMessage(data: any) {
+    if (data.type === "detail") {
+      onDetailBangunan(data.id);
+    } else if (data.type === "rute") {
+      if (Platform.OS === "web") {
+        window.open(
+          `https://www.google.com/maps/dir/?api=1&destination=${data.lat},${data.lng}&travelmode=walking`,
+          "_blank"
+        );
+      } else {
+        Linking.openURL(
+          `https://www.google.com/maps/dir/?api=1&destination=${data.lat},${data.lng}&travelmode=walking`
+        );
+      }
+    }
+  }
 
   if (loading) {
     return (
@@ -207,16 +254,22 @@ export function MapScreen({ onDetailBangunan }: {
 
       {/* Map — platform guard */}
       {Platform.OS === "web" ? (
-        // Web browser: WebView tidak tersedia, tampilkan info
-        <View style={{ flex: 1, justifyContent: "center", alignItems: "center", padding: 32, gap: 12 }}>
-          <Icon name="map-pin" size={48} color={T.primaryFixed} />
-          <Text style={{ fontSize: 16, fontWeight: "700", color: T.onSurface, textAlign: "center" }}>
-            Peta hanya tersedia di aplikasi mobile
-          </Text>
-          <Text style={{ fontSize: 13, color: T.onSurfaceVariant, textAlign: "center", lineHeight: 20 }}>
-            Buka di Expo Go (Android/iOS) untuk melihat peta GPS bangunan.
-          </Text>
-        </View>
+        // Web browser: render Leaflet via iframe
+        buildings.filter(b => b.lat != null).length === 0 ? (
+          <View style={{ flex: 1, justifyContent: "center", alignItems: "center", padding: 32, gap: 12 }}>
+            <Icon name="map-pin" size={48} color={T.primaryFixed} />
+            <Text style={{ fontSize: 16, fontWeight: "700", color: T.onSurface, textAlign: "center" }}>
+              Belum Ada Marker GPS
+            </Text>
+            <Text style={{ fontSize: 13, color: T.onSurfaceVariant, textAlign: "center", lineHeight: 20 }}>
+              Tambahkan bangunan dengan lokasi GPS dari tab Data Lapangan.
+            </Text>
+          </View>
+        ) : (
+          <View style={{ flex: 1 }}>
+            <IframeMap html={mapHTML} onMessage={handleMapMessage} />
+          </View>
+        )
       ) : buildings.filter(b => b.lat != null).length === 0 ? (
         <ScrollView
           contentContainerStyle={{ flexGrow: 1, justifyContent: "center", alignItems: "center", padding: 32 }}

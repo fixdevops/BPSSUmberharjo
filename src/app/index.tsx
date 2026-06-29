@@ -20,11 +20,10 @@ import { ui } from "../styles/ui";
 import { BerandaKalkulator } from "../components/BerandaKalkulator";
 import { Icon } from "../components/Icon";
 import { InfoCard } from "../components/InfoCard";
-import { PageComingSoon } from "../components/PageComingSoon";
-import { PickerModal } from "../components/PickerModal";
 import { BottomNav } from "../components/navigation/BottomNav";
 import { SideNav } from "../components/navigation/SideNav";
 import { TopNav } from "../components/navigation/TopNav";
+import { PickerModal } from "../components/PickerModal";
 import { Badge } from "../components/ui/Badge";
 import { InputField, LuasField, SelectField } from "../components/ui/FormFields";
 import { DetailRow, ResultRow, ResultSection } from "../components/ui/ResultRow";
@@ -36,6 +35,7 @@ import { DataLapanganScreen } from "../screens/DataLapanganScreen";
 import { DetailBangunanScreen } from "../screens/DetailBangunanScreen";
 import { FormBangunanScreen } from "../screens/FormBangunanScreen";
 import { MapScreen } from "../screens/MapScreen";
+import { SettingsScreen } from "../screens/SettingsScreen";
 import { SLSScreen } from "../screens/SLSScreen";
 
 // ─── Tipe navigation stack ────────────────────────────────────────────────────
@@ -140,7 +140,7 @@ export default function HomeScreen() {
     return (
       <View style={{ flex: 1, backgroundColor: T.bg }}>
         <SLSScreen
-          onPilihRT={(_rt: RT, _sls: SLS) => {
+          onPilihRT={() => {
             setScreen("root");
             setActivePage("lapangan");
           }}
@@ -212,10 +212,10 @@ export default function HomeScreen() {
               { padding: isMobile ? 12 : 20, paddingBottom: isMobile ? 90 : 48 },
             ]}
           >
-            <View style={ui.dotPattern} pointerEvents="none" />
+            <View style={[ui.dotPattern, { pointerEvents: "none" } as any]} />
 
             {activePage === "home"     && <BerandaKalkulator />}
-            {activePage === "settings" && <PageComingSoon title="Pengaturan" icon="settings" />}
+            {activePage === "settings" && <SettingsScreen />}
 
             {activePage === "estimasi" && (
               <>

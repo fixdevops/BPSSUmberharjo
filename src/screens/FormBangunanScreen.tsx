@@ -76,16 +76,46 @@ export function FormBangunanScreen({
   }
 
   async function ambilGPS() {
-    if (!Location) { Alert.alert("Tidak Didukung", "GPS hanya tersedia di mobile."); return; }
     setLoadingGPS(true);
     try {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== "granted") { Alert.alert("Izin Ditolak", "Izin lokasi diperlukan."); return; }
-      const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
-      setLat(loc.coords.latitude);
-      setLng(loc.coords.longitude);
-    } catch { Alert.alert("Error GPS", "Gagal mendapatkan lokasi. Pastikan GPS aktif."); }
-    finally { setLoadingGPS(false); }
+      if (Platform.OS === "web") {
+        // Web: pakai Geolocation API bawaan browser
+        if (!("geolocation" in navigator)) {
+          Alert.alert("Tidak Didukung", "Browser Anda tidak mendukung GPS.");
+          return;
+        }
+        await new Promise<void>((resolve, reject) => {
+          navigator.geolocation.getCurrentPosition(
+            (pos) => {
+              setLat(pos.coords.latitude);
+              setLng(pos.coords.longitude);
+              resolve();
+            },
+            (err) => {
+              if (err.code === err.PERMISSION_DENIED) {
+                Alert.alert("Izin Ditolak", "Izinkan akses lokasi di browser untuk mengambil GPS.");
+              } else {
+                Alert.alert("Error GPS", "Gagal mendapatkan lokasi: " + err.message);
+              }
+              reject(err);
+            },
+            { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+          );
+        });
+      } else {
+        // Native: pakai expo-location
+        if (!Location) { Alert.alert("Tidak Didukung", "GPS hanya tersedia di mobile."); return; }
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status !== "granted") { Alert.alert("Izin Ditolak", "Izin lokasi diperlukan."); return; }
+        const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
+        setLat(loc.coords.latitude);
+        setLng(loc.coords.longitude);
+      }
+    } catch (_) {
+      // error sudah di-handle di atas
+    } finally {
+      setLoadingGPS(false);
+    }
   }
 
   async function handleSave() {

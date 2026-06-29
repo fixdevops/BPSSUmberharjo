@@ -1,6 +1,6 @@
 // ─── BerandaKalkulator — Kalkulator Pendapatan Bulanan ───────────────────────
 import { useState } from "react";
-import { Alert, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { Alert, Platform, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { T } from "../constants/theme";
 import { useBreakpoints } from "../hooks/useBreakpoints";
 import { copyToClipboard, parseRupiah, rp } from "../lib/helpers";
@@ -294,12 +294,11 @@ const st = StyleSheet.create({
     borderWidth: 1,
     borderColor: T.outlineVariant,
     overflow: "hidden",
-    elevation: 3,
-    shadowColor: T.primary,
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-  },
+    ...Platform.select({
+      web:    { boxShadow: "0px 3px 8px rgba(0,78,199,0.1)" },
+      default:{ elevation: 3, shadowColor: T.primary, shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.1, shadowRadius: 8 },
+    }),
+  } as any,
   hasilHeader:      { flexDirection: "row", alignItems: "center", gap: 12, backgroundColor: T.primary, padding: 16 },
   hasilIconBox:     { width: 42, height: 42, borderRadius: 21, backgroundColor: "rgba(255,255,255,0.2)", alignItems: "center", justifyContent: "center" },
   hasilHeaderTitle: { fontSize: 15, fontWeight: "700", color: T.white },
