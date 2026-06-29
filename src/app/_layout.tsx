@@ -1,16 +1,10 @@
-import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from "expo-router";
-import { useColorScheme } from "react-native";
+import { Stack } from "expo-router";
 
+// Layout minimal — satu Stack tanpa header.
+// Semua navigasi dikelola oleh HomeScreen (index.tsx) secara manual
+// menggunakan state internal, bukan expo-router.
 export default function Layout() {
-  const colorScheme = useColorScheme();
-
   return (
-    <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
-      <Stack
-        screenOptions={{
-          headerShown: false,
-        }}
-      />
-    </ThemeProvider>
+    <Stack screenOptions={{ headerShown: false, animation: "none" }} />
   );
 }

@@ -20,11 +20,26 @@
       "predictiveBackGestureEnabled": false
     },
     "web": {
-      "output": "static",
+      "output": "spa",
       "favicon": "./assets/images/logoiconenew.jpeg"
     },
     "plugins": [
       "expo-router",
+      "expo-sqlite",
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "SE2026 perlu akses lokasi untuk menandai GPS bangunan.",
+          "locationWhenInUsePermission": "SE2026 perlu akses lokasi untuk menandai GPS bangunan."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "SE2026 perlu akses galeri untuk mengunggah foto bangunan.",
+          "cameraPermission": "SE2026 perlu akses kamera untuk mengambil foto bangunan."
+        }
+      ],
       [
         "expo-splash-screen",
         {
