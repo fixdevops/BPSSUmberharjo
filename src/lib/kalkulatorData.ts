@@ -153,7 +153,7 @@ export function explainSaprotan(kom: string, ha: number, totalBiaya: number): st
 // ─── Database Komoditas (patokan BPS lapangan per 1.000 kg produksi) ─────────
 export const db: Record<string, KomoditasData> = {
   Padi: {
-    prod:     5500,        // kg/ha — rata-rata BPS 5–6 ton/ha
+    prod:     7042,        // kg/ha — 1 ton = 1.420 m² → 1000/0.142 ha = 7.042 kg/ha
     harga:    6_000,       // Rp/kg GKP (patokan: 1 ton = Rp 6.000.000)
     t:        12,          // HOK/ha
     gaji1000: 2_000_000,   // Rp 2 juta per ton (patokan)
@@ -320,6 +320,8 @@ export function hitungSatuMusim(params: {
   const d = db[kom]!;
 
   // ── 1. Hitung ha & prod ───────────────────────────────────────────────────
+  // Walikan (musim kering) → produktivitas −15%
+  // Padi: 7.042 kg/ha × 0,85 = 5.986 kg/ha (Walikan)
   const PROD_PER_HA = (kom === "Padi" && musim === "Walikan")
     ? d.prod * 0.85
     : d.prod;
