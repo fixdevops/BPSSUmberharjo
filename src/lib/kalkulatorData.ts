@@ -260,6 +260,25 @@ export const kategoriMap: Record<string, string[]> = {
 };
 export const daftarKategori = Object.keys(kategoriMap);
 
+// ─── Kondisi Hasil Panen ──────────────────────────────────────────────────────
+// Mempengaruhi produktivitas (kg/ha) dan nilai produksi akhir
+export type KondisiPanen = "Sedang" | "Baik" | "Sangat Baik";
+
+export const daftarKondisiPanen: KondisiPanen[] = ["Sedang", "Baik", "Sangat Baik"];
+
+// Faktor pengali produktivitas per kondisi
+export const kondisiPanenFaktor: Record<KondisiPanen, number> = {
+  "Sedang":      1.00,   // baseline (patokan normal BPS)
+  "Baik":        1.15,   // +15% dari baseline
+  "Sangat Baik": 1.30,   // +30% dari baseline
+};
+
+export const kondisiPanenLabel: Record<KondisiPanen, string> = {
+  "Sedang":      "Sedang (normal)",
+  "Baik":        "Baik (+15%)",
+  "Sangat Baik": "Sangat Baik (+30%)",
+};
+
 // ─── Tipe HasilMusim ──────────────────────────────────────────────────────────
 export type HasilMusim = {
   musim:    string;
@@ -293,6 +312,10 @@ export type HasilMusim = {
   // Biaya detail (padi)
   combiCost: number;
   bbmCost:   number;
+
+  // Kondisi panen
+  kondisiPanen:  KondisiPanen;
+  faktorKondisi: number;
 };
 
 // ─── Konstanta Biaya Operasional ─────────────────────────────────────────────
@@ -315,16 +338,22 @@ export function hitungSatuMusim(params: {
   panen: string;
   satPanen: string;
   status: string;
+  kondisiPanen?: KondisiPanen;
 }): HasilMusim {
-  const { musim, kom, mode, luas, panen, satPanen, status } = params;
+  const { musim, kom, mode, luas, panen, satPanen, status, kondisiPanen } = params;
   const d = db[kom]!;
+
+  // Faktor kondisi panen (default: Sedang = 1.0)
+  const faktorKondisi = kondisiPanenFaktor[kondisiPanen ?? "Sedang"];
 
   // ── 1. Hitung ha & prod ───────────────────────────────────────────────────
   // Walikan (musim kering) → produktivitas −15%
   // Padi: 7.042 kg/ha × 0,85 = 5.986 kg/ha (Walikan)
-  const PROD_PER_HA = (kom === "Padi" && musim === "Walikan")
+  // kondisiPanen: Sedang × 1.0, Baik × 1.15, Sangat Baik × 1.30
+  const PROD_PER_HA_BASE = (kom === "Padi" && musim === "Walikan")
     ? d.prod * 0.85
     : d.prod;
+  const PROD_PER_HA = PROD_PER_HA_BASE * faktorKondisi;
 
   let ha = 0, prod = 0;
   if (mode === "luas") {
@@ -405,6 +434,8 @@ export function hitungSatuMusim(params: {
     pend, pendPetani, upah, biaya, oper, combiCost, bbmCost,
     sewaLahan, bagiHasilPot, non, totalPeng,
     asetTanah, asetLain, alatUnits,
+    kondisiPanen: kondisiPanen ?? "Sedang",
+    faktorKondisi,
   };
 }
 
@@ -421,6 +452,7 @@ export type HitungParams = {
   jumlahPohon: string;
   luasTembakau: string;
   status: string;
+  kondisiPanen?: KondisiPanen;
 };
 
 // ─── Fungsi Hitung Utama ──────────────────────────────────────────────────────
@@ -428,6 +460,7 @@ export function hitungEstimasi(params: HitungParams): any | null {
   const {
     kom, mode, luas, satLuas, panen, satPanen,
     musimTanam, jenisTembakau, jumlahPohon, luasTembakau, status,
+    kondisiPanen,
   } = params;
 
   // ══════════════════════════════════════════════════════════════════════
@@ -441,7 +474,7 @@ export function hitungEstimasi(params: HitungParams): any | null {
     const isKering = jenisTembakau === "Tembakau Kering";
 
     // Produksi
-    const kgBasah  = TB.kgPer1000 * ribuan;
+    const kgBasah  = TB.kgPer1000 * ribuan * (kondisiPanenFaktor[kondisiPanen ?? "Sedang"]);
     const kgKering = kgBasah * TB.susut;
 
     // Nilai produksi
@@ -501,6 +534,8 @@ export function hitungEstimasi(params: HitungParams): any | null {
       hokTotal, hokLaki, hokPerempuan, hokDibayar, hokTidakDibayar,
       tkKowak, tkMacul, tkPanen, tkRajang, tkMepe,
       musim: musimTanam[0] ?? "—",
+      kondisiPanen: kondisiPanen ?? "Sedang",
+      faktorKondisi: kondisiPanenFaktor[kondisiPanen ?? "Sedang"],
     };
   }
 
@@ -518,6 +553,7 @@ export function hitungEstimasi(params: HitungParams): any | null {
     hitungSatuMusim({
       musim: m === "" ? (musimTanam[0] ?? "Rendengan") : m,
       kom, mode, luas, satLuas, panen, satPanen, status,
+      kondisiPanen,
     })
   );
 
@@ -532,6 +568,8 @@ export function hitungEstimasi(params: HitungParams): any | null {
     ...a,
     musimList,
     perMusim: hasilPerMusim,
+    kondisiPanen: kondisiPanen ?? "Sedang",
+    faktorKondisi: kondisiPanenFaktor[kondisiPanen ?? "Sedang"],
     upah:         a.upah  + b.upah,
     biaya:        a.biaya + b.biaya,
     oper:         a.oper  + b.oper,

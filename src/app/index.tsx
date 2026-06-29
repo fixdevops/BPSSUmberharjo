@@ -13,7 +13,7 @@ import { useBreakpoints } from "../hooks/useBreakpoints";
 import { useDatabase } from "../hooks/useDatabase";
 import { buildRows } from "../lib/buildRows";
 import { rp } from "../lib/helpers";
-import { daftarKategori, hitungEstimasi, kategoriMap, TEMBAKAU } from "../lib/kalkulatorData";
+import { daftarKategori, daftarKondisiPanen, hitungEstimasi, kategoriMap, kondisiPanenLabel, TEMBAKAU, type KondisiPanen } from "../lib/kalkulatorData";
 import { ui } from "../styles/ui";
 
 // ── Komponen UI ──────────────────────────────────────────────────────────────
@@ -67,6 +67,7 @@ export default function HomeScreen() {
   const [jenisTembakau, setJenisTembakau] = useState("Tembakau Basah");
   const [jumlahPohon,   setJumlahPohon]   = useState("1000");
   const [luasTembakau,  setLuasTembakau]  = useState("15");
+  const [kondisiPanen,  setKondisiPanen]  = useState<KondisiPanen>("Sedang");
   const [status, setStatus]   = useState("Milik Sendiri");
   const [tahun,  setTahun]    = useState("2002");
 
@@ -96,6 +97,7 @@ export default function HomeScreen() {
       const res = hitungEstimasi({
         kom, mode, luas, satLuas, panen, satPanen,
         musimTanam, jenisTembakau, jumlahPohon, luasTembakau, status,
+        kondisiPanen,
       });
       if (res) { setHasil(res); setStep(1); }
     } catch {
@@ -335,6 +337,22 @@ export default function HomeScreen() {
                           placeholder="contoh: 15" keyboardType="numeric" width={isTablet ? "48%" : "100%"} />
                       </>
                     )}
+
+                    {/* Kondisi Hasil Panen — semua komoditas */}
+                    <SelectField
+                      label="Kondisi Hasil Panen"
+                      value={kondisiPanenLabel[kondisiPanen]}
+                      width={isTablet ? "48%" : "100%"}
+                      onPress={() => openPicker(
+                        "Kondisi Hasil Panen",
+                        daftarKondisiPanen.map((k) => kondisiPanenLabel[k]),
+                        kondisiPanenLabel[kondisiPanen],
+                        (v) => {
+                          const found = daftarKondisiPanen.find((k) => kondisiPanenLabel[k] === v);
+                          if (found) setKondisiPanen(found);
+                        }
+                      )}
+                    />
                   </View>
                 </SectionCard>
 

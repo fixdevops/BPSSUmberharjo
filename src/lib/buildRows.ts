@@ -29,6 +29,18 @@ export function buildRows(params: {
     const isKering = h.jenis === "Tembakau Kering";
     const TB = TEMBAKAU;
     return [
+      // ── KONDISI PANEN ────────────────────────────────────────────────────
+      {
+        label: "Kondisi Hasil Panen",
+        value: kondisiPanenLabel[h.kondisiPanen as keyof typeof kondisiPanenLabel] ?? h.kondisiPanen,
+        explain:
+          `Faktor pengali produktivitas:\n` +
+          `  • Sedang      → ×1,00 (baseline BPS)\n` +
+          `  • Baik        → ×1,15 (+15%)\n` +
+          `  • Sangat Baik → ×1,30 (+30%)\n\n` +
+          `Kondisi dipilih: ${h.kondisiPanen} (×${h.faktorKondisi?.toFixed(2) ?? "1,00"})\n` +
+          `Mempengaruhi jumlah kg produksi dan nilai jual.`,
+      },
       // ── HOK ────────────────────────────────────────────────────────────
       { section: "24 — Tenaga Kerja (HOK = Hari Orang Kerja)" },
       {
@@ -185,6 +197,19 @@ export function buildRows(params: {
           : `Musim Rendengan (hujan):\n• Produktivitas standar ${d?.prod.toLocaleString()} kg/ha\n• Harga GKP: Rp ${(d?.harga ?? 0).toLocaleString()}/kg`,
     });
   }
+
+  // Kondisi Hasil Panen
+  rows.push({
+    label: "Kondisi Hasil Panen",
+    value: kondisiPanenLabel[h.kondisiPanen as keyof typeof kondisiPanenLabel] ?? h.kondisiPanen ?? "Sedang (normal)",
+    explain:
+      `Faktor pengali produktivitas:\n` +
+      `  • Sedang      → ×1,00 (baseline BPS)\n` +
+      `  • Baik        → ×1,15 (+15%)\n` +
+      `  • Sangat Baik → ×1,30 (+30%)\n\n` +
+      `Kondisi dipilih: ${h.kondisiPanen ?? "Sedang"} (×${(h.faktorKondisi ?? 1).toFixed(2)})\n` +
+      `Mempengaruhi jumlah kg produksi dan nilai jual.`,
+  });
 
   // ── HOK ──────────────────────────────────────────────────────────────────
   rows.push({ section: "24 — Tenaga Kerja (HOK = Hari Orang Kerja)" });
