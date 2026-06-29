@@ -209,24 +209,25 @@ export function DataLapanganScreen({
         keyExtractor={(item) => String(item.id)}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         contentContainerStyle={{ padding: 14, paddingBottom: 100 }}
-        ListHeaderComponent={() => (
-          <View style={{ gap: 12, marginBottom: 16 }}>
-            {/* Stats row baris 1 */}
-            <View style={{ flexDirection: "row", gap: 8 }}>
-              <StatCard icon="database"    label="SLS"       value={stats.totalSLS}       color={T.primary} />
-              <StatCard icon="map-pin"     label="RT"        value={stats.totalRT}        color={T.secondary} />
-              <StatCard icon="home"        label="Bangunan"  value={stats.totalBangunan}  color="#8b5cf6" />
+        ListHeaderComponent={
+          <View style={{ marginBottom: 16 }}>
+            <View style={{ flexDirection: "row", marginBottom: 8 }}>
+              <StatCard icon="database" label="SLS"      value={stats.totalSLS}       color={T.primary} />
+              <View style={{ width: 8 }} />
+              <StatCard icon="map-pin"  label="RT"       value={stats.totalRT}        color={T.secondary} />
+              <View style={{ width: 8 }} />
+              <StatCard icon="home"     label="Bangunan" value={stats.totalBangunan}  color="#8b5cf6" />
             </View>
-            {/* Stats row baris 2 */}
-            <View style={{ flexDirection: "row", gap: 8 }}>
-              <StatCard icon="user"        label="KK"        value={stats.totalKK}        color="#f59e0b" />
-              <StatCard icon="map-pin"     label="Ber-GPS"   value={stats.bangunanBerGPS} color="#22c55e" />
-              <StatCard icon="copy"        label="Foto"      value={stats.totalFoto}      color="#ef4444" />
+            <View style={{ flexDirection: "row", marginBottom: 8 }}>
+              <StatCard icon="user"    label="KK"      value={stats.totalKK}        color="#f59e0b" />
+              <View style={{ width: 8 }} />
+              <StatCard icon="map-pin" label="Ber-GPS" value={stats.bangunanBerGPS} color="#22c55e" />
+              <View style={{ width: 8 }} />
+              <StatCard icon="copy"    label="Foto"    value={stats.totalFoto}      color="#ef4444" />
             </View>
-
-            {/* Search */}
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 8, backgroundColor: T.white, borderRadius: 10, borderWidth: 1.5, borderColor: T.outlineVariant, paddingHorizontal: 12, paddingVertical: 9 }}>
+            <View style={{ flexDirection: "row", alignItems: "center", backgroundColor: T.white, borderRadius: 10, borderWidth: 1.5, borderColor: T.outlineVariant, paddingHorizontal: 12, paddingVertical: 9, marginBottom: 8 }}>
               <Icon name="info" size={16} color={T.outline} />
+              <View style={{ width: 8 }} />
               <TextInput
                 style={{ flex: 1, fontSize: 14, color: T.onSurface, padding: 0 }}
                 value={search}
@@ -240,56 +241,57 @@ export function DataLapanganScreen({
                 </Pressable>
               ) : null}
             </View>
-
-            {/* Shortcut Kelola SLS */}
-            {stats.totalSLS === 0 && (
+            {stats.totalSLS === 0 ? (
               <Pressable
-                style={{ flexDirection: "row", alignItems: "center", gap: 10, backgroundColor: T.primaryFixed, borderRadius: 12, padding: 14, borderWidth: 1, borderColor: T.primary }}
+                style={{ flexDirection: "row", alignItems: "center", backgroundColor: T.primaryFixed, borderRadius: 12, padding: 14, borderWidth: 1, borderColor: T.primary, marginBottom: 4 }}
                 onPress={onKelolaSLS}
               >
                 <Icon name="info" size={18} color={T.primary} />
+                <View style={{ width: 10 }} />
                 <View style={{ flex: 1 }}>
-                  <Text style={{ fontSize: 13, fontWeight: "700", color: T.primary }}>Atur Wilayah Kerja Dulu</Text>
-                  <Text style={{ fontSize: 11, color: T.onSurfaceVariant, marginTop: 2 }}>Tambahkan SLS dan RT sebelum input bangunan.</Text>
+                  <Text style={{ fontSize: 13, fontWeight: "700", color: T.primary }}>{"Atur Wilayah Kerja Dulu"}</Text>
+                  <Text style={{ fontSize: 11, color: T.onSurfaceVariant, marginTop: 2 }}>{"Tambahkan SLS dan RT sebelum input bangunan."}</Text>
                 </View>
                 <Icon name="arrow-right" size={16} color={T.primary} />
               </Pressable>
-            )}
-
-            {search && filtered.length === 0 && (
+            ) : null}
+            {(search.length > 0 && filtered.length === 0) ? (
               <Text style={{ textAlign: "center", color: T.onSurfaceVariant, fontSize: 13 }}>
-                Tidak ditemukan hasil untuk "{search}"
+                {`Tidak ditemukan hasil untuk "${search}"`}
               </Text>
-            )}
+            ) : null}
           </View>
-        )}
-        ListEmptyComponent={() => (
-          <View style={{ alignItems: "center", justifyContent: "center", paddingVertical: 60, gap: 12 }}>
-            <View style={{ width: 80, height: 80, borderRadius: 20, backgroundColor: T.primaryFixed, alignItems: "center", justifyContent: "center" }}>
+        }
+        ListEmptyComponent={
+          <View style={{ alignItems: "center", justifyContent: "center", paddingVertical: 60 }}>
+            <View style={{ width: 80, height: 80, borderRadius: 20, backgroundColor: T.primaryFixed, alignItems: "center", justifyContent: "center", marginBottom: 12 }}>
               <Icon name="home" size={40} color={T.primary} />
             </View>
-            <Text style={{ fontSize: 16, fontWeight: "700", color: T.onSurface }}>Belum Ada Bangunan</Text>
-            <Text style={{ fontSize: 13, color: T.onSurfaceVariant, textAlign: "center", lineHeight: 20 }}>
-              Pastikan SLS & RT sudah dibuat,{"\n"}lalu tap "+ Bangunan" untuk memulai.
+            <Text style={{ fontSize: 16, fontWeight: "700", color: T.onSurface, marginBottom: 4 }}>{"Belum Ada Bangunan"}</Text>
+            <Text style={{ fontSize: 13, color: T.onSurfaceVariant, textAlign: "center", lineHeight: 20, marginBottom: 16 }}>
+              {"Pastikan SLS & RT sudah dibuat,\nlalu tap \"+ Bangunan\" untuk memulai."}
             </Text>
-            <View style={{ flexDirection: "row", gap: 10 }}>
+            <View style={{ flexDirection: "row" }}>
               <Pressable
-                style={{ backgroundColor: T.surfaceContainerLow, paddingHorizontal: 16, paddingVertical: 11, borderRadius: 10, flexDirection: "row", alignItems: "center", gap: 6, borderWidth: 1, borderColor: T.outlineVariant }}
+                style={{ backgroundColor: T.surfaceContainerLow, paddingHorizontal: 16, paddingVertical: 11, borderRadius: 10, flexDirection: "row", alignItems: "center", borderWidth: 1, borderColor: T.outlineVariant }}
                 onPress={onKelolaSLS}
               >
                 <Icon name="database" size={14} color={T.secondary} />
-                <Text style={{ fontSize: 13, fontWeight: "600", color: T.secondary }}>Kelola SLS/RT</Text>
+                <View style={{ width: 6 }} />
+                <Text style={{ fontSize: 13, fontWeight: "600", color: T.secondary }}>{"Kelola SLS/RT"}</Text>
               </Pressable>
+              <View style={{ width: 10 }} />
               <Pressable
-                style={{ backgroundColor: T.primary, paddingHorizontal: 16, paddingVertical: 11, borderRadius: 10, flexDirection: "row", alignItems: "center", gap: 6 }}
+                style={{ backgroundColor: T.primary, paddingHorizontal: 16, paddingVertical: 11, borderRadius: 10, flexDirection: "row", alignItems: "center" }}
                 onPress={onTambahBangunan}
               >
                 <Icon name="zap" size={14} color={T.onPrimary} />
-                <Text style={{ fontSize: 13, fontWeight: "700", color: T.onPrimary }}>+ Bangunan</Text>
+                <View style={{ width: 6 }} />
+                <Text style={{ fontSize: 13, fontWeight: "700", color: T.onPrimary }}>{"+ Bangunan"}</Text>
               </Pressable>
             </View>
           </View>
-        )}
+        }
         renderItem={({ item }) => (
           <BangunanCard
             item={item}
