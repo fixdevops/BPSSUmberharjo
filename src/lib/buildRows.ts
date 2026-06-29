@@ -351,24 +351,24 @@ export function buildRows(params: {
       ? (() => {
           const a2 = h.perMusim[0]; const b2 = h.perMusim[1];
           return (
-            `Musim ${a2.musim}: ${ha.toFixed(3)} ha × ${d?.prod.toLocaleString()} kg/ha = ${Math.round(a2.prod).toLocaleString()} kg\n` +
-            `Musim ${b2.musim}: ${ha.toFixed(3)} ha × ${Math.round((d?.prod ?? 0) * 0.85).toLocaleString()} kg/ha = ${Math.round(b2.prod).toLocaleString()} kg\nTotal = ${Math.round(h.prod).toLocaleString()} kg`
+            `Musim ${a2.musim}: ${Math.round(a2.prod).toLocaleString()} kg\n` +
+            `Musim ${b2.musim}: ${Math.round(b2.prod).toLocaleString()} kg\nTotal = ${Math.round(h.prod).toLocaleString()} kg`
           );
         })()
       : mode === "luas"
-        ? `${ha.toFixed(4)} ha × ${PROD_PER_HA_R.toLocaleString()} kg/ha = ${Math.round(h.prod).toLocaleString()} kg`
+        ? `Luas ${Math.round(h.luasM2_f).toLocaleString()} m² (${ha.toFixed(4)} ha) × ${PROD_PER_HA_R.toLocaleString()} kg/ha = ${Math.round(h.prod).toLocaleString()} kg`
         : satPanen === "KUINTAL"
-          ? `Input: ${panen} kw × 100 = ${Math.round(h.prod).toLocaleString()} kg\nEstimasi luas: ${Math.round(h.prod).toLocaleString()} kg ÷ ${PROD_PER_HA_R.toLocaleString()} kg/ha = ${ha.toFixed(4)} ha`
+          ? `Input: ${panen} kw × 100 = ${Math.round(h.prod).toLocaleString()} kg\nEstimasi luas: ${Math.round(h.prod).toLocaleString()} kg ÷ ${PROD_PER_HA_R.toLocaleString()} kg/ha = ${Math.round(h.luasM2_f).toLocaleString()} m²`
           : satPanen === "TON"
-            ? `Input: ${panen} ton × 1.000 = ${Math.round(h.prod).toLocaleString()} kg\nEstimasi luas: ${Math.round(h.prod).toLocaleString()} kg ÷ ${PROD_PER_HA_R.toLocaleString()} kg/ha = ${ha.toFixed(4)} ha`
-            : `Input: ${Math.round(h.prod).toLocaleString()} kg\nEstimasi luas: ÷ ${PROD_PER_HA_R.toLocaleString()} kg/ha = ${ha.toFixed(4)} ha`,
+            ? `Input: ${panen} ton × 1.000 = ${Math.round(h.prod).toLocaleString()} kg\nEstimasi luas: ${Math.round(h.prod).toLocaleString()} kg ÷ ${PROD_PER_HA_R.toLocaleString()} kg/ha = ${Math.round(h.luasM2_f).toLocaleString()} m²`
+            : `Input: ${Math.round(h.prod).toLocaleString()} kg\nEstimasi luas = ${Math.round(h.luasM2_f).toLocaleString()} m²`,
   });
 
   rows.push({
     label: "Estimasi Luas",
-    value: `${ha.toFixed(4)} ha (${Math.round(h.luasM2_f).toLocaleString("id-ID")} m²)`,
+    value: `${Math.round(h.luasM2_f).toLocaleString("id-ID")} m²`,
     explain:
-      `${ha.toFixed(4)} ha = ${Math.round(h.luasM2_f).toLocaleString("id-ID")} m²` +
+      `${Math.round(h.luasM2_f).toLocaleString("id-ID")} m² = ${ha.toFixed(4)} ha` +
       (isDuaMusim ? "\n(Lahan sama untuk kedua musim tanam.)" : ""),
   });
 
@@ -385,12 +385,12 @@ export function buildRows(params: {
     label: "28.b   Aset Lainnya (Alat)",
     value: rp(h.asetLain),
     explain:
-      `Estimasi peralatan berdasarkan luas ${ha.toFixed(3)} ha:\n\n` +
+      `Estimasi peralatan untuk luas ${Math.round(h.luasM2_f).toLocaleString()} m²:\n\n` +
       `  Pompa Air (Alkon) ${String(h.alatUnits[0]).padStart(3)}× Rp 1.500.000 = ${rp(h.alatUnits[0] * 1_500_000)}\n` +
       `  Sprayer (16L)     ${String(h.alatUnits[1]).padStart(3)}× Rp   250.000 = ${rp(h.alatUnits[1] * 250_000)}\n` +
       `  Sabit/Arit        ${String(h.alatUnits[2]).padStart(3)}× Rp    50.000 = ${rp(h.alatUnits[2] * 50_000)}\n` +
       `  Cangkul (Pacul)   ${String(h.alatUnits[3]).padStart(3)}× Rp    75.000 = ${rp(h.alatUnits[3] * 75_000)}\n\n` +
-      `  Mesin/Sprayer = 1 unit per 1 ha\n  Alat tangan  = 1 unit per 0,3 ha\n\nTotal = ${rp(h.asetLain)}`,
+      `  Mesin/Sprayer = 1 unit per 10.000 m²\n  Alat tangan  = 1 unit per 3.000 m²\n\nTotal = ${rp(h.asetLain)}`,
   });
   rows.push({
     label: "28.c   Total Aset",
@@ -399,8 +399,8 @@ export function buildRows(params: {
   });
   rows.push({
     label: "28.d   Luas Lahan",
-    value: `${ha.toFixed(4)} ha`,
-    explain: `${ha.toFixed(4)} ha = ${Math.round(h.luasM2_f).toLocaleString("id-ID")} m²`,
+    value: `${Math.round(h.luasM2_f).toLocaleString("id-ID")} m²`,
+    explain: `${Math.round(h.luasM2_f).toLocaleString("id-ID")} m² = ${ha.toFixed(4)} ha`,
   });
 
   return rows;
