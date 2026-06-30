@@ -36,8 +36,6 @@ export const saprotanDetail: Record<string, ItemSaprotan[]> = {
     { nama: "Pupuk NPK Phonska",           vol: 100, satuan: "kg",    harga: 2_100   },
     { nama: "Pupuk Organik/Kompos",        vol: 500, satuan: "kg",    harga: 400     },
     { nama: "Pestisida (Regent/Furadan)",  vol: 1,   satuan: "liter", harga: 50_000  },
-    { nama: "Herbisida (Gramoxone)",       vol: 1,   satuan: "liter", harga: 40_000  },
-    { nama: "Fungisida (Dithane)",         vol: 0.5, satuan: "kg",    harga: 60_000  },
   ],
   Jagung: [
     { nama: "Benih Jagung Hibrida (Bisi)", vol: 20,  satuan: "kg",    harga: 40_000  },
@@ -155,7 +153,7 @@ export const db: Record<string, KomoditasData> = {
   Padi: {
     prod:     7042,        // kg/ha — 1 ton = 1.420 m² → 1000/0.142 ha = 7.042 kg/ha
     harga:    6_000,       // Rp/kg GKP (patokan: 1 ton = Rp 6.000.000)
-    t:        12,          // HOK/ha
+    t:        100,         // HOK/ha per musim (semi-mekanisasi Bojonegoro)
     gaji1000: 2_000_000,   // Rp 2 juta per ton (patokan)
     sapr1000: 800_000,     // Rp 800 ribu per ton (patokan)
     ops1000:  200_000,     // Rp 200 ribu per ton (patokan)
@@ -163,7 +161,7 @@ export const db: Record<string, KomoditasData> = {
   Jagung: {
     prod:     5000,
     harga:    4_000,
-    t:        8,
+    t:        80,
     gaji1000: 1_500_000,
     sapr1000: 600_000,
     ops1000:  150_000,
@@ -171,7 +169,7 @@ export const db: Record<string, KomoditasData> = {
   Kedelai: {
     prod:     1500,
     harga:    8_000,
-    t:        9,
+    t:        70,
     gaji1000: 2_500_000,
     sapr1000: 1_000_000,
     ops1000:  200_000,
@@ -179,7 +177,7 @@ export const db: Record<string, KomoditasData> = {
   "Kacang Hijau": {
     prod:     1200,
     harga:    10_000,
-    t:        7,
+    t:        60,
     gaji1000: 2_000_000,
     sapr1000: 800_000,
     ops1000:  150_000,
@@ -187,7 +185,7 @@ export const db: Record<string, KomoditasData> = {
   "Bawang Merah": {
     prod:     8000,
     harga:    20_000,
-    t:        20,
+    t:        150,
     gaji1000: 1_800_000,
     sapr1000: 3_000_000,
     ops1000:  300_000,
@@ -195,7 +193,7 @@ export const db: Record<string, KomoditasData> = {
   Cabai: {
     prod:     6000,
     harga:    25_000,
-    t:        18,
+    t:        140,
     gaji1000: 2_000_000,
     sapr1000: 4_000_000,
     ops1000:  400_000,
@@ -203,7 +201,7 @@ export const db: Record<string, KomoditasData> = {
   Tebu: {
     prod:     70000,
     harga:    600,
-    t:        15,
+    t:        90,
     gaji1000: 500_000,
     sapr1000: 200_000,
     ops1000:  80_000,
@@ -293,10 +291,18 @@ export type HasilMusim = {
   hokDibayar:      number;
   hokTidakDibayar: number;
 
+  // PEKERJA (JIWA)
+  pekerjaLaki:         number;
+  pekerjaPerempuan:    number;
+  pekerjaDibayar:      number;
+  pekerjaTidakDibayar: number;
+  totalPekerja:        number;
+
   // Keuangan
   pend:         number;
   pendPetani:   number;
   upah:         number;
+  upahHarian:   number; // Rp/HOK yang dipakai
   biaya:        number;
   oper:         number;
   sewaLahan:    number;
@@ -322,7 +328,7 @@ export type HasilMusim = {
 const SEWA_PER_HA    = 12_000_000;
 const RASIO_BH       = 0.50;
 const PBB_TAHUNAN    = 20_000;
-const UPAH_HOK       = 70_000;
+export const UPAH_HOK = 70_000;  // upah harian patokan (Rp/HOK) Bojonegoro
 
 // ─── Distribusi gender HOK ────────────────────────────────────────────────────
 const RASIO_LAKI      = 0.40;
@@ -339,8 +345,10 @@ export function hitungSatuMusim(params: {
   satPanen: string;
   status: string;
   kondisiPanen?: KondisiPanen;
+  upahHarian?: number;
 }): HasilMusim {
   const { musim, kom, mode, luas, panen, satPanen, status, kondisiPanen } = params;
+  const upahHarian = params.upahHarian ?? UPAH_HOK;
   const d = db[kom]!;
 
   // Faktor kondisi panen (default: Sedang = 1.0)
@@ -383,11 +391,37 @@ export function hitungSatuMusim(params: {
   const hokPerempuan    = Math.max(1, Math.round(totalHOK * RASIO_PEREMPUAN));
   const hokTotal        = hokDibayar + hokTidakDibayar;
 
-  // ── 4. Biaya (per 1.000 kg produksi) ─────────────────────────────────────
-  const ribuan = prod / 1000; // satuan 1.000 kg
+  // ── 3b. PEKERJA (JIWA) ────────────────────────────────────────────────────
+  let pekerjaTidakDibayar = 2;
+  if (kom === "Padi") {
+    // Pekerja tidak dibayar flat 4 karena pemilik nya ikut setiap musim rendeng walikan
+    pekerjaTidakDibayar = 4;
+  }
 
-  // Upah TK: dari patokan gaji1000, hokDibayar dipakai untuk breakdown gender saja
-  const upah = ribuan * d.gaji1000;
+  let pekerjaDibayar = 0;
+  if (kom === "Padi") {
+    pekerjaDibayar = Math.max(1, Math.round(ha * 15));
+  } else if (kom === "Kedelai") {
+    pekerjaDibayar = Math.max(1, Math.round(ha * 10));
+  } else {
+    pekerjaDibayar = Math.max(1, Math.round(ha * 12));
+  }
+
+  const totalPekerja = pekerjaDibayar + pekerjaTidakDibayar;
+
+  // Split Laki-laki & Perempuan berdasarkan ratio
+  // Padi & Kedelai: 40% laki, 60% perempuan
+  // Lainnya default 45% laki, 55% perempuan
+  const ratioPekerjaLaki = (kom === "Padi" || kom === "Kedelai") ? 0.40 : 0.45;
+  const pekerjaLaki = Math.max(1, Math.min(totalPekerja - 1, Math.round(totalPekerja * ratioPekerjaLaki)));
+  const pekerjaPerempuan = totalPekerja - pekerjaLaki;
+
+  // ── 4. Biaya ─────────────────────────────────────────────────────────────
+  const ribuan = prod / 1000; // satuan 1.000 kg (untuk saprotan & operasional)
+
+  // Upah TK (26.a): HOK dibayar × upah harian — akurat lapangan
+  // (sebelumnya: ton × gaji1000, tidak nyambung ke jumlah HOK)
+  const upah = hokDibayar * upahHarian;
 
   // Saprotan
   const saprotanDasar = ribuan * d.sapr1000;
@@ -416,24 +450,41 @@ export function hitungSatuMusim(params: {
   const totalPeng = upah + biaya + oper + bagiHasilPot + non;
 
   // ── 5. Aset ───────────────────────────────────────────────────────────────
-  const asetTanah = luasM2_f * 100_000;
-  const alatDb = [
-    { harga: 1_500_000 },
-    { harga: 250_000   },
-    { harga: 50_000    },
-    { harga: 75_000    },
-  ];
-  const unitAlkon   = Math.max(1, Math.round(luasM2_f / 10000));
-  const unitSprayer = Math.max(1, Math.round(luasM2_f / 10000));
-  const unitSabit   = Math.max(1, Math.round(luasM2_f / 3000));
-  const unitCangkul = Math.max(1, Math.round(luasM2_f / 3000));
-  const alatUnits   = [unitAlkon, unitSprayer, unitSabit, unitCangkul];
-  const asetLain    = alatDb.reduce((sum, a, i) => sum + a.harga * alatUnits[i], 0);
+  let asetTanah = luasM2_f * 100_000;
+  let asetLain = 0;
+  let alatUnits: number[] = [];
+
+  if (kom === "Padi") {
+    asetTanah = luasM2_f * 100_000;
+    const unitAlkon   = Math.max(1, Math.round(luasM2_f / 10000));
+    const unitSprayer = Math.max(1, Math.round(luasM2_f / 10000));
+    const unitSabit   = Math.max(1, Math.round(luasM2_f / 3000));
+    const unitCangkul = Math.max(1, Math.round(luasM2_f / 3000));
+    alatUnits = [unitAlkon, unitSprayer, unitSabit, unitCangkul];
+    asetLain = (unitAlkon * 1_500_000) + (unitSprayer * 250_000) + (unitSabit * 50_000) + (unitCangkul * 75_000);
+  } else if (kom === "Kedelai") {
+    asetTanah = luasM2_f * 80_000;
+    const unitSprayer = Math.max(1, Math.round(luasM2_f / 10000));
+    const unitSabit   = Math.max(1, Math.round(luasM2_f / 3000));
+    const unitCangkul = Math.max(1, Math.round(luasM2_f / 3000));
+    const unitTerpal  = Math.max(1, Math.round(luasM2_f / 2500));
+    // [Sprayer, Sabit, Cangkul, Terpal]
+    alatUnits = [unitSprayer, unitSabit, unitCangkul, unitTerpal];
+    asetLain = (unitSprayer * 250_000) + (unitSabit * 50_000) + (unitCangkul * 75_000) + (unitTerpal * 150_000);
+  } else {
+    asetTanah = luasM2_f * 90_000;
+    const unitSprayer = Math.max(1, Math.round(luasM2_f / 10000));
+    const unitSabit   = Math.max(1, Math.round(luasM2_f / 3000));
+    const unitCangkul = Math.max(1, Math.round(luasM2_f / 3000));
+    alatUnits = [0, unitSprayer, unitSabit, unitCangkul];
+    asetLain = (unitSprayer * 250_000) + (unitSabit * 50_000) + (unitCangkul * 75_000);
+  }
 
   return {
     musim, ha, prod, luasM2_f,
     hokTotal, hokLaki, hokPerempuan, hokDibayar, hokTidakDibayar,
-    pend, pendPetani, upah, biaya, oper, combiCost, bbmCost,
+    pekerjaLaki, pekerjaPerempuan, pekerjaDibayar, pekerjaTidakDibayar, totalPekerja,
+    pend, pendPetani, upah, upahHarian, biaya, oper, combiCost, bbmCost,
     sewaLahan, bagiHasilPot, non, totalPeng,
     asetTanah, asetLain, alatUnits,
     kondisiPanen: kondisiPanen ?? "Sedang",
@@ -455,6 +506,7 @@ export type HitungParams = {
   luasTembakau: string;
   status: string;
   kondisiPanen?: KondisiPanen;
+  upahHarian?: number; // Rp/HOK (default UPAH_HOK)
 };
 
 // ─── Fungsi Hitung Utama ──────────────────────────────────────────────────────
@@ -464,6 +516,7 @@ export function hitungEstimasi(params: HitungParams): any | null {
     musimTanam, jenisTembakau, jumlahPohon, luasTembakau, status,
     kondisiPanen,
   } = params;
+  const upahHarian = params.upahHarian;
 
   // ══════════════════════════════════════════════════════════════════════
   // JALUR TEMBAKAU
@@ -493,6 +546,16 @@ export function hitungEstimasi(params: HitungParams): any | null {
     const hokDibayar   = Math.max(1, Math.round(totalHOK * 0.8));
     const hokTidakDibayar = 2;
     const hokTotal     = hokDibayar + hokTidakDibayar;
+
+    // Pekerja (Jiwa)
+    const pekerjaTidakDibayar = 2; // Flat 2 (owner + spouse)
+    const pekerjaDibayar = isKering
+      ? Math.max(1, Math.round(ribuan * 5))
+      : Math.max(1, Math.round(ribuan * 3));
+    const totalPekerja = pekerjaDibayar + pekerjaTidakDibayar;
+    const ratioLakiPekerja = isKering ? 0.30 : 0.50; // Kering: 30% laki, Basah: 50% laki
+    const pekerjaLaki = Math.max(1, Math.min(totalPekerja - 1, Math.round(totalPekerja * ratioLakiPekerja)));
+    const pekerjaPerempuan = totalPekerja - pekerjaLaki;
 
     // Biaya TK
     const gajiTK = isKering
@@ -535,6 +598,7 @@ export function hitungEstimasi(params: HitungParams): any | null {
       nilaiProd, biayaProd, ops, gajiTK, nonT, totalPeng, pendBersih,
       asetTanah_t, asetLain_t, totalAset, luasM2_t,
       hokTotal, hokLaki, hokPerempuan, hokDibayar, hokTidakDibayar,
+      pekerjaLaki, pekerjaPerempuan, pekerjaDibayar, pekerjaTidakDibayar, totalPekerja,
       tkKowak, tkMacul, tkPanen, tkRajang, tkMepe,
       musim: musimTanam[0] ?? "—",
       kondisiPanen: kondisiPanen ?? "Sedang",
@@ -556,7 +620,7 @@ export function hitungEstimasi(params: HitungParams): any | null {
     hitungSatuMusim({
       musim: m === "" ? (musimTanam[0] ?? "Rendengan") : m,
       kom, mode, luas, satLuas, panen, satPanen, status,
-      kondisiPanen,
+      kondisiPanen, upahHarian,
     })
   );
 
@@ -567,6 +631,9 @@ export function hitungEstimasi(params: HitungParams): any | null {
   // ── Dua musim: akumulasi keuangan, aset dari musim pertama ───────────────
   const a = hasilPerMusim[0];
   const b = hasilPerMusim[1];
+  const totalPekerjaDuaMusim = (a.pekerjaDibayar || 0) + (b.pekerjaDibayar || 0) + 4;
+  const pekerjaLakiDuaMusim = Math.max(1, Math.min(totalPekerjaDuaMusim - 1, Math.round(totalPekerjaDuaMusim * 0.40)));
+  const pekerjaPerempuanDuaMusim = totalPekerjaDuaMusim - pekerjaLakiDuaMusim;
   return {
     ...a,
     musimList,
@@ -590,6 +657,11 @@ export function hitungEstimasi(params: HitungParams): any | null {
     hokPerempuan:    a.hokPerempuan + b.hokPerempuan,
     hokDibayar:      a.hokDibayar   + b.hokDibayar,
     hokTidakDibayar: Math.max(a.hokTidakDibayar, b.hokTidakDibayar),
+    pekerjaTidakDibayar: 4,
+    pekerjaDibayar:      (a.pekerjaDibayar || 0) + (b.pekerjaDibayar || 0),
+    totalPekerja:        totalPekerjaDuaMusim,
+    pekerjaLaki:         pekerjaLakiDuaMusim,
+    pekerjaPerempuan:    pekerjaPerempuanDuaMusim,
     asetTanah: a.asetTanah,
     asetLain:  a.asetLain,
     alatUnits: a.alatUnits,

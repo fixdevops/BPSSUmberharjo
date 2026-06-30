@@ -22,9 +22,9 @@ export function buildRows(params: {
   const { hasil: h, kom, mode, panen, satPanen, status } = params;
   if (!h) return [];
 
-  // ══════════════════════════════════════════════════════════════════════
-  // TEMBAKAU
-  // ══════════════════════════════════════════════════════════════════════
+  // ======================================================================
+  // JALUR TEMBAKAU (Basah / Kering)
+  // ======================================================================
   if (h.isTembakau) {
     const isKering = h.jenis === "Tembakau Kering";
     const TB = TEMBAKAU;
@@ -41,46 +41,48 @@ export function buildRows(params: {
           `Kondisi dipilih: ${h.kondisiPanen ?? "Sedang"} (×${(h.faktorKondisi ?? 1).toFixed(2)})\n` +
           `Mempengaruhi jumlah kg produksi dan nilai jual.`,
       },
-      // ── HOK ────────────────────────────────────────────────────────────
-      { section: "24 — Tenaga Kerja (HOK = Hari Orang Kerja)" },
+      // ── PEKERJA (JIWA / ORANG) ──────────────────────────────────────────
+      { section: "24 — Pekerja (Sensus Ekonomi 2026)" },
       {
-        label: "24.a   HOK Laki-laki",
-        value: `${h.hokLaki} HOK`,
-        explain:
-          `Total HOK = ${h.ribuan.toFixed(2)} × ${TB.hokPer1000} HOK/1.000 pohon = ${(h.ribuan * TB.hokPer1000).toFixed(1)} HOK\n` +
-          `Laki-laki (${isKering ? "30" : "50"}%) = ${h.hokLaki} HOK\n` +
+        label: "24.a1. Pekerja Laki-laki",
+        value: `${h.pekerjaLaki} orang`,
+        explain: `Jumlah fisik pekerja laki-laki yang terlibat: ${h.pekerjaLaki} orang.\n` +
+          `Setara dengan HOK Laki-laki: ${h.hokLaki} HOK.\n` +
           (isKering ? `(Kering: lebih banyak perempuan rajang & mepe)` : `(Basah: kowak & macul didominasi laki-laki)`),
       },
       {
-        label: "24.b   HOK Perempuan",
-        value: `${h.hokPerempuan} HOK`,
-        explain:
-          `Perempuan (${isKering ? "70" : "50"}%) = ${h.hokPerempuan} HOK\n` +
+        label: "24.b1. Pekerja Perempuan",
+        value: `${h.pekerjaPerempuan} orang`,
+        explain: `Jumlah fisik pekerja perempuan yang terlibat: ${h.pekerjaPerempuan} orang.\n` +
+          `Setara dengan HOK Perempuan: ${h.hokPerempuan} HOK.\n` +
           (isKering ? `(Pekerjaan rajang & mepe dominan perempuan)` : `(Panen & sortir dominan perempuan)`),
       },
       {
-        label: "24.c   Total HOK",
-        value: `${h.hokTotal} HOK`,
-        explain:
-          `${h.ribuan.toFixed(2)} ribuan pohon × ${TB.hokPer1000} HOK/1.000 pohon = ${(h.ribuan * TB.hokPer1000).toFixed(1)} HOK\n` +
-          `Dibayar : ${h.hokDibayar} HOK\nTidak Dibayar (keluarga) : ${h.hokTidakDibayar} HOK`,
+        label: "24.c1. Total Pekerja (a1+b1)",
+        value: `${h.totalPekerja} orang`,
+        explain: `Total fisik pekerja yang terlibat: ${h.totalPekerja} orang. (Setara dengan ${h.hokTotal} HOK)`,
       },
       {
-        label: "24.d   HOK Dibayar",
-        value: `${h.hokDibayar} HOK`,
-        explain: isKering
-          ? `Pekerjaan kering:\n  Ngrajang : ~${h.tkRajang} org (Rp ${TB.upahRajang.toLocaleString()}/kg)\n  Mepe     : ~${h.tkMepe} org (Rp ${TB.upahMepe.toLocaleString()}/kg)\nDari ${Math.round(h.kgBasah).toLocaleString()} kg basah`
-          : `Pekerjaan basah:\n  Kowak/bajak  : ${h.tkKowak} org\n  Macul/bedengan: ${h.tkMacul} org\n  Panen/petik  : ${h.tkPanen} org\nPer ${h.ribuan.toFixed(2)}× 1.000 pohon`,
+        label: "24.a2. Pekerja Dibayar",
+        value: `${h.pekerjaDibayar} orang`,
+        explain: `Pekerja dibayar (buruh harian/borongan): ${h.pekerjaDibayar} orang.\n` +
+          `Setara dengan HOK Dibayar: ${h.hokDibayar} HOK.`,
       },
       {
-        label: "24.e   Tidak Dibayar",
-        value: `${h.hokTidakDibayar} HOK`,
-        explain: `2 HOK anggota keluarga (standar BPS SE2026).`,
+        label: "24.b2. Pekerja Tidak Dibayar",
+        value: `${h.pekerjaTidakDibayar} orang`,
+        explain: `Pekerja tidak dibayar (anggota keluarga/pemilik): ${h.pekerjaTidakDibayar} orang.\n` +
+          `Setara dengan HOK Tidak Dibayar: ${h.hokTidakDibayar} HOK.`,
+      },
+      {
+        label: "24.c2. Total Pekerja (a2+b2)",
+        value: `${h.totalPekerja} orang`,
+        explain: `Total pekerja berdasarkan status pembayaran: ${h.totalPekerja} orang. (KONSISTEN: harus sama dengan total 24.c1)`,
       },
       // ── PENGELUARAN ────────────────────────────────────────────────────
-      { section: "26 — Pengeluaran Usaha" },
+      { section: "26 — Pengeluaran Usaha Tembakau" },
       {
-        label: "26.a   Gaji Tenaga Kerja",
+        label: "26.a. Upah Tenaga Kerja",
         value: rp(h.gajiTK),
         explain: isKering
           ? `${h.ribuan.toFixed(2)} × Rp ${TB.gajiKeringPer1000.toLocaleString()}/1.000 pohon = ${rp(h.gajiTK)}\n` +
@@ -88,37 +90,37 @@ export function buildRows(params: {
           : `${h.ribuan.toFixed(2)} × Rp ${TB.gajiBasahPer1000.toLocaleString()}/1.000 pohon = ${rp(h.gajiTK)}`,
       },
       {
-        label: "26.b   Biaya Saprotan",
+        label: "26.b. Biaya Produksi (Saprotan)",
         value: rp(h.biayaProd),
         explain: isKering
           ? explainSaprotan("Tembakau Kering", h.ribuan, h.biayaProd)
           : explainSaprotan("Tembakau Basah",  h.ribuan, h.biayaProd),
       },
       {
-        label: "26.d   Biaya Operasional",
+        label: "26.d. Biaya Operasional",
         value: rp(h.ops),
         explain: isKering
-          ? `Rp ${TB.operKeringPer1000.toLocaleString()} per 1.000 pohon\n× ${h.ribuan.toFixed(2)} = ${rp(h.ops)}`
-          : `Rp ${TB.operBasahPer1000.toLocaleString()} per 1.000 pohon\n× ${h.ribuan.toFixed(2)} = ${rp(h.ops)}`,
+          ? `Operasional tembakau kering: Rp ${TB.operKeringPer1000.toLocaleString()} per 1.000 pohon\n× ${h.ribuan.toFixed(2)} = ${rp(h.ops)}`
+          : `Operasional tembakau basah: Rp ${TB.operBasahPer1000.toLocaleString()} per 1.000 pohon\n× ${h.ribuan.toFixed(2)} = ${rp(h.ops)}`,
       },
       {
-        label: "26.e   Non-Tunai (PBB)",
+        label: "26.e. Biaya Non-Operasional (PBB)",
         value: isKering ? "Rp 0" : rp(h.nonT),
         explain: isKering
           ? `Tembakau Kering: tidak ada biaya non-tunai (PBB dibebankan ke usaha basah).`
           : `PBB lahan: ${h.luasM2_t} m² × Rp ${TB.pbbPerM2.toLocaleString()}/m² = ${rp(h.nonT)}`,
       },
       {
-        label: "26.f   Total Pengeluaran",
+        label: "26.f. Total Pengeluaran",
         value: rp(h.totalPeng),
         explain:
           `Gaji TK    : ${rp(h.gajiTK)}\nSaprotan   : ${rp(h.biayaProd)}\n` +
           `Operasional: ${rp(h.ops)}\nNon-Tunai  : ${rp(h.nonT)}\nTotal = ${rp(h.totalPeng)}`,
       },
       // ── PENDAPATAN ──────────────────────────────────────────────────────
-      { section: "27 — Pendapatan Usaha" },
+      { section: "27 — Pendapatan Usaha Tembakau" },
       {
-        label: "27.a   Nilai Produksi",
+        label: "27.a. Nilai Produksi / Penjualan",
         value: rp(h.nilaiProd),
         explain: isKering
           ? `${Math.round(h.kgBasah).toLocaleString()} kg basah × susut ${TB.susut} = ${Math.round(h.kgKering).toLocaleString()} kg kering\n` +
@@ -126,306 +128,547 @@ export function buildRows(params: {
           : `${Math.round(h.kgBasah).toLocaleString()} kg × Rp ${TB.hargaBasah.toLocaleString()}/kg = ${rp(h.nilaiProd)}`,
       },
       {
-        label: "27.c   Pendapatan Bersih",
-        value: rp(h.pendBersih),
-        explain: `Nilai Produksi − Total Pengeluaran\n${rp(h.nilaiProd)} − ${rp(h.totalPeng)} = ${rp(h.pendBersih)}`,
+        label: "27.c. Total Nilai Produksi",
+        value: rp(h.nilaiProd),
+        explain: `Sensus Ekonomi 2026: Total pendapatan kotor dari komoditas yang dihasilkan.`,
       },
       {
-        label: "Hasil Produksi",
+        label: "Hasil Produksi (Konversi)",
         value: isKering
           ? `${Math.round(h.kgKering).toLocaleString("id-ID")} kg kering`
           : `${Math.round(h.kgBasah).toLocaleString("id-ID")} kg basah`,
         explain: isKering
-          ? `${h.ribuan.toFixed(2)} × ${TB.kgPer1000} kg/1.000 pohon = ${Math.round(h.kgBasah).toLocaleString()} kg basah\n× susut ${TB.susut} = ${Math.round(h.kgKering).toLocaleString()} kg kering`
-          : `${h.ribuan.toFixed(2)} × ${TB.kgPer1000} kg/1.000 pohon = ${Math.round(h.kgBasah).toLocaleString()} kg basah`,
+          ? `Konversi Hasil:\n` +
+            `  • ${Math.round(h.kgKering).toLocaleString("id-ID")} kg\n` +
+            `  • ${(h.kgKering / 100).toFixed(2)} kuintal\n` +
+            `  • ${(h.kgKering / 1000).toFixed(3)} ton`
+          : `Konversi Hasil:\n` +
+            `  • ${Math.round(h.kgBasah).toLocaleString("id-ID")} kg\n` +
+            `  • ${(h.kgBasah / 100).toFixed(2)} kuintal\n` +
+            `  • ${(h.kgBasah / 1000).toFixed(3)} ton`,
       },
       // ── ASET ─────────────────────────────────────────────────────────────
-      { section: "28 — Aset Usaha" },
+      { section: "28 — Aset Usaha Tembakau" },
       {
-        label: "28.a   Nilai Tanah & Bangunan",
+        label: "28.a. Nilai Tanah & Bangunan",
         value: rp(h.asetTanah_t),
-        explain: `Luas produksi ${h.luasM2_t} m² × Rp 100.000/m² = ${rp(h.asetTanah_t)}`,
+        explain: `Luas tempat produksi ${h.luasM2_t} m² × Rp 100.000/m² = ${rp(h.asetTanah_t)}`,
       },
       {
-        label: "28.b   Aset Lainnya",
+        label: "28.b. Nilai Aset Selain Tanah",
         value: rp(h.asetLain_t),
         explain: isKering
-          ? `Mesin kecil  : Rp ${TB.asetMesinKecil.toLocaleString()}\nMesin besar  : Rp ${TB.asetMesinBesar.toLocaleString()}\nWidek        : Rp ${TB.asetWidek.toLocaleString()}\nTotal = ${rp(h.asetLain_t)}`
-          : `Mesin kecil  : Rp ${TB.asetMesinKecil.toLocaleString()}\nWidek        : Rp ${TB.asetWidek.toLocaleString()}\nTotal = ${rp(h.asetLain_t)}`,
+          ? `Mesin rajang  : Rp ${TB.asetMesinKecil.toLocaleString()}\nMesin kering  : Rp ${TB.asetMesinBesar.toLocaleString()}\nWidek bambu   : Rp ${TB.asetWidek.toLocaleString()}\nTotal = ${rp(h.asetLain_t)}`
+          : `Mesin kecil   : Rp ${TB.asetMesinKecil.toLocaleString()}\nWidek bambu   : Rp ${TB.asetWidek.toLocaleString()}\nTotal = ${rp(h.asetLain_t)}`,
       },
       {
-        label: "28.c   Total Aset",
+        label: "28.c. Nilai Total Aset",
         value: rp(h.totalAset),
-        explain: `${rp(h.asetTanah_t)} + ${rp(h.asetLain_t)} = ${rp(h.totalAset)}`,
+        explain: `Tanah/Bangunan: ${rp(h.asetTanah_t)}\nAlat/Peralatan: ${rp(h.asetLain_t)}\nTotal Aset     = ${rp(h.totalAset)}`,
       },
       {
-        label: "28.d   Luas Produksi",
+        label: "28.d. Luas Tanah Dikuasai",
         value: `${h.luasM2_t} m²`,
-        explain: `Luas tempat produksi tembakau: ${h.luasM2_t} m² (standar 3 × 5 m).`,
+        explain: `Luas tanah/lapangan jemur tembakau: ${h.luasM2_t} m² = ${(h.luasM2_t / 10000).toFixed(4)} ha.`,
       },
     ];
   }
 
-  // ══════════════════════════════════════════════════════════════════════
-  // KOMODITAS BIASA
-  // ══════════════════════════════════════════════════════════════════════
-  const d = db[kom];
-  const ha = h.ha ?? (h.luasM2_f / 10000);
-  const isDuaMusim  = Array.isArray(h.musimList) && h.musimList.length === 2;
-  const musimLabel  = isDuaMusim
-    ? `${h.musimList[0]} + ${h.musimList[1]}`
-    : (Array.isArray(h.musimList) ? h.musimList[0] : h.musim) ?? "—";
-
-  // Produktivitas aktual (Walikan −15%)
-  const PROD_PER_HA_R = (kom === "Padi" && musimLabel === "Walikan") ? (d?.prod ?? 0) * 0.85 : (d?.prod ?? 0);
-  const hargaJualR    = (kom === "Padi" && musimLabel === "Walikan") ? 6800 : (d?.harga ?? 0);
-
-  const rows: ResultItem[] = [];
-
-  // Info musim Padi
+  // ======================================================================
+  // JALUR PADI (RICE)
+  // ======================================================================
   if (kom === "Padi") {
+    const ha = h.ha ?? (h.luasM2_f / 10000);
+    const isDuaMusim  = Array.isArray(h.musimList) && h.musimList.length === 2;
+    const musimLabel  = isDuaMusim
+      ? `${h.musimList[0]} + ${h.musimList[1]}`
+      : (Array.isArray(h.musimList) ? h.musimList[0] : h.musim) ?? "—";
+
+    const d = db["Padi"]!;
+    const PROD_PER_HA_R = (musimLabel === "Walikan") ? d.prod * 0.85 : d.prod;
+    const hargaJualR    = (musimLabel === "Walikan") ? 6800 : d.harga;
+
+    const rows: ResultItem[] = [];
+
     rows.push({
       label: "Musim Tanam",
       value: musimLabel,
       explain: isDuaMusim
         ? `2 musim tanam dalam 1 tahun:\n` +
-          `• ${h.musimList[0]}: produktivitas ${d?.prod.toLocaleString()} kg/ha, harga Rp ${(d?.harga ?? 0).toLocaleString()}/kg\n` +
-          `• ${h.musimList[1]}: produktivitas ${Math.round((d?.prod ?? 0) * 0.85).toLocaleString()} kg/ha (−15%), harga Rp 6.800/kg\n` +
+          `• ${h.musimList[0]}: produktivitas ${d.prod.toLocaleString()} kg/ha, harga Rp ${d.harga.toLocaleString()}/kg\n` +
+          `• ${h.musimList[1]}: produktivitas ${Math.round(d.prod * 0.85).toLocaleString()} kg/ha (−15%), harga Rp 6.800/kg\n` +
           `Semua nilai keuangan di bawah adalah akumulasi 2 musim.`
         : musimLabel === "Walikan"
-          ? `Musim Walikan (kering/irigasi pompanisasi):\n• Produktivitas −15% → ${Math.round((d?.prod ?? 0) * 0.85).toLocaleString()} kg/ha\n• Harga GKP lebih tinggi: Rp 6.800/kg\n• Biaya saprotan +3% (pompanisasi)`
-          : `Musim Rendengan (hujan):\n• Produktivitas standar ${d?.prod.toLocaleString()} kg/ha\n• Harga GKP: Rp ${(d?.harga ?? 0).toLocaleString()}/kg`,
+          ? `Musim Walikan (kering/irigasi pompanisasi):\n• Produktivitas −15% → ${Math.round(d.prod * 0.85).toLocaleString()} kg/ha\n• Harga GKP lebih tinggi: Rp 6.800/kg\n• Biaya saprotan +3% (pompanisasi)`
+          : `Musim Rendengan (hujan):\n• Produktivitas standar ${d.prod.toLocaleString()} kg/ha\n• Harga GKP: Rp ${d.harga.toLocaleString()}/kg`,
     });
-  }
 
-  // Kondisi Hasil Panen
-  rows.push({
-    label: "Kondisi Hasil Panen",
-    value: kondisiPanenLabel[h.kondisiPanen as keyof typeof kondisiPanenLabel] ?? h.kondisiPanen ?? "Sedang (normal)",
-    explain:
-      `Faktor pengali produktivitas:\n` +
-      `  • Sedang      → ×1,00 (baseline BPS)\n` +
-      `  • Baik        → ×1,15 (+15%)\n` +
-      `  • Sangat Baik → ×1,30 (+30%)\n\n` +
-      `Kondisi dipilih: ${h.kondisiPanen ?? "Sedang"} (×${(h.faktorKondisi ?? 1).toFixed(2)})\n` +
-      `Mempengaruhi jumlah kg produksi dan nilai jual.`,
-  });
-
-  // ── HOK ──────────────────────────────────────────────────────────────────
-  rows.push({ section: "24 — Tenaga Kerja (HOK = Hari Orang Kerja)" });
-  rows.push({
-    label: "24.a   HOK Laki-laki",
-    value: `${h.hokLaki} HOK`,
-    explain:
-      `Total HOK = ${ha.toFixed(3)} ha × ${d?.t} HOK/ha = ${(ha * (d?.t ?? 0)).toFixed(1)} HOK\n` +
-      `Laki-laki 40% = ${h.hokLaki} HOK\n` +
-      `(Olah tanah, bajak, angkut — dominan laki-laki)`,
-  });
-  rows.push({
-    label: "24.b   HOK Perempuan",
-    value: `${h.hokPerempuan} HOK`,
-    explain:
-      `Perempuan 60% = ${h.hokPerempuan} HOK\n` +
-      `(Tanam, matun, panen, sortir — dominan perempuan)\nSumber: pola lapangan BPS Bojonegoro`,
-  });
-  rows.push({
-    label: "24.c   Total HOK",
-    value: `${h.hokTotal} HOK`,
-    explain:
-      `${ha.toFixed(3)} ha × ${d?.t} HOK/ha = ${(ha * (d?.t ?? 0)).toFixed(1)} HOK\n` +
-      `Dibayar (buruh tani)  : ${h.hokDibayar} HOK\n` +
-      `Tidak Dibayar (keluarga): ${h.hokTidakDibayar} HOK` +
-      (isDuaMusim ? `\n\nBreakdown per musim:\n${h.perMusim.map((m: any) => `  ${m.musim}: ${m.hokTotal} HOK`).join("\n")}` : ""),
-  });
-  rows.push({
-    label: "24.d   HOK Dibayar (Buruh Tani)",
-    value: `${h.hokDibayar} HOK`,
-    explain:
-      `~60% dari total HOK dikerjakan oleh buruh bayar.\n${ha.toFixed(3)} ha × ${d?.t} HOK/ha × 60% = ${h.hokDibayar} HOK\n` +
-      `Upah standar: Rp 70.000/HOK (referensi gender split)\n→ Total upah TK: ${rp(h.upah)}` +
-      (isDuaMusim ? `\n\nBreakdown:\n${h.perMusim.map((m: any) => `  ${m.musim}: ${m.hokDibayar} HOK`).join("\n")}` : ""),
-  });
-  rows.push({
-    label: "24.e   Tidak Dibayar (Keluarga)",
-    value: `${h.hokTidakDibayar} HOK`,
-    explain:
-      `~25% dikerjakan anggota keluarga (pengawasan, pengangkutan ringan).\nMinimal 2 HOK (standar BPS SE2026).`,
-  });
-
-  // ── PENGELUARAN ───────────────────────────────────────────────────────────
-  rows.push({ section: "26 — Pengeluaran Usaha" + (isDuaMusim ? " (Akumulasi 2 Musim)" : "") });
-
-  // 26.a Upah TK
-  rows.push({
-    label: "26.a   Upah Tenaga Kerja",
-    value: rp(h.upah),
-    explain:
-      `Patokan upah TK: Rp ${(db[kom]?.gaji1000 ?? 0).toLocaleString()} per 1.000 kg produksi\n` +
-      `${(h.prod / 1000).toFixed(2)} × Rp ${(db[kom]?.gaji1000 ?? 0).toLocaleString()} = ${rp(h.upah)}` +
-      (isDuaMusim
-        ? `\n\nBreakdown per musim:\n${h.perMusim.map((m: any) => `  ${m.musim}: ${rp(m.upah)}`).join("\n")}`
-        : ""),
-  });
-
-  // 26.b Saprotan
-  let explain26b = "";
-  if (status === "Milik Sendiri") {
-    explain26b = explainSaprotan(kom, ha, h.biaya) +
-      (isDuaMusim
-        ? `\n\nBreakdown per musim:\n${h.perMusim.map((m: any) => `  ${m.musim}: ${rp(m.biaya)}`).join("\n")}`
-        : "");
-  } else if (status === "Sewa") {
-    const saprotanSaja = h.biaya - h.sewaLahan;
-    explain26b =
-      explainSaprotan(kom, ha, saprotanSaja) +
-      `\n\n+ Sewa lahan: ${ha.toFixed(3)} ha × Rp 12.000.000/ha = ${rp(h.sewaLahan)}\nTotal (saprotan + sewa) = ${rp(h.biaya)}`;
-  } else {
-    explain26b =
-      explainSaprotan(kom, ha, h.biaya) +
-      `\n\n(Bagi hasil dicatat terpisah sebagai 26.c)`;
-  }
-  rows.push({ label: "26.b   Biaya Saprotan", value: rp(h.biaya), explain: explain26b });
-
-  // 26.c Bagi Hasil (opsional)
-  if (status === "Bagi Hasil") {
     rows.push({
-      label: "26.c   Bagi Hasil ke Pemilik (Maro)",
-      value: rp(h.bagiHasilPot),
+      label: "Kondisi Hasil Panen",
+      value: kondisiPanenLabel[h.kondisiPanen as keyof typeof kondisiPanenLabel] ?? h.kondisiPanen ?? "Sedang (normal)",
       explain:
-        `Sistem maro 50:50 — pemilik lahan mendapat 50% penerimaan kotor.\n\n` +
-        `Penerimaan kotor  : ${rp(h.pend)}\nBagian pemilik lahan: × 50% = ${rp(h.bagiHasilPot)}\nBagian petani garap : ${rp(h.pendPetani)}\n\n` +
-        `Upah TK & saprotan tetap ditanggung petani penggarap.` +
-        (isDuaMusim
-          ? `\n\nBreakdown:\n${h.perMusim.map((m: any) => `  ${m.musim}: ${rp(m.bagiHasilPot)}`).join("\n")}`
-          : ""),
+        `Faktor pengali produktivitas:\n` +
+        `  • Sedang      → ×1,00 (baseline BPS)\n` +
+        `  • Baik        → ×1,15 (+15%)\n` +
+        `  • Sangat Baik → ×1,30 (+30%)\n\n` +
+        `Kondisi dipilih: ${h.kondisiPanen ?? "Sedang"} (×${(h.faktorKondisi ?? 1).toFixed(2)})\n` +
+        `Mempengaruhi jumlah kg produksi dan nilai jual.`,
     });
-  }
 
-  // 26.d Operasional
-  let explain26d = "";
-  if (kom === "Padi") {
+    // ── PEKERJA (JIWA / ORANG) ──────────────────────────────────────────
+    rows.push({ section: "24 — Pekerja Padi (Sensus Ekonomi 2026)" });
+    rows.push({
+      label: "24.a1. Pekerja Laki-laki",
+      value: `${h.pekerjaLaki} orang`,
+      explain: `Pekerja fisik laki-laki (bajak sawah, ngangkut gabah, operator alkon): ${h.pekerjaLaki} orang.\n` +
+        `Setara dengan HOK Laki-laki: ${h.hokLaki} HOK.`,
+    });
+    rows.push({
+      label: "24.b1. Pekerja Perempuan",
+      value: `${h.pekerjaPerempuan} orang`,
+      explain: `Pekerja fisik perempuan (tanam sawah/tandur, matun/rumput, sortir): ${h.pekerjaPerempuan} orang.\n` +
+        `Setara dengan HOK Perempuan: ${h.hokPerempuan} HOK.`,
+    });
+    rows.push({
+      label: "24.c1. Total Pekerja (a1+b1)",
+      value: `${h.totalPekerja} orang`,
+      explain: `Jumlah fisik semua orang yang ikut bekerja: ${h.totalPekerja} orang. (Setara dengan ${h.hokTotal} HOK)`,
+    });
+    rows.push({
+      label: "24.a2. Pekerja Dibayar",
+      value: `${h.pekerjaDibayar} orang`,
+      explain: `Buruh tani bayaran (musiman/harian): ${h.pekerjaDibayar} orang.\n` +
+        `Setara dengan HOK Dibayar: ${h.hokDibayar} HOK.`,
+    });
+    rows.push({
+      label: "24.b2. Pekerja Tidak Dibayar",
+      value: `${h.pekerjaTidakDibayar} orang`,
+      explain: `Keluarga/Pemilik sawah: ${h.pekerjaTidakDibayar} orang.\n` +
+        `⚠️ SPESIFIK PADI: Bernilai flat 4 karena pemilik/keluarga ikut turun langsung menggarap setiap musim rendengan & walikan.\n` +
+        `Setara dengan HOK Tidak Dibayar: ${h.hokTidakDibayar} HOK.`,
+    });
+    rows.push({
+      label: "24.c2. Total Pekerja (a2+b2)",
+      value: `${h.totalPekerja} orang`,
+      explain: `Total pekerja berdasarkan status pembayaran: ${h.totalPekerja} orang. (KONSISTEN: harus sama dengan total 24.c1)`,
+    });
+
+    // ── PENGELUARAN ──────────────────────────────────────────────────
+    rows.push({ section: "26 — Pengeluaran Usaha Padi" + (isDuaMusim ? " (Akumulasi 2 Musim)" : "") });
+    rows.push({
+      label: "26.a. Upah Tenaga Kerja",
+      value: rp(h.upah),
+      explain: `Upah buruh tani: Rp ${d.gaji1000.toLocaleString()} per 1.000 kg padi dihasilkan.\n` +
+        `${(h.prod / 1000).toFixed(2)} × Rp ${d.gaji1000.toLocaleString()} = ${rp(h.upah)}`,
+    });
+
+    let explain26b = "";
+    if (status === "Milik Sendiri") {
+      explain26b = explainSaprotan("Padi", ha, h.biaya) +
+        (isDuaMusim ? `\n\nBreakdown: \n${h.perMusim.map((m: any) => `  ${m.musim}: ${rp(m.biaya)}`).join("\n")}` : "");
+    } else if (status === "Sewa") {
+      const saprotanSaja = h.biaya - h.sewaLahan;
+      explain26b = explainSaprotan("Padi", ha, saprotanSaja) +
+        `\n\n+ Sewa sawah: ${ha.toFixed(3)} ha × Rp 12.000.000/ha = ${rp(h.sewaLahan)}\nTotal (saprotan + sewa) = ${rp(h.biaya)}`;
+    } else {
+      explain26b = explainSaprotan("Padi", ha, h.biaya) + `\n\n(Bagi hasil dicatat terpisah sebagai 26.c)`;
+    }
+    rows.push({ label: "26.b. Biaya Produksi (Saprotan)", value: rp(h.biaya), explain: explain26b });
+
+    if (status === "Bagi Hasil") {
+      rows.push({
+        label: "26.c. Bagi Hasil ke Pemilik (Maro)",
+        value: rp(h.bagiHasilPot),
+        explain: `Sistem maro (50:50) dari hasil kotor:\nBagian pemilik sawah: ${rp(h.bagiHasilPot)}\nBagian penggarap: ${rp(h.pendPetani)}`,
+      });
+    }
+
+    let explain26d = "";
     if (isDuaMusim) {
       const a2 = h.perMusim[0]; const b2 = h.perMusim[1];
       explain26d =
         `Musim ${a2.musim}:\n  Combi panen : ${(a2.prod / 100).toFixed(1)} kw × Rp 50.000 = ${rp(a2.combiCost)}\n  BBM irigasi : -\n  Subtotal    = ${rp(a2.oper)}\n\n` +
         `Musim ${b2.musim}:\n  Combi panen : ${(b2.prod / 100).toFixed(1)} kw × Rp 50.000 = ${rp(b2.combiCost)}\n  BBM irigasi : ${ha.toFixed(3)} ha × Rp 187.500 = ${rp(b2.bbmCost)}\n  Subtotal    = ${rp(b2.oper)}\n\nTotal = ${rp(h.oper)}`;
     } else if (musimLabel === "Walikan") {
-      explain26d =
-        `Combi panen : ${(h.prod / 100).toFixed(1)} kw × Rp 50.000 = ${rp(h.combiCost)}\nBBM irigasi : ${ha.toFixed(3)} ha × Rp 187.500/ha = ${rp(h.bbmCost)}\nTotal = ${rp(h.oper)}`;
+      explain26d = `Combi panen : ${(h.prod / 100).toFixed(1)} kw × Rp 50.000 = ${rp(h.combiCost)}\nBBM irigasi : ${ha.toFixed(3)} ha × Rp 187.500/ha = ${rp(h.bbmCost)}\nTotal = ${rp(h.oper)}`;
     } else {
-      explain26d =
-        `Combi panen+angkut: ${(h.prod / 100).toFixed(1)} kw × Rp 50.000 = ${rp(h.combiCost)}\n(Termasuk biaya angkut ke rumah/gudang)\nTotal = ${rp(h.oper)}`;
+      explain26d = `Combi panen+angkut: ${(h.prod / 100).toFixed(1)} kw × Rp 50.000 = ${rp(h.combiCost)}\nTotal = ${rp(h.oper)}`;
     }
-  } else {
-    explain26d = `Patokan operasional: Rp ${(db[kom]?.ops1000 ?? 0).toLocaleString()} per 1.000 kg produksi\n` +
-      `${(h.prod / 1000).toFixed(2)} × Rp ${(db[kom]?.ops1000 ?? 0).toLocaleString()} = ${rp(h.oper)}`;
+    rows.push({ label: "26.d. Biaya Operasional", value: rp(h.oper), explain: explain26d });
+
+    rows.push({
+      label: "26.e. Biaya Non-Operasional (PBB)",
+      value: rp(h.non),
+      explain: `PBB sawah: Rp 20.000/tahun (Pajak Bumi & Bangunan flat sawah pedesaan Bojonegoro).`,
+    });
+
+    rows.push({
+      label: "26.f. Total Pengeluaran",
+      value: rp(h.totalPeng),
+      explain: `Upah TK: ${rp(h.upah)}\nSaprotan: ${rp(h.biaya)}\nOperasional: ${rp(h.oper)}\nNon-oper: ${rp(h.non)}\nTotal = ${rp(h.totalPeng)}`,
+    });
+
+    // ── PENDAPATAN ──────────────────────────────────────────────────
+    rows.push({ section: "27 — Nilai Produksi Padi" });
+    rows.push({
+      label: "27.a. Nilai Produksi / Penjualan",
+      value: rp(h.pend),
+      explain: isDuaMusim
+        ? `Musim ${h.perMusim[0].musim}: ${Math.round(h.perMusim[0].prod).toLocaleString()} kg × Rp ${d.harga.toLocaleString()} = ${rp(h.perMusim[0].pend)}\n` +
+          `Musim ${h.perMusim[1].musim}: ${Math.round(h.perMusim[1].prod).toLocaleString()} kg × Rp 6.800 = ${rp(h.perMusim[1].pend)}`
+        : `${Math.round(h.prod).toLocaleString("id-ID")} kg × Rp ${hargaJualR.toLocaleString()}/kg = ${rp(h.pend)}`,
+    });
+
+    rows.push({
+      label: "27.c. Total Nilai Produksi",
+      value: rp(h.pend),
+      explain: `Total pendapatan dari panen padi setahun.`,
+    });
+
+    rows.push({
+      label: "Hasil Produksi (Konversi)",
+      value: `${Math.round(h.prod).toLocaleString("id-ID")} kg GKP`,
+      explain: `Konversi Gabah Kering Panen (GKP):\n` +
+        `  • ${Math.round(h.prod).toLocaleString("id-ID")} kg\n` +
+        `  • ${(h.prod / 100).toFixed(2)} kuintal\n` +
+        `  • ${(h.prod / 1000).toFixed(3)} ton`,
+    });
+
+    // ── ASET ─────────────────────────────────────────────────────────
+    rows.push({ section: "28 — Aset Usaha Padi" });
+    rows.push({
+      label: "28.a. Nilai Aset Lahan Sawah",
+      value: rp(h.asetTanah),
+      explain: `Lahan sawah ${Math.round(h.luasM2_f).toLocaleString()} m² × Rp 100.000/m² = ${rp(h.asetTanah)}`,
+    });
+
+    rows.push({
+      label: "28.b. Nilai Aset Peralatan sawah",
+      value: rp(h.asetLain),
+      explain: `Daftar peralatan sawah:\n` +
+        `  - Pompa air (Alkon)  ${h.alatUnits[0]} unit × Rp 1.500.000 = ${rp(h.alatUnits[0] * 1500000)}\n` +
+        `  - Sprayer hama       ${h.alatUnits[1]} unit × Rp 250.000 = ${rp(h.alatUnits[1] * 250000)}\n` +
+        `  - Sabit potong padi  ${h.alatUnits[2]} unit × Rp 50.000 = ${rp(h.alatUnits[2] * 50000)}\n` +
+        `  - Cangkul tanah      ${h.alatUnits[3]} unit × Rp 75.000 = ${rp(h.alatUnits[3] * 75000)}\n` +
+        `Total = ${rp(h.asetLain)}`,
+    });
+
+    rows.push({
+      label: "28.c. Nilai Total Aset Padi",
+      value: rp(h.asetTanah + h.asetLain),
+      explain: `Sawah: ${rp(h.asetTanah)}\nAlat-alat: ${rp(h.asetLain)}\nTotal = ${rp(h.asetTanah + h.asetLain)}`,
+    });
+
+    rows.push({
+      label: "28.d. Luas Lahan Sawah (Konversi)",
+      value: `${Math.round(h.luasM2_f).toLocaleString("id-ID")} m²`,
+      explain: `Luas lahan sawah:\n` +
+        `  • ${Math.round(h.luasM2_f).toLocaleString("id-ID")} m²\n` +
+        `  • ${(h.luasM2_f / 10000).toFixed(4)} Hektar (ha)`,
+    });
+
+    return rows;
   }
-  rows.push({ label: "26.d   Biaya Operasional", value: rp(h.oper), explain: explain26d });
 
-  // 26.e Non-tunai
+  // ======================================================================
+  // JALUR KEDELAI (SOYBEAN)
+  // ======================================================================
+  if (kom === "Kedelai") {
+    const ha = h.ha ?? (h.luasM2_f / 10000);
+    const d = db["Kedelai"]!;
+
+    const rows: ResultItem[] = [];
+
+    rows.push({
+      label: "Kondisi Hasil Panen",
+      value: kondisiPanenLabel[h.kondisiPanen as keyof typeof kondisiPanenLabel] ?? h.kondisiPanen ?? "Sedang (normal)",
+      explain: `Kondisi dipilih: ${h.kondisiPanen ?? "Sedang"} (×${(h.faktorKondisi ?? 1).toFixed(2)})`,
+    });
+
+    // ── PEKERJA (JIWA / ORANG) ──────────────────────────────────────────
+    rows.push({ section: "24 — Pekerja Kedelai (Sensus Ekonomi 2026)" });
+    rows.push({
+      label: "24.a1. Pekerja Laki-laki",
+      value: `${h.pekerjaLaki} orang`,
+      explain: `Pekerja fisik laki-laki (olah tegalan, semprot, angkut kedelai): ${h.pekerjaLaki} orang.`,
+    });
+    rows.push({
+      label: "24.b1. Pekerja Perempuan",
+      value: `${h.pekerjaPerempuan} orang`,
+      explain: `Pekerja fisik perempuan (tanam, penyiangan rumput, petik panen, sortir biji): ${h.pekerjaPerempuan} orang.`,
+    });
+    rows.push({
+      label: "24.c1. Total Pekerja (a1+b1)",
+      value: `${h.totalPekerja} orang`,
+      explain: `Jumlah fisik pekerja: ${h.totalPekerja} orang. (Setara dengan ${h.hokTotal} HOK)`,
+    });
+    rows.push({
+      label: "24.a2. Pekerja Dibayar",
+      value: `${h.pekerjaDibayar} orang`,
+      explain: `Buruh tani bayaran: ${h.pekerjaDibayar} orang.\n` +
+        `Setara dengan HOK Dibayar: ${h.hokDibayar} HOK.`,
+    });
+    rows.push({
+      label: "24.b2. Pekerja Tidak Dibayar",
+      value: `${h.pekerjaTidakDibayar} orang`,
+      explain: `Keluarga petani kedelai: 2 orang (anggota keluarga/pemilik sawah/tegalan).\n` +
+        `Setara dengan HOK Tidak Dibayar: ${h.hokTidakDibayar} HOK.`,
+    });
+    rows.push({
+      label: "24.c2. Total Pekerja (a2+b2)",
+      value: `${h.totalPekerja} orang`,
+      explain: `Total pekerja berdasarkan status pembayaran: ${h.totalPekerja} orang. (KONSISTEN: harus sama dengan total 24.c1)`,
+    });
+
+    // ── PENGELUARAN ──────────────────────────────────────────────────
+    rows.push({ section: "26 — Pengeluaran Usaha Kedelai" });
+    rows.push({
+      label: "26.a. Upah Tenaga Kerja",
+      value: rp(h.upah),
+      explain: `Gaji TK: Rp ${d.gaji1000.toLocaleString()} per 1.000 kg kedelai diproduksi.\n` +
+        `${(h.prod / 1000).toFixed(2)} × Rp ${d.gaji1000.toLocaleString()} = ${rp(h.upah)}`,
+    });
+
+    let explain26b = "";
+    if (status === "Milik Sendiri") {
+      explain26b = explainSaprotan("Kedelai", ha, h.biaya);
+    } else if (status === "Sewa") {
+      const saprotanSaja = h.biaya - h.sewaLahan;
+      explain26b = explainSaprotan("Kedelai", ha, saprotanSaja) +
+        `\n\n+ Sewa tegalan: ${ha.toFixed(3)} ha × Rp 12.000.000/ha = ${rp(h.sewaLahan)}\nTotal = ${rp(h.biaya)}`;
+    } else {
+      explain26b = explainSaprotan("Kedelai", ha, h.biaya) + `\n\n(Bagi hasil dicatat terpisah sebagai 26.c)`;
+    }
+    rows.push({ label: "26.b. Biaya Produksi (Saprotan)", value: rp(h.biaya), explain: explain26b });
+
+    if (status === "Bagi Hasil") {
+      rows.push({
+        label: "26.c. Bagi Hasil ke Pemilik",
+        value: rp(h.bagiHasilPot),
+        explain: `Maro hasil kedelai (50% dari pendapatan kotor): ${rp(h.bagiHasilPot)}`,
+      });
+    }
+
+    rows.push({
+      label: "26.d. Biaya Operasional",
+      value: rp(h.oper),
+      explain: `Perontokan (threshing), penjemuran, pengangkutan biji kedelai:\n` +
+        `Rp ${d.ops1000.toLocaleString()} / 1.000 kg × ${(h.prod / 1000).toFixed(2)} = ${rp(h.oper)}`,
+    });
+
+    rows.push({
+      label: "26.e. Biaya Non-Operasional (PBB)",
+      value: rp(h.non),
+      explain: `PBB tegalan flat pedesaan: Rp 20.000/tahun.`,
+    });
+
+    rows.push({
+      label: "26.f. Total Pengeluaran",
+      value: rp(h.totalPeng),
+      explain: `Upah TK: ${rp(h.upah)}\nSaprotan: ${rp(h.biaya)}\nOperasional: ${rp(h.oper)}\nNon-oper: ${rp(h.non)}\nTotal = ${rp(h.totalPeng)}`,
+    });
+
+    // ── PENDAPATAN ──────────────────────────────────────────────────
+    rows.push({ section: "27 — Nilai Produksi Kedelai" });
+    rows.push({
+      label: "27.a. Nilai Produksi / Penjualan",
+      value: rp(h.pend),
+      explain: `${Math.round(h.prod).toLocaleString("id-ID")} kg × Rp ${d.harga.toLocaleString()}/kg = ${rp(h.pend)}`,
+    });
+
+    rows.push({
+      label: "27.c. Total Nilai Produksi",
+      value: rp(h.pend),
+      explain: `Total hasil pendapatan kotor kedelai setahun.`,
+    });
+
+    rows.push({
+      label: "Hasil Produksi (Konversi)",
+      value: `${Math.round(h.prod).toLocaleString("id-ID")} kg biji kering`,
+      explain: `Konversi Hasil Kedelai:\n` +
+        `  • ${Math.round(h.prod).toLocaleString("id-ID")} kg\n` +
+        `  • ${(h.prod / 100).toFixed(2)} kuintal\n` +
+        `  • ${(h.prod / 1000).toFixed(3)} ton`,
+    });
+
+    // ── ASET ─────────────────────────────────────────────────────────
+    rows.push({ section: "28 — Aset Usaha Kedelai" });
+    rows.push({
+      label: "28.a. Nilai Aset Lahan Tegalan",
+      value: rp(h.asetTanah),
+      explain: `Lahan tegalan ${Math.round(h.luasM2_f).toLocaleString()} m² × Rp 80.000/m² (kelas tanah di bawah sawah) = ${rp(h.asetTanah)}`,
+    });
+
+    rows.push({
+      label: "28.b. Nilai Aset Peralatan Kedelai",
+      value: rp(h.asetLain),
+      explain: `Daftar peralatan usaha kedelai:\n` +
+        `  - Sprayer hama      ${h.alatUnits[0]} unit × Rp 250.000 = ${rp(h.alatUnits[0] * 250000)}\n` +
+        `  - Sabit potong      ${h.alatUnits[1]} unit × Rp 50.000 = ${rp(h.alatUnits[1] * 50000)}\n` +
+        `  - Cangkul           ${h.alatUnits[2]} unit × Rp 75.000 = ${rp(h.alatUnits[2] * 75000)}\n` +
+        `  - Terpal penjemuran ${h.alatUnits[3]} unit × Rp 150.000 = ${rp(h.alatUnits[3] * 150000)}\n` +
+        `Total = ${rp(h.asetLain)}`,
+    });
+
+    rows.push({
+      label: "28.c. Nilai Total Aset Kedelai",
+      value: rp(h.asetTanah + h.asetLain),
+      explain: `Lahan: ${rp(h.asetTanah)}\nAlat-alat: ${rp(h.asetLain)}\nTotal = ${rp(h.asetTanah + h.asetLain)}`,
+    });
+
+    rows.push({
+      label: "28.d. Luas Lahan Kedelai (Konversi)",
+      value: `${Math.round(h.luasM2_f).toLocaleString("id-ID")} m²`,
+      explain: `Luas lahan tegalan:\n` +
+        `  • ${Math.round(h.luasM2_f).toLocaleString("id-ID")} m²\n` +
+        `  • ${(h.luasM2_f / 10000).toFixed(4)} Hektar (ha)`,
+    });
+
+    return rows;
+  }
+
+  // ======================================================================
+  // FALLBACK KOMODITAS LAIN (Jagung, Kacang Hijau, Bawang, Cabai, Tebu)
+  // ======================================================================
+  const ha = h.ha ?? (h.luasM2_f / 10000);
+  const d = db[kom];
+
+  const rows: ResultItem[] = [];
+
   rows.push({
-    label: "26.e   Biaya Non-Tunai (PBB)",
+    label: "Kondisi Hasil Panen",
+    value: kondisiPanenLabel[h.kondisiPanen as keyof typeof kondisiPanenLabel] ?? h.kondisiPanen ?? "Sedang (normal)",
+    explain: `Kondisi dipilih: ${h.kondisiPanen ?? "Sedang"} (×${(h.faktorKondisi ?? 1).toFixed(2)})`,
+  });
+
+  // ── PEKERJA (JIWA / ORANG) ──────────────────────────────────────────
+  rows.push({ section: "24 — Pekerja (Sensus Ekonomi 2026)" });
+  rows.push({
+    label: "24.a1. Pekerja Laki-laki",
+    value: `${h.pekerjaLaki} orang`,
+    explain: `Pekerja laki-laki yang terlibat secara fisik: ${h.pekerjaLaki} orang.`,
+  });
+  rows.push({
+    label: "24.b1. Pekerja Perempuan",
+    value: `${h.pekerjaPerempuan} orang`,
+    explain: `Pekerja perempuan yang terlibat secara fisik: ${h.pekerjaPerempuan} orang.`,
+  });
+  rows.push({
+    label: "24.c1. Total Pekerja (a1+b1)",
+    value: `${h.totalPekerja} orang`,
+    explain: `Total fisik pekerja yang terlibat: ${h.totalPekerja} orang.`,
+  });
+  rows.push({
+    label: "24.a2. Pekerja Dibayar",
+    value: `${h.pekerjaDibayar} orang`,
+    explain: `Pekerja dibayar / buruh tani: ${h.pekerjaDibayar} orang.`,
+  });
+  rows.push({
+    label: "24.b2. Pekerja Tidak Dibayar",
+    value: `${h.pekerjaTidakDibayar} orang`,
+    explain: `Pekerja keluarga / tidak dibayar: ${h.pekerjaTidakDibayar} orang.`,
+  });
+  rows.push({
+    label: "24.c2. Total Pekerja (a2+b2)",
+    value: `${h.totalPekerja} orang`,
+    explain: `Total pekerja berdasarkan status pembayaran: ${h.totalPekerja} orang.`,
+  });
+
+  // ── PENGELUARAN ──────────────────────────────────────────────────
+  rows.push({ section: "26 — Pengeluaran Usaha" });
+  rows.push({
+    label: "26.a. Upah Tenaga Kerja",
+    value: rp(h.upah),
+    explain: `Upah buruh tani: Rp ${(d?.gaji1000 ?? 0).toLocaleString()} per 1.000 kg panen.\n` +
+      `${(h.prod / 1000).toFixed(2)} × Rp ${(d?.gaji1000 ?? 0).toLocaleString()} = ${rp(h.upah)}`,
+  });
+
+  rows.push({
+    label: "26.b. Biaya Produksi (Saprotan)",
+    value: rp(h.biaya),
+    explain: explainSaprotan(kom, ha, h.biaya - (status === "Sewa" ? h.sewaLahan : 0)),
+  });
+
+  if (status === "Bagi Hasil") {
+    rows.push({
+      label: "26.c. Bagi Hasil ke Pemilik",
+      value: rp(h.bagiHasilPot),
+      explain: `Sistem bagi hasil dari panen kotor (maro): ${rp(h.bagiHasilPot)}`,
+    });
+  }
+
+  rows.push({
+    label: "26.d. Biaya Operasional",
+    value: rp(h.oper),
+    explain: `Biaya penunjang operasional panen & angkut:\n` +
+      `Rp ${(d?.ops1000 ?? 0).toLocaleString()} / 1.000 kg × ${(h.prod / 1000).toFixed(2)} = ${rp(h.oper)}`,
+  });
+
+  rows.push({
+    label: "26.e. Biaya Non-Operasional (PBB)",
     value: rp(h.non),
-    explain:
-      `PBB sawah: Rp 20.000/tahun (SPPT flat kawasan desa)\n` +
-      `Dihitung 1× per tahun, tidak dikali jumlah musim.\nTotal = ${rp(h.non)}`,
+    explain: `PBB lahan flat: Rp 20.000/tahun.`,
   });
 
-  // 26.f Total pengeluaran
   rows.push({
-    label: "26.f   Total Pengeluaran",
+    label: "26.f. Total Pengeluaran",
     value: rp(h.totalPeng),
-    explain:
-      `  Upah TK     : ${rp(h.upah)}\n  Saprotan    : ${rp(h.biaya)}\n  Operasional : ${rp(h.oper)}\n  Non-Tunai   : ${rp(h.non)}\n` +
-      (status === "Bagi Hasil" ? `  Bagi Hasil  : ${rp(h.bagiHasilPot)}\n` : "") +
-      `Total = ${rp(h.totalPeng)}`,
+    explain: `Upah TK: ${rp(h.upah)}\nSaprotan: ${rp(h.biaya)}\nOperasional: ${rp(h.oper)}\nNon-oper: ${rp(h.non)}\nTotal = ${rp(h.totalPeng)}`,
   });
 
-  // ── PENDAPATAN ────────────────────────────────────────────────────────────
-  rows.push({ section: "27 — Pendapatan Usaha" });
-
+  // ── PENDAPATAN ──────────────────────────────────────────────────
+  rows.push({ section: "27 — Nilai Produksi" });
   rows.push({
-    label: "27.a   Nilai Produksi",
+    label: "27.a. Nilai Produksi / Penjualan",
     value: rp(h.pend),
-    explain: isDuaMusim
-      ? (() => {
-          const a2 = h.perMusim[0]; const b2 = h.perMusim[1];
-          return (
-            `Musim ${a2.musim}:\n  ${Math.round(a2.prod).toLocaleString()} kg × Rp ${(d?.harga ?? 0).toLocaleString()}/kg = ${rp(a2.pend)}\n\n` +
-            `Musim ${b2.musim}:\n  ${Math.round(b2.prod).toLocaleString()} kg × Rp 6.800/kg = ${rp(b2.pend)}\n\nTotal = ${rp(h.pend)}`
-          );
-        })()
-      : `${Math.round(h.prod).toLocaleString("id-ID")} kg × Rp ${hargaJualR.toLocaleString("id-ID")}/kg = ${rp(h.pend)}`,
+    explain: `${Math.round(h.prod).toLocaleString("id-ID")} kg × Rp ${(d?.harga ?? 0).toLocaleString()}/kg = ${rp(h.pend)}`,
   });
 
-  const pendBersih = h.pend - h.totalPeng;
   rows.push({
-    label: "27.c   Pendapatan Bersih",
-    value: rp(pendBersih),
-    explain:
-      `Nilai Produksi  : ${rp(h.pend)}\nTotal Pengeluaran: ${rp(h.totalPeng)}\n` +
-      `Pendapatan Bersih = ${rp(pendBersih)}` +
-      (status === "Bagi Hasil" ? `\n\nCatatan: Pendapatan petani penggarap setelah maro:\n${rp(h.pendPetani)} (bagian petani setelah bagi hasil)` : ""),
+    label: "27.c. Total Nilai Produksi",
+    value: rp(h.pend),
+    explain: `Total pendapatan dari hasil panen setahun.`,
   });
 
-  // 27.d Hasil produksi & luas
   rows.push({
-    label: "Hasil Produksi",
+    label: "Hasil Produksi (Konversi)",
     value: `${Math.round(h.prod).toLocaleString("id-ID")} kg`,
-    explain: isDuaMusim
-      ? (() => {
-          const a2 = h.perMusim[0]; const b2 = h.perMusim[1];
-          return (
-            `Musim ${a2.musim}: ${Math.round(a2.prod).toLocaleString()} kg\n` +
-            `Musim ${b2.musim}: ${Math.round(b2.prod).toLocaleString()} kg\nTotal = ${Math.round(h.prod).toLocaleString()} kg`
-          );
-        })()
-      : mode === "luas"
-        ? `Luas ${Math.round(h.luasM2_f).toLocaleString()} m² (${ha.toFixed(4)} ha) × ${PROD_PER_HA_R.toLocaleString()} kg/ha = ${Math.round(h.prod).toLocaleString()} kg`
-        : satPanen === "KUINTAL"
-          ? `Input: ${panen} kw × 100 = ${Math.round(h.prod).toLocaleString()} kg\nEstimasi luas: ${Math.round(h.prod).toLocaleString()} kg ÷ ${PROD_PER_HA_R.toLocaleString()} kg/ha = ${Math.round(h.luasM2_f).toLocaleString()} m²`
-          : satPanen === "TON"
-            ? `Input: ${panen} ton × 1.000 = ${Math.round(h.prod).toLocaleString()} kg\nEstimasi luas: ${Math.round(h.prod).toLocaleString()} kg ÷ ${PROD_PER_HA_R.toLocaleString()} kg/ha = ${Math.round(h.luasM2_f).toLocaleString()} m²`
-            : `Input: ${Math.round(h.prod).toLocaleString()} kg\nEstimasi luas = ${Math.round(h.luasM2_f).toLocaleString()} m²`,
+    explain: `Konversi Hasil Panen:\n` +
+      `  • ${Math.round(h.prod).toLocaleString("id-ID")} kg\n` +
+      `  • ${(h.prod / 100).toFixed(2)} kuintal\n` +
+      `  • ${(h.prod / 1000).toFixed(3)} ton`,
   });
 
-  rows.push({
-    label: "Estimasi Luas",
-    value: `${Math.round(h.luasM2_f).toLocaleString("id-ID")} m²`,
-    explain:
-      `${Math.round(h.luasM2_f).toLocaleString("id-ID")} m² = ${ha.toFixed(4)} ha` +
-      (isDuaMusim ? "\n(Lahan sama untuk kedua musim tanam.)" : ""),
-  });
-
-  // ── ASET ──────────────────────────────────────────────────────────────────
+  // ── ASET ─────────────────────────────────────────────────────────
   rows.push({ section: "28 — Aset Usaha" });
   rows.push({
-    label: "28.a   Nilai Tanah",
+    label: "28.a. Nilai Aset Lahan",
     value: rp(h.asetTanah),
-    explain:
-      `${Math.round(h.luasM2_f).toLocaleString()} m² × Rp 100.000/m²\n` +
-      `= ${rp(h.asetTanah)}\n(Estimasi BPS pedesaan Bojonegoro)`,
+    explain: `Lahan ${Math.round(h.luasM2_f).toLocaleString()} m² × Rp 90.000/m² = ${rp(h.asetTanah)}`,
   });
+
   rows.push({
-    label: "28.b   Aset Lainnya (Alat)",
+    label: "28.b. Nilai Aset Peralatan",
     value: rp(h.asetLain),
-    explain:
-      `Estimasi peralatan untuk luas ${Math.round(h.luasM2_f).toLocaleString()} m²:\n\n` +
-      `  Pompa Air (Alkon) ${String(h.alatUnits[0]).padStart(3)}× Rp 1.500.000 = ${rp(h.alatUnits[0] * 1_500_000)}\n` +
-      `  Sprayer (16L)     ${String(h.alatUnits[1]).padStart(3)}× Rp   250.000 = ${rp(h.alatUnits[1] * 250_000)}\n` +
-      `  Sabit/Arit        ${String(h.alatUnits[2]).padStart(3)}× Rp    50.000 = ${rp(h.alatUnits[2] * 50_000)}\n` +
-      `  Cangkul (Pacul)   ${String(h.alatUnits[3]).padStart(3)}× Rp    75.000 = ${rp(h.alatUnits[3] * 75_000)}\n\n` +
-      `  Mesin/Sprayer = 1 unit per 10.000 m²\n  Alat tangan  = 1 unit per 3.000 m²\n\nTotal = ${rp(h.asetLain)}`,
+    explain: `Daftar peralatan:\n` +
+      `  - Sprayer hama  ${h.alatUnits[1]} unit × Rp 250.000 = ${rp(h.alatUnits[1] * 250000)}\n` +
+      `  - Sabit potong  ${h.alatUnits[2]} unit × Rp 50.000 = ${rp(h.alatUnits[2] * 50000)}\n` +
+      `  - Cangkul       ${h.alatUnits[3]} unit × Rp 75.000 = ${rp(h.alatUnits[3] * 75000)}\n` +
+      `Total = ${rp(h.asetLain)}`,
   });
+
   rows.push({
-    label: "28.c   Total Aset",
+    label: "28.c. Nilai Total Aset",
     value: rp(h.asetTanah + h.asetLain),
-    explain: `${rp(h.asetTanah)} + ${rp(h.asetLain)} = ${rp(h.asetTanah + h.asetLain)}`,
+    explain: `Lahan: ${rp(h.asetTanah)}\nAlat-alat: ${rp(h.asetLain)}\nTotal = ${rp(h.asetTanah + h.asetLain)}`,
   });
+
   rows.push({
-    label: "28.d   Luas Lahan",
+    label: "28.d. Luas Lahan (Konversi)",
     value: `${Math.round(h.luasM2_f).toLocaleString("id-ID")} m²`,
-    explain: `${Math.round(h.luasM2_f).toLocaleString("id-ID")} m² = ${ha.toFixed(4)} ha`,
+    explain: `Luas lahan:\n` +
+      `  • ${Math.round(h.luasM2_f).toLocaleString("id-ID")} m²\n` +
+      `  • ${(h.luasM2_f / 10000).toFixed(4)} Hektar (ha)`,
   });
 
   return rows;
