@@ -6,7 +6,7 @@ import { useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { T } from "../constants/theme";
 import {
-  type HasilAnalisis, type Level, type Temuan,
+  type HasilAnalisis, type Level, type Temuan, type Koreksi,
   labelSkor,
 } from "../lib/anomaliAnalysis";
 import { Icon } from "./Icon";
@@ -70,7 +70,15 @@ function TemuanItem({ t, idx }: { t: Temuan; idx: number }) {
 }
 
 // ─── AnomaliCard utama ────────────────────────────────────────────────────────
-export function AnomaliCard({ analisis }: { analisis: HasilAnalisis }) {
+export function AnomaliCard({
+  analisis,
+  koreksi,
+  onBenarkan,
+}: {
+  analisis: HasilAnalisis;
+  koreksi?: Koreksi[];
+  onBenarkan?: (k: Koreksi) => void;
+}) {
   const { temuan, ringkasan } = analisis;
   const { skorKesehatan } = ringkasan;
   const { teks, warna } = labelSkor(skorKesehatan);
@@ -127,6 +135,51 @@ export function AnomaliCard({ analisis }: { analisis: HasilAnalisis }) {
           <TemuanItem key={`${t.kode}-${i}`} t={t} idx={i} />
         ))}
       </View>
+
+      {/* ── Tombol Benerin Otomatis (AI) + daftar koreksi ────────────────── */}
+      {(koreksi ?? []).length > 0 && (
+        <View style={st.koreksiBox}>
+          <View style={st.koreksiHeader}>
+            <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: "rgba(139,92,246,0.15)", alignItems: "center", justifyContent: "center" }}>
+              <Icon name="cpu" size={18} color="#8b5cf6" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={st.koreksiTitle}>Benerin Otomatis (AI)</Text>
+              <Text style={st.koreksiSub}>Saran koreksi otomatis berdasarkan analisis anomali</Text>
+            </View>
+          </View>
+
+          {koreksi!.map((k, i) => (
+            <View key={i} style={st.koreksiItem}>
+              <View style={{ flex: 1 }}>
+                <Text style={st.koreksiItemLabel}>{k.label}</Text>
+                <Text style={st.koreksiItemDetail}>{k.alasan}</Text>
+                <View style={{ flexDirection: "row", gap: 8, marginTop: 6, alignItems: "center" }}>
+                  <View style={st.nilaiBox}>
+                    <Text style={st.nilaiLabel}>Lama</Text>
+                    <Text style={st.nilaiLama}>{k.nilaiLama.toLocaleString("id-ID")}</Text>
+                  </View>
+                  <Icon name="arrow-right" size={14} color={T.secondary} />
+                  <View style={[st.nilaiBox, { borderColor: T.secondary }]}>
+                    <Text style={st.nilaiLabel}>Baru</Text>
+                    <Text style={st.nilaiBaru}>{k.nilaiBaru.toLocaleString("id-ID")}</Text>
+                  </View>
+                </View>
+              </View>
+              {onBenarkan && (
+                <Pressable
+                  style={({ pressed }) => [st.terapkanBtn, pressed && { opacity: 0.8 }]}
+                  onPress={() => onBenarkan(k)}
+                  accessibilityLabel={`Terapkan koreksi ${k.label}`}
+                >
+                  <Icon name="check" size={14} color={T.onPrimary} />
+                  <Text style={st.terapkanTxt}>Terapkan</Text>
+                </Pressable>
+              )}
+            </View>
+          ))}
+        </View>
+      )}
 
       {/* ── Footer note ─────────────────────────────────────────────────── */}
       <View style={st.footerNote}>
@@ -211,4 +264,19 @@ const st = StyleSheet.create({
     borderColor: T.outlineVariant,
   },
   footerNoteText: { fontSize: 10, color: T.onSurfaceVariant, flex: 1, lineHeight: 15 },
+
+  // Koreksi AI
+  koreksiBox:    { margin: 12, backgroundColor: "#faf5ff", borderRadius: 12, borderWidth: 1, borderColor: "#e9d5ff", overflow: "hidden" },
+  koreksiHeader: { flexDirection: "row", alignItems: "center", gap: 12, padding: 12, borderBottomWidth: 1, borderColor: "#e9d5ff" },
+  koreksiTitle:  { fontSize: 14, fontWeight: "700", color: "#7c3aed" },
+  koreksiSub:    { fontSize: 11, color: T.onSurfaceVariant, marginTop: 2 },
+  koreksiItem:   { flexDirection: "row", gap: 10, padding: 12, borderBottomWidth: 0.5, borderColor: "rgba(139,92,246,0.15)" },
+  koreksiItemLabel:   { fontSize: 13, fontWeight: "700", color: T.onSurface },
+  koreksiItemDetail: { fontSize: 11, color: T.onSurface, lineHeight: 16, marginTop: 2 },
+  nilaiBox:     { flexDirection: "row", gap: 4, alignItems: "center", borderWidth: 1.2, borderColor: T.outlineVariant, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4 },
+  nilaiLabel:   { fontSize: 9, color: T.onSurfaceVariant, fontWeight: "600" },
+  nilaiLama:    { fontSize: 13, fontWeight: "700", color: T.error },
+  nilaiBaru:    { fontSize: 13, fontWeight: "700", color: T.secondary },
+  terapkanBtn:  { flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: "#8b5cf6", paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, marginTop: 6 },
+  terapkanTxt:  { fontSize: 12, fontWeight: "700", color: T.white },
 });

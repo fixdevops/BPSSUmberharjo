@@ -44,16 +44,12 @@ const RENTANG_PROD: Record<string, [number, number]> = {
   Tebu:          [50_000, 90_000],
 };
 
-// ─── Data usaha Blok II yang relevan untuk analisis ───────────────────────────
+// ─── Data usaha yang relevan untuk analisis ───────────────────────────────────
 export type DataUsaha = {
-  kom:             string;
-  musimTanam:      string[];
-  status:          string;
-  tahunMulai:      string;
-  punyaNIB:        "Ya" | "Tidak";
-  punyaCatatan:    "Ya" | "Tidak";
-  punyaAsetDigital:"Ya" | "Tidak";
-  tahunData:       number; // tahun pendapatan yang dianalisis (default 2025)
+  kom:        string;
+  musimTanam: string[];
+  status:     string;
+  upahHarian: number; // Rp/HOK saat ini (dari input)
 };
 
 // ─── Helper: dorong temuan ────────────────────────────────────────────────────
@@ -193,17 +189,17 @@ export function analisisAnomali(h: any, u: DataUsaha): HasilAnalisis {
   // ══════════════════════════════════════════════════════════════════════
   if (!isTembakau && ha > 0 && (h.hokTotal ?? 0) > 0) {
     const hokPerHa = h.hokTotal / ha;
-    if (hokPerHa < 5) {
-      dorong(temuan, "A09", "warning",
-        `HOK ${hokPerHa.toFixed(1)}/ha terlalu RENDAH`,
-        "Normal intensitas kerja usaha tanaman pangan: 5–30 HOK/ha.",
-        "Cek kebutuhan TK komoditas. Mungkin luas dibesar-besarkan.");
-    } else if (hokPerHa > 30) {
-      dorong(temuan, "A09", "warning",
-        `HOK ${hokPerHa.toFixed(1)}/ha terlalu TINGGI`,
-        "Di atas 30 HOK/ha jarang terjadi kecuali komoditas padat karya (bawang/cabai).",
-        "Konfirmasi kebutuhan tenaga kerja.");
-    }
+      if (hokPerHa < 5) {
+        dorong(temuan, "A09", "warning",
+          `HOK ${hokPerHa.toFixed(1)}/ha terlalu RENDAH`,
+          "Normal intensitas kerja usaha tanaman pangan: 40–150 HOK/ha.",
+          "Cek kebutuhan TK komoditas. Mungkin luas dibesar-besarkan.");
+      } else if (hokPerHa > 200) {
+        dorong(temuan, "A09", "warning",
+          `HOK ${hokPerHa.toFixed(1)}/ha terlalu TINGGI`,
+          "Di atas 200 HOK/ha jarang terjadi kecuali komoditas padat karya (bawang/cabai).",
+          "Konfirmasi kebutuhan tenaga kerja.");
+      }
   }
 
   // ══════════════════════════════════════════════════════════════════════
@@ -278,38 +274,76 @@ export function analisisAnomali(h: any, u: DataUsaha): HasilAnalisis {
       "Cek apakah nilai produksi sudah diisi.");
   }
 
-  // ══════════════════════════════════════════════════════════════════════
-  // A12 — Usaha baru 2026 tapi diisi data 2025
-  // ══════════════════════════════════════════════════════════════════════
-  const thn = parseInt(u.tahunMulai, 10);
-  if (!isNaN(thn) && thn >= 2026 && u.tahunData < 2026) {
-    dorong(temuan, "A12", "info",
-      `Usaha baru (mulai ${thn}) tapi diisi data ${u.tahunData}`,
-      "Rincian 26–29 hanya diisi jika usaha beroperasi SEBELUM 2026. Usaha baru tidak perlu mengisi.",
-      "Kosongkan blok 26–29 jika usaha baru beroperasi tahun 2026.");
-  }
-
-  // ══════════════════════════════════════════════════════════════════════
-  // A14 — Tidak punya NIB tapi omzet besar
-  // ══════════════════════════════════════════════════════════════════════
-  if (u.punyaNIB === "Tidak" && nilaiProd > 300_000_000) {
-    dorong(temuan, "A14", "info",
-      `Omzet besar (${"Rp " + Math.round(nilaiProd).toLocaleString("id-ID")}) tapi belum punya NIB`,
-      "Usaha beromzet > Rp 300 juta disarankan mengurus NIB.",
-      "Sosialisasikan pendaftaran NIB (OSS) kepada responden.");
-  }
-
-  // ══════════════════════════════════════════════════════════════════════
-  // Catatan konsistensi catatan keuangan
-  // ══════════════════════════════════════════════════════════════════════
-  if (u.punyaCatatan === "Tidak" && nilaiProd > 50_000_000) {
-    dorong(temuan, "A14b", "info",
-      "Omzet menengah tanpa catatan keuangan",
-      "Estimasi nilai produksi rentan tidak akurat bila tanpa catatan.",
-      "Bantu responden mengestimasi berbasis satuan fisik (kg/panen).");
-  }
-
   return finalkan(temuan);
+}
+
+// ─── Fungsi AI Auto-Fix: usulkan koreksi untuk anomali ────────────────────────
+// Mengembalikan nilai upahHarian yang direkomendasikan AI agar rasio upah/produksi
+// masuk rentang sehat (< 50%). Jika anomali bukan dari upah, kembalikan null.
+export type Koreksi = {
+  field: string;        // "upahHarian" | "sapr1000" | dll
+  label: string;        // deskripsi singkat
+  nilaiLama: number;
+  nilaiBaru: number;
+  alasan: string;
+};
+
+export function usulkanKoreksi(h: any, u: DataUsaha): Koreksi[] {
+  const koreksi: Koreksi[] = [];
+  const nilaiProd = h.nilaiProd ?? h.pend ?? 0;
+  const upah = h.gajiTK ?? h.upah ?? 0;
+  const totalPeng = h.totalPeng ?? 0;
+
+  // ── Koreksi upahHarian jika rasio > 60% ──────────────────────────────────
+  if (nilaiProd > 0 && upah > 0) {
+    const rasio = upah / nilaiProd;
+    if (rasio > 0.60 && (h.hokDibayar ?? 0) > 0) {
+      // Target: rasio 40%
+      const targetUpah = nilaiProd * 0.40;
+      const upahBaru = Math.round(targetUpah / (h.hokDibayar ?? 1));
+      if (upahBaru < u.upahHarian && upahBaru >= 30000) {
+        koreksi.push({
+          field: "upahHarian",
+          label: "Turunkan upah harian",
+          nilaiLama: u.upahHarian,
+          nilaiBaru: upahBaru,
+          alasan: `Rasio upah/produksi ${Math.round(rasio * 100)}% (terlalu tinggi). ` +
+            `AI menyarankan Rp ${upahBaru.toLocaleString("id-ID")}/HOK agar rasio turun ke ~40%. ` +
+            `Mempertahankan ${h.hokDibayar} HOK.`,
+        });
+      }
+    }
+  }
+
+  // ── Koreksi jika usaha rugi — usulkan turunkan saprotan ───────────────────
+  if (nilaiProd > 0 && totalPeng > nilaiProd) {
+    const biaya = h.biaya ?? 0;
+    const oper = h.oper ?? 0;
+    if (biaya > 0 && (h.prod ?? 0) > 0) {
+      const saprotanPerTon = biaya / (h.prod / 1000);
+      // Jika saprotan per ton di atas 50% harga jual, turunkan
+      const hargaJual = hargaJualDariKom(u.kom);
+      if (hargaJual > 0 && saprotanPerTon > hargaJual * 500) {
+        const saprotanBaruPerTon = hargaJual * 400;
+        koreksi.push({
+          field: "sapr1000",
+          label: "Turunkan biaya saprotan per ton",
+          nilaiLama: Math.round(saprotanPerTon),
+          nilaiBaru: Math.round(saprotanBaruPerTon),
+          alasan: `Biaya saprotan Rp ${Math.round(saprotanPerTon).toLocaleString("id-ID")}/ton melebihi patokan wajar. ` +
+            `AI menyarankan Rp ${Math.round(saprotanBaruPerTon).toLocaleString("id-ID")}/ton agar tidak rugi.`,
+        });
+      }
+    }
+  }
+
+  return koreksi;
+}
+
+// ─── Helper: harga jual patokan dari komoditas ──────────────────────────────
+function hargaJualDariKom(kom: string): number {
+  const d = db[kom];
+  return d?.harga ?? 0;
 }
 
 // ─── Hitung ringkasan & skor kesehatan ───────────────────────────────────────

@@ -258,8 +258,8 @@ export function buildRows(params: {
     rows.push({
       label: "26.a. Upah Tenaga Kerja",
       value: rp(h.upah),
-      explain: `Upah buruh tani: Rp ${d.gaji1000.toLocaleString()} per 1.000 kg padi dihasilkan.\n` +
-        `${(h.prod / 1000).toFixed(2)} × Rp ${d.gaji1000.toLocaleString()} = ${rp(h.upah)}`,
+      explain: `Upah TK = HOK dibayar × upah harian.\n` +
+        `${h.hokDibayar} HOK × Rp ${(h.upahHarian ?? 70000).toLocaleString("id-ID")}/HOK = ${rp(h.upah)}`,
     });
 
     let explain26b = "";
@@ -425,8 +425,8 @@ export function buildRows(params: {
     rows.push({
       label: "26.a. Upah Tenaga Kerja",
       value: rp(h.upah),
-      explain: `Gaji TK: Rp ${d.gaji1000.toLocaleString()} per 1.000 kg kedelai diproduksi.\n` +
-        `${(h.prod / 1000).toFixed(2)} × Rp ${d.gaji1000.toLocaleString()} = ${rp(h.upah)}`,
+      explain: `Upah TK = HOK dibayar × upah harian.\n` +
+        `${h.hokDibayar} HOK × Rp ${(h.upahHarian ?? 70000).toLocaleString("id-ID")}/HOK = ${rp(h.upah)}`,
     });
 
     let explain26b = "";
@@ -579,8 +579,8 @@ export function buildRows(params: {
   rows.push({
     label: "26.a. Upah Tenaga Kerja",
     value: rp(h.upah),
-    explain: `Upah buruh tani: Rp ${(d?.gaji1000 ?? 0).toLocaleString()} per 1.000 kg panen.\n` +
-      `${(h.prod / 1000).toFixed(2)} × Rp ${(d?.gaji1000 ?? 0).toLocaleString()} = ${rp(h.upah)}`,
+    explain: `Upah TK = HOK dibayar × upah harian.\n` +
+      `${h.hokDibayar} HOK × Rp ${(h.upahHarian ?? 70000).toLocaleString("id-ID")}/HOK = ${rp(h.upah)}`,
   });
 
   rows.push({

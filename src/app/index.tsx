@@ -14,7 +14,8 @@ import { useDatabase } from "../hooks/useDatabase";
 import { buildRows } from "../lib/buildRows";
 import { rp } from "../lib/helpers";
 import { daftarKategori, daftarKondisiPanen, hitungEstimasi, kategoriMap, kondisiPanenLabel, TEMBAKAU, type KondisiPanen } from "../lib/kalkulatorData";
-import { analisisAnomali, type DataUsaha, type HasilAnalisis } from "../lib/anomaliAnalysis";
+import { analisisAnomali, type DataUsaha, type HasilAnalisis, type Koreksi, usulkanKoreksi } from "../lib/anomaliAnalysis";
+import { UPAH_HOK } from "../lib/kalkulatorData";
 import { ui } from "../styles/ui";
 
 // ── Komponen UI ──────────────────────────────────────────────────────────────
@@ -39,60 +40,6 @@ import { FormBangunanScreen } from "../screens/FormBangunanScreen";
 import { MapScreen } from "../screens/MapScreen";
 import { SettingsScreen } from "../screens/SettingsScreen";
 import { SLSScreen } from "../screens/SLSScreen";
-
-// ─── Opsi kuesioner SE2026 Blok II (Identitas Usaha) ──────────────────────────
-const OPS_JENIS_USAHA = [
-  "1. Usaha di dalam bangunan tempat tinggal",
-  "2. Usaha keliling",
-  "3. Usaha di luar bangunan (lokasi tetap)",
-  "4. Usaha konstruksi/tambang perorangan",
-  "5. Usaha persewaan rumah/kamar/kantor",
-  "6. Usaha pertanian",
-];
-const OPS_STATUS_BADAN = [
-  "Bukan Badan Usaha",
-  "Perseroan (PT)",
-  "Perseroan perorangan",
-  "Yayasan",
-  "Koperasi",
-  "Dana Pensiun",
-  "Perum/Perumda",
-  "BUM Desa",
-  "CV",
-  "Firma",
-  "Persekutuan Perdata",
-  "Kantor Perwakilan LN",
-  "Badan Usaha LN",
-  "Badan Usaha Lainnya",
-];
-const OPS_JARINGAN = ["Tunggal", "Kantor pusat", "Cabang", "Perwakilan", "Pabrik", "Unit penunjang"];
-const OPS_MBG = [
-  "Tidak terlibat MBG",
-  "Sebagai SPPG",
-  "Sebagai supplier",
-  "Sebagai penerima manfaat",
-  "Peran lainnya",
-];
-const OPS_ALASAN_NIB = [
-  "Dalam proses pembuatan NIB",
-  "Pengurusan NIB rumit",
-  "Tidak memerlukan NIB",
-  "Tidak tahu tentang NIB",
-  "Lainnya",
-];
-const OPS_RAMAH_LINGKUNGAN = ["Ya, seluruhnya", "Ya, sebagian", "Tidak sama sekali"];
-
-// Auto-saran KBLI dari komoditas yang dipilih
-const KBLI_MAP: Record<string, string> = {
-  Padi:           "01121 — Pertanian Padi Hibrida",
-  Jagung:         "01112 — Pertanian Serealia Selain Padi",
-  Kedelai:        "01113 — Pertanian Kedelai",
-  "Kacang Hijau": "01119 — Pertanian Kacang-kacangan Lain",
-  "Bawang Merah": "01133 — Pertanian Sayuran",
-  Cabai:          "01133 — Pertanian Sayuran",
-  Tebu:           "01141 — Pertanian Tebu",
-  Tembakau:       "01151 — Pertanian Tembakau",
-};
 
 // ─── Tipe navigation stack ────────────────────────────────────────────────────
 type Screen =
@@ -133,26 +80,12 @@ export default function HomeScreen() {
   const [loading,    setLoading]    = useState(false);
   const [step,       setStep]       = useState(0);
 
-  // ── State Blok II SE2026 (Identitas Usaha) untuk analisis anomali ─────────
-  const [jenisUsaha,    setJenisUsaha]    = useState("6. Usaha pertanian");
-  const [punyaNIB,      setPunyaNIB]      = useState<"Ya" | "Tidak">("Tidak");
-  const [alasanNIB,     setAlasanNIB]     = useState("Tidak memerlukan NIB");
-  const [statusBadan,   setStatusBadan]   = useState("Bukan Badan Usaha");
-  const [punyaCatatan,  setPunyaCatatan]  = useState<"Ya" | "Tidak">("Tidak");
-  const [jaringan,      setJaringan]      = useState("Tunggal");
-  const [pakaiInternet, setPakaiInternet] = useState<"Ya" | "Tidak">("Tidak");
-  const [tujuanNet,     setTujuanNet]     = useState<string[]>([]); // multi-toggle
-  const [pakaiAI,       setPakaiAI]       = useState<"Ya" | "Tidak">("Tidak");
-  const [ramahLing,     setRamahLing]     = useState("Tidak sama sekali");
-  const [ramahInput,    setRamahInput]    = useState<"Ya" | "Tidak">("Tidak");
-  const [mitraKDKMP,    setMitraKDKMP]    = useState<"Ya" | "Tidak">("Tidak");
-  const [peranMBG,      setPeranMBG]      = useState("Tidak terlibat MBG");
-  const [eksporBarang,  setEksporBarang]  = useState<"Ya" | "Tidak">("Tidak");
-  const [eksporJasa,    setEksporJasa]    = useState<"Ya" | "Tidak">("Tidak");
-  const [imporJasa,     setImporJasa]     = useState<"Ya" | "Tidak">("Tidak");
+  // ── State input tenaga kerja (HOK-based) untuk analisis anomali ──────────
+  const [upahHarian, setUpahHarian] = useState(String(UPAH_HOK)); // Rp/HOK
 
-  // ── State hasil analisis anomali ──────────────────────────────────────────
+  // ── State hasil analisis anomali + koreksi AI ────────────────────────────
   const [analisis, setAnalisis] = useState<HasilAnalisis | null>(null);
+  const [koreksiAI, setKoreksiAI] = useState<Koreksi[]>([]);
 
   // ── Picker ────────────────────────────────────────────────────────────────
   const [pickerVisible, setPickerVisible] = useState(false);
@@ -177,18 +110,18 @@ export default function HomeScreen() {
           kom, mode, luas, satLuas, panen, satPanen,
           musimTanam, jenisTembakau, jumlahPohon, luasTembakau, status,
           kondisiPanen,
+          upahHarian: parseFloat(upahHarian) || UPAH_HOK,
         });
         if (res) {
           setHasil(res);
           setStep(1);
-          // ── Jalankan analisis anomali (aturan cerdas offline) ──────────
+          // ── Jalankan analisis anomali + koreksi AI (aturan cerdas offline) ─
           const dataUsaha: DataUsaha = {
             kom, musimTanam, status,
-            tahunMulai: tahun,
-            punyaNIB, punyaCatatan, punyaAsetDigital: pakaiAI,
-            tahunData: 2025,
+            upahHarian: parseFloat(upahHarian) || UPAH_HOK,
           };
           setAnalisis(analisisAnomali(res, dataUsaha));
+          setKoreksiAI(usulkanKoreksi(res, dataUsaha));
         }
       } catch (err) {
         console.error("[hitung] error:", err);
@@ -197,6 +130,25 @@ export default function HomeScreen() {
         setLoading(false);
       }
     }, 0);
+  }
+
+  // ── Benerin Otomatis (AI): terapkan koreksi yang diusulkan ────────────────
+  function benarkanOtomatis(k: Koreksi) {
+    if (k.field === "upahHarian") {
+      setUpahHarian(String(k.nilaiBaru));
+      Alert.alert(
+        "✓ Koreksi Diterapkan",
+        `Upah harian diubah dari Rp ${k.nilaiLama.toLocaleString("id-ID")} → Rp ${k.nilaiBaru.toLocaleString("id-ID")}/HOK.\n\nTekan "Hitung Estimasi SE2026" untuk lihat hasil baru.`
+      );
+    } else if (k.field === "sapr1000") {
+      Alert.alert(
+        "ℹ Koreksi Saprotan",
+        `AI menyarankan biaya saprotan Rp ${k.nilaiBaru.toLocaleString("id-ID")}/ton (dari Rp ${k.nilaiLama.toLocaleString("id-ID")}/ton).\n\n` +
+        `Ini perlu penyesuaian manual parameter komoditas. Hubungi developer untuk kalibrasi saprotan.`
+      );
+    }
+    // Hapus koreksi yang sudah diterapkan
+    setKoreksiAI((prev) => prev.filter((x) => x.field !== k.field));
   }
 
   // buildRows dipanggil di render — bungkus supaya tidak crash halaman
@@ -454,236 +406,16 @@ export default function HomeScreen() {
                   </View>
                 </SectionCard>
 
-                {/* Section 2: Lahan */}
-                <SectionCard icon="location_on" title="Section 2: Detail Lahan & Lokasi">
+                {/* Section 2: Lahan & Tenaga Kerja */}
+                <SectionCard icon="location_on" title="Section 2: Detail Lahan & Tenaga Kerja">
                   <View style={[ui.formGrid, isTablet && { flexDirection: "row", flexWrap: "wrap" }]}>
                     <SelectField label="Status Lahan" value={status} width={isTablet ? "48%" : "100%"}
                       onPress={() => openPicker("Status Lahan", ["Milik Sendiri", "Sewa", "Bagi Hasil"], status, setStatus)} />
                     <SelectField label="Desa" value="Sumberharjo" width={isTablet ? "48%" : "100%"} onPress={() => {}} />
-                  </View>
-                </SectionCard>
-
-                {/* Section 3: Data Usaha SE2026 Blok II (untuk analisis anomali) */}
-                <SectionCard icon="business" title="Section 3: Data Usaha SE2026 (Blok II)">
-                  <View style={[ui.formGrid, isTablet && { flexDirection: "row", flexWrap: "wrap" }]}>
-                    {/* KBLI auto-saran */}
-                    <SelectField
-                      label="13.g. KBLI (auto dari komoditas)"
-                      value={KBLI_MAP[kom] ?? "—"}
-                      width={isTablet ? "48%" : "100%"}
-                      onPress={() => Alert.alert(
-                        "KBLI Rekomendasi",
-                        `Komoditas "${kom}" → ${KBLI_MAP[kom] ?? "belum dipetakan"}.\n\nKode ini digunakan untuk validasi GEN AI di CAPI SE2026.`
-                      )}
-                    />
-                    <SelectField
-                      label="25. Tahun Mulai Operasi"
-                      value={tahun}
-                      width={isTablet ? "48%" : "100%"}
-                      onPress={() => openPicker("Tahun Mulai Operasi", ["2000","2005","2010","2015","2020","2022","2023","2024","2025","2026"], tahun, setTahun)}
-                    />
-
-                    <SelectField
-                      label="9.a. Jenis Usaha"
-                      value={jenisUsaha}
-                      width={isTablet ? "48%" : "100%"}
-                      onPress={() => openPicker("Jenis Usaha", OPS_JENIS_USAHA, jenisUsaha, setJenisUsaha)}
-                    />
-                    <SelectField
-                      label="11.a. Status Badan Usaha"
-                      value={statusBadan}
-                      width={isTablet ? "48%" : "100%"}
-                      onPress={() => openPicker("Status Badan Usaha", OPS_STATUS_BADAN, statusBadan, setStatusBadan)}
-                    />
-
-                    {/* 10.a NIB */}
-                    <View style={[ui.fieldWrap, { width: isTablet ? "48%" : "100%" }]}>
-                      <Text style={ui.fieldLabel}>10.a. Memiliki NIB?</Text>
-                      <View style={ui.musimToggleRow}>
-                        {(["Ya", "Tidak"] as const).map((opt) => {
-                          const active = punyaNIB === opt;
-                          return (
-                            <Pressable
-                              key={opt}
-                              style={({ pressed }) => [ui.musimToggleBtn, active && ui.musimToggleBtnActive, pressed && { opacity: 0.75 }]}
-                              onPress={() => setPunyaNIB(opt)}
-                              accessibilityLabel={`NIB ${opt}`}
-                            >
-                              <Icon name={active ? "check" : "chevron-down"} size={13} color={active ? T.onPrimary : T.onSurfaceVariant} />
-                              <Text style={[ui.musimToggleTxt, active && ui.musimToggleTxtActive]}>{opt}</Text>
-                            </Pressable>
-                          );
-                        })}
-                      </View>
-                    </View>
-
-                    {punyaNIB === "Tidak" && (
-                      <SelectField
-                        label="10.c. Alasan Tidak Punya NIB"
-                        value={alasanNIB}
-                        width={isTablet ? "48%" : "100%"}
-                        onPress={() => openPicker("Alasan Tidak Punya NIB", OPS_ALASAN_NIB, alasanNIB, setAlasanNIB)}
-                      />
-                    )}
-
-                    {/* 11.d Catatan keuangan */}
-                    <View style={[ui.fieldWrap, { width: isTablet ? "48%" : "100%" }]}>
-                      <Text style={ui.fieldLabel}>11.d. Punya Catatan Keuangan?</Text>
-                      <View style={ui.musimToggleRow}>
-                        {(["Ya", "Tidak"] as const).map((opt) => {
-                          const active = punyaCatatan === opt;
-                          return (
-                            <Pressable
-                              key={opt}
-                              style={({ pressed }) => [ui.musimToggleBtn, active && ui.musimToggleBtnActive, pressed && { opacity: 0.75 }]}
-                              onPress={() => setPunyaCatatan(opt)}
-                              accessibilityLabel={`Catatan keuangan ${opt}`}
-                            >
-                              <Icon name={active ? "check" : "chevron-down"} size={13} color={active ? T.onPrimary : T.onSurfaceVariant} />
-                              <Text style={[ui.musimToggleTxt, active && ui.musimToggleTxtActive]}>{opt}</Text>
-                            </Pressable>
-                          );
-                        })}
-                      </View>
-                    </View>
-
-                    <SelectField
-                      label="14.a. Jaringan Usaha"
-                      value={jaringan}
-                      width={isTablet ? "48%" : "100%"}
-                      onPress={() => openPicker("Jaringan Usaha", OPS_JARINGAN, jaringan, setJaringan)}
-                    />
-
-                    {/* 16.a Internet */}
-                    <View style={[ui.fieldWrap, { width: isTablet ? "48%" : "100%" }]}>
-                      <Text style={ui.fieldLabel}>16.a. Pakai Internet?</Text>
-                      <View style={ui.musimToggleRow}>
-                        {(["Ya", "Tidak"] as const).map((opt) => {
-                          const active = pakaiInternet === opt;
-                          return (
-                            <Pressable
-                              key={opt}
-                              style={({ pressed }) => [ui.musimToggleBtn, active && ui.musimToggleBtnActive, pressed && { opacity: 0.75 }]}
-                              onPress={() => setPakaiInternet(opt)}
-                              accessibilityLabel={`Internet ${opt}`}
-                            >
-                              <Icon name={active ? "check" : "chevron-down"} size={13} color={active ? T.onPrimary : T.onSurfaceVariant} />
-                              <Text style={[ui.musimToggleTxt, active && ui.musimToggleTxtActive]}>{opt}</Text>
-                            </Pressable>
-                          );
-                        })}
-                      </View>
-                    </View>
-
-                    {/* 16.b Tujuan internet (multi-toggle) */}
-                    {pakaiInternet === "Ya" && (
-                      <View style={[ui.fieldWrap, { width: "100%" }]}>
-                        <Text style={ui.fieldLabel}>16.b. Tujuan Penggunaan Internet</Text>
-                        <View style={[ui.musimToggleRow, { flexWrap: "wrap" as any }]}>
-                          {["Menerima pesanan", "Produksi", "Distribusi", "Beli bahan", "Promosi"].map((opt) => {
-                            const active = tujuanNet.includes(opt);
-                            return (
-                              <Pressable
-                                key={opt}
-                                style={({ pressed }) => [ui.musimToggleBtn, active && ui.musimToggleBtnActive, pressed && { opacity: 0.75 }]}
-                                onPress={() => setTujuanNet((prev) => active ? prev.filter((x) => x !== opt) : [...prev, opt])}
-                                accessibilityLabel={`Tujuan internet ${opt}`}
-                              >
-                                <Icon name={active ? "check" : "chevron-down"} size={13} color={active ? T.onPrimary : T.onSurfaceVariant} />
-                                <Text style={[ui.musimToggleTxt, active && ui.musimToggleTxtActive]}>{opt}</Text>
-                              </Pressable>
-                            );
-                          })}
-                        </View>
-                      </View>
-                    )}
-
-                    {/* 16.c Teknologi AI/IoT */}
-                    <View style={[ui.fieldWrap, { width: isTablet ? "48%" : "100%" }]}>
-                      <Text style={ui.fieldLabel}>16.c. Pakai Teknologi AI/IoT/Big Data?</Text>
-                      <View style={ui.musimToggleRow}>
-                        {(["Ya", "Tidak"] as const).map((opt) => {
-                          const active = pakaiAI === opt;
-                          return (
-                            <Pressable
-                              key={opt}
-                              style={({ pressed }) => [ui.musimToggleBtn, active && ui.musimToggleBtnActive, pressed && { opacity: 0.75 }]}
-                              onPress={() => setPakaiAI(opt)}
-                              accessibilityLabel={`AI/IoT ${opt}`}
-                            >
-                              <Icon name={active ? "check" : "chevron-down"} size={13} color={active ? T.onPrimary : T.onSurfaceVariant} />
-                              <Text style={[ui.musimToggleTxt, active && ui.musimToggleTxtActive]}>{opt}</Text>
-                            </Pressable>
-                          );
-                        })}
-                      </View>
-                    </View>
-
-                    <SelectField
-                      label="17.a. Produk Ramah Lingkungan"
-                      value={ramahLing}
-                      width={isTablet ? "48%" : "100%"}
-                      onPress={() => openPicker("Produk Ramah Lingkungan", OPS_RAMAH_LINGKUNGAN, ramahLing, setRamahLing)}
-                    />
-
-                    {/* 21 KDKMP */}
-                    <View style={[ui.fieldWrap, { width: isTablet ? "48%" : "100%" }]}>
-                      <Text style={ui.fieldLabel}>21. Mitra Koperasi Desa Merah Putih?</Text>
-                      <View style={ui.musimToggleRow}>
-                        {(["Ya", "Tidak"] as const).map((opt) => {
-                          const active = mitraKDKMP === opt;
-                          return (
-                            <Pressable
-                              key={opt}
-                              style={({ pressed }) => [ui.musimToggleBtn, active && ui.musimToggleBtnActive, pressed && { opacity: 0.75 }]}
-                              onPress={() => setMitraKDKMP(opt)}
-                              accessibilityLabel={`KDKMP ${opt}`}
-                            >
-                              <Icon name={active ? "check" : "chevron-down"} size={13} color={active ? T.onPrimary : T.onSurfaceVariant} />
-                              <Text style={[ui.musimToggleTxt, active && ui.musimToggleTxtActive]}>{opt}</Text>
-                            </Pressable>
-                          );
-                        })}
-                      </View>
-                    </View>
-
-                    <SelectField
-                      label="22. Keterlibatan MBG"
-                      value={peranMBG}
-                      width={isTablet ? "48%" : "100%"}
-                      onPress={() => openPicker("Keterlibatan MBG", OPS_MBG, peranMBG, setPeranMBG)}
-                    />
-
-                    {/* 23 Ekspor/Impor */}
-                    <View style={[ui.fieldWrap, { width: "100%" }]}>
-                      <Text style={ui.fieldLabel}>23. Transaksi dengan Luar Negeri (Mei 2024–Ags 2026)</Text>
-                      <View style={{ gap: 6, marginTop: 4 }}>
-                        {([
-                          ["Jual/Beli Barang", eksporBarang, setEksporBarang],
-                          ["Jual Jasa",        eksporJasa,   setEksporJasa],
-                          ["Beli Jasa",        imporJasa,    setImporJasa],
-                        ] as const).map(([lbl, val, set]) => (
-                          <View key={lbl} style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                            <Text style={{ flex: 1, fontSize: 12, color: T.onSurface }}>{lbl}</Text>
-                            <View style={ui.musimToggleRow}>
-                              {(["Ya", "Tidak"] as const).map((opt) => {
-                                const active = val === opt;
-                                return (
-                                  <Pressable
-                                    key={opt}
-                                    style={({ pressed }) => [ui.musimToggleBtn, active && ui.musimToggleBtnActive, pressed && { opacity: 0.75 }]}
-                                    onPress={() => set(opt)}
-                                  >
-                                    <Icon name={active ? "check" : "chevron-down"} size={12} color={active ? T.onPrimary : T.onSurfaceVariant} />
-                                    <Text style={[ui.musimToggleTxt, active && ui.musimToggleTxtActive, { fontSize: 12 }]}>{opt}</Text>
-                                  </Pressable>
-                                );
-                              })}
-                            </View>
-                          </View>
-                        ))}
-                      </View>
-                    </View>
+                    <InputField label="Upah Harian / HOK (Rp)" value={upahHarian} onChangeText={setUpahHarian}
+                      placeholder={`contoh: ${UPAH_HOK}`} keyboardType="numeric" width={isTablet ? "48%" : "100%"} />
+                    <InputField label="Tahun Mulai Usaha" value={tahun} onChangeText={setTahun}
+                      placeholder="YYYY" keyboardType="numeric" width={isTablet ? "48%" : "100%"} />
                   </View>
                 </SectionCard>
 
@@ -761,8 +493,8 @@ export default function HomeScreen() {
                           <DetailRow label="Total Upah TK"                  qty={`${hasil.hokDibayar} HOK`} amount={rp(hasil.gajiTK)} />
                         </>)}
                         {!hasil.isTembakau && (<>
-                          <DetailRow label="HOK Laki-laki (40%)"            qty={`${hasil.hokLaki} HOK`}      amount={rp(Math.round(hasil.hokLaki * 0.75) * 70_000)} />
-                          <DetailRow label="HOK Perempuan (60%)"            qty={`${hasil.hokPerempuan} HOK`} amount={rp(Math.round(hasil.hokPerempuan * 0.75) * 70_000)} />
+                          <DetailRow label="HOK Laki-laki (40%)"            qty={`${hasil.hokLaki} HOK`}      amount={rp(hasil.hokLaki * (hasil.upahHarian ?? UPAH_HOK))} />
+                          <DetailRow label="HOK Perempuan (60%)"            qty={`${hasil.hokPerempuan} HOK`} amount={rp(hasil.hokPerempuan * (hasil.upahHarian ?? UPAH_HOK))} />
                           <DetailRow label="HOK Tidak Dibayar (keluarga)"   qty={`${hasil.hokTidakDibayar} HOK`} amount="Rp 0" />
                           <DetailRow label="Total HOK Dibayar"              qty={`${hasil.hokDibayar} HOK`}   amount={rp(hasil.upah)} />
                           {kom === "Padi" && (
@@ -807,7 +539,13 @@ export default function HomeScreen() {
                 )}
 
                 {/* ── Analisis AI: deteksi anomali SE2026 ───────────────────── */}
-                {analisis && <AnomaliCard analisis={analisis} />}
+                {analisis && (
+                  <AnomaliCard
+                    analisis={analisis}
+                    koreksi={koreksiAI}
+                    onBenarkan={benarkanOtomatis}
+                  />
+                )}
 
                 <View style={ui.footer}>
                   <Text style={ui.footerText}>© 2026 BPS Sumberharjo – SE2026</Text>
