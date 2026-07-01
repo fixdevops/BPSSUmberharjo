@@ -47,32 +47,32 @@ export function buildRows(params: {
         label: "24.a1. Pekerja Laki-laki",
         value: `${h.pekerjaLaki} orang`,
         explain: `Jumlah fisik pekerja laki-laki yang terlibat: ${h.pekerjaLaki} orang.\n` +
-          `Setara dengan HOK Laki-laki: ${h.hokLaki} HOK.\n` +
+          `Setara dengan hari kerja Laki-laki: ${h.hokLaki} hari.\n` +
           (isKering ? `(Kering: lebih banyak perempuan rajang & mepe)` : `(Basah: kowak & macul didominasi laki-laki)`),
       },
       {
         label: "24.b1. Pekerja Perempuan",
         value: `${h.pekerjaPerempuan} orang`,
         explain: `Jumlah fisik pekerja perempuan yang terlibat: ${h.pekerjaPerempuan} orang.\n` +
-          `Setara dengan HOK Perempuan: ${h.hokPerempuan} HOK.\n` +
+          `Setara dengan hari kerja Perempuan: ${h.hokPerempuan} hari.\n` +
           (isKering ? `(Pekerjaan rajang & mepe dominan perempuan)` : `(Panen & sortir dominan perempuan)`),
       },
       {
         label: "24.c1. Total Pekerja (a1+b1)",
         value: `${h.totalPekerja} orang`,
-        explain: `Total fisik pekerja yang terlibat: ${h.totalPekerja} orang. (Setara dengan ${h.hokTotal} HOK)`,
+        explain: `Total fisik pekerja yang terlibat: ${h.totalPekerja} orang. (Setara dengan ${h.hokTotal} hari kerja)`,
       },
       {
         label: "24.a2. Pekerja Dibayar",
         value: `${h.pekerjaDibayar} orang`,
-        explain: `Pekerja dibayar (buruh harian/borongan): ${h.pekerjaDibayar} orang.\n` +
-          `Setara dengan HOK Dibayar: ${h.hokDibayar} HOK.`,
+        explain: `Pekerja dibayar (buruh musiman/borongan): ${h.pekerjaDibayar} orang.\n` +
+          `Setara dengan hari kerja Dibayar: ${h.hokDibayar} hari.`,
       },
       {
         label: "24.b2. Pekerja Tidak Dibayar",
         value: `${h.pekerjaTidakDibayar} orang`,
         explain: `Pekerja tidak dibayar (anggota keluarga/pemilik): ${h.pekerjaTidakDibayar} orang.\n` +
-          `Setara dengan HOK Tidak Dibayar: ${h.hokTidakDibayar} HOK.`,
+          `Setara dengan hari kerja Tidak Dibayar: ${h.hokTidakDibayar} hari.`,
       },
       {
         label: "24.c2. Total Pekerja (a2+b2)",
@@ -85,22 +85,33 @@ export function buildRows(params: {
         label: "26.a. Upah Tenaga Kerja",
         value: rp(h.gajiTK),
         explain: isKering
-          ? `${h.ribuan.toFixed(2)} × Rp ${TB.gajiKeringPer1000.toLocaleString()}/1.000 pohon = ${rp(h.gajiTK)}\n` +
-            `(Termasuk upah rajang & mepe)`
-          : `${h.ribuan.toFixed(2)} × Rp ${TB.gajiBasahPer1000.toLocaleString()}/1.000 pohon = ${rp(h.gajiTK)}`,
+          ? `Biaya produksi tembakau kering = Σ upah per jenis pekerjaan × kg basah:\n` +
+            `  • Ngrajang : ${Math.round(h.kgBasah).toLocaleString("id-ID")} kg × Rp 1.000 = ${rp(h.biayaRajang ?? 0)}\n` +
+            `  • Mepe     : ${Math.round(h.kgBasah).toLocaleString("id-ID")} kg × Rp 250   = ${rp(h.biayaMepe ?? 0)}\n` +
+            `  • Sortasi  : ${Math.round(h.kgBasah).toLocaleString("id-ID")} kg × Rp 150   = ${rp(h.biayaSortasi ?? 0)}\n` +
+            `  • Press    : ${Math.round(h.kgBasah).toLocaleString("id-ID")} kg × Rp 100   = ${rp(h.biayaPress ?? 0)}\n` +
+            `  • Packing  : ${Math.round(h.kgBasah).toLocaleString("id-ID")} kg × Rp 50    = ${rp(h.biayaPacking ?? 0)}\n` +
+            `Total 26.a = ${rp(h.gajiTK)}`
+          : `Upah TK per jenis pekerjaan basah (hari kerja × upah/hari):\n` +
+            `  • Kowak ${h.tkKowak ?? 0} hari × Rp 75.000 = ${rp(h.biayaKowak ?? 0)}\n` +
+            `  • Macul ${h.tkMacul ?? 0} hari × Rp 75.000 = ${rp(h.biayaMacul ?? 0)}\n` +
+            `  • Tanam ${h.tkTanam ?? 0} hari × Rp 70.000 = ${rp(h.biayaTanam ?? 0)}\n` +
+            `  • Matun ${h.tkMatun ?? 0} hari × Rp 70.000 = ${rp(h.biayaMatun ?? 0)}\n` +
+            `  • Panen ${h.tkPanen ?? 0} hari × Rp 80.000 = ${rp(h.biayaPanen ?? 0)}\n` +
+            `Total 26.a = ${rp(h.gajiTK)}`,
       },
       {
         label: "26.b. Biaya Produksi (Saprotan)",
         value: rp(h.biayaProd),
         explain: isKering
-          ? explainSaprotan("Tembakau Kering", h.ribuan, h.biayaProd)
+          ? `Tembakau kering: biaya produksi = upah TK rajang (sudah termasuk di 26.a).\nSaprotan terpisah: Rp ${Math.round((h.biayaProd ?? 0)).toLocaleString("id-ID")}`
           : explainSaprotan("Tembakau Basah",  h.ribuan, h.biayaProd),
       },
       {
         label: "26.d. Biaya Operasional",
         value: rp(h.ops),
         explain: isKering
-          ? `Operasional tembakau kering: Rp ${TB.operKeringPer1000.toLocaleString()} per 1.000 pohon\n× ${h.ribuan.toFixed(2)} = ${rp(h.ops)}`
+          ? `Operasional tembakau kering: 15% dari biaya TK.\n${rp(h.gajiTK ?? 0)} × 15% = ${rp(h.ops)}`
           : `Operasional tembakau basah: Rp ${TB.operBasahPer1000.toLocaleString()} per 1.000 pohon\n× ${h.ribuan.toFixed(2)} = ${rp(h.ops)}`,
       },
       {
@@ -221,31 +232,31 @@ export function buildRows(params: {
       label: "24.a1. Pekerja Laki-laki",
       value: `${h.pekerjaLaki} orang`,
       explain: `Pekerja fisik laki-laki (bajak sawah, ngangkut gabah, operator alkon): ${h.pekerjaLaki} orang.\n` +
-        `Setara dengan HOK Laki-laki: ${h.hokLaki} HOK.`,
+        `Setara dengan hari kerja Laki-laki: ${h.hokLaki} hari.`,
     });
     rows.push({
       label: "24.b1. Pekerja Perempuan",
       value: `${h.pekerjaPerempuan} orang`,
       explain: `Pekerja fisik perempuan (tanam sawah/tandur, matun/rumput, sortir): ${h.pekerjaPerempuan} orang.\n` +
-        `Setara dengan HOK Perempuan: ${h.hokPerempuan} HOK.`,
+        `Setara dengan hari kerja Perempuan: ${h.hokPerempuan} hari.`,
     });
     rows.push({
       label: "24.c1. Total Pekerja (a1+b1)",
       value: `${h.totalPekerja} orang`,
-      explain: `Jumlah fisik semua orang yang ikut bekerja: ${h.totalPekerja} orang. (Setara dengan ${h.hokTotal} HOK)`,
+      explain: `Jumlah fisik semua orang yang ikut bekerja: ${h.totalPekerja} orang. (Setara dengan ${h.hokTotal} hari kerja)`,
     });
     rows.push({
       label: "24.a2. Pekerja Dibayar",
       value: `${h.pekerjaDibayar} orang`,
-      explain: `Buruh tani bayaran (musiman/harian): ${h.pekerjaDibayar} orang.\n` +
-        `Setara dengan HOK Dibayar: ${h.hokDibayar} HOK.`,
+      explain: `Buruh tani bayaran (musiman/borongan): ${h.pekerjaDibayar} orang.\n` +
+        `Setara dengan hari kerja Dibayar: ${h.hokDibayar} hari.`,
     });
     rows.push({
       label: "24.b2. Pekerja Tidak Dibayar",
       value: `${h.pekerjaTidakDibayar} orang`,
       explain: `Keluarga/Pemilik sawah: ${h.pekerjaTidakDibayar} orang.\n` +
         `⚠️ SPESIFIK PADI: Bernilai flat 4 karena pemilik/keluarga ikut turun langsung menggarap setiap musim rendengan & walikan.\n` +
-        `Setara dengan HOK Tidak Dibayar: ${h.hokTidakDibayar} HOK.`,
+        `Setara dengan hari kerja Tidak Dibayar: ${h.hokTidakDibayar} hari.`,
     });
     rows.push({
       label: "24.c2. Total Pekerja (a2+b2)",
@@ -258,8 +269,8 @@ export function buildRows(params: {
     rows.push({
       label: "26.a. Upah Tenaga Kerja",
       value: rp(h.upah),
-      explain: `Upah TK = HOK dibayar × upah harian.\n` +
-        `${h.hokDibayar} HOK × Rp ${(h.upahHarian ?? 70000).toLocaleString("id-ID")}/HOK = ${rp(h.upah)}`,
+      explain: `Upah TK = hari kerja dibayar × upah per hari.\n` +
+        `${h.hokDibayar} hari × Rp ${(h.upahHarian ?? 70000).toLocaleString("id-ID")}/hari = ${rp(h.upah)}`,
     });
 
     let explain26b = "";
@@ -400,19 +411,19 @@ export function buildRows(params: {
     rows.push({
       label: "24.c1. Total Pekerja (a1+b1)",
       value: `${h.totalPekerja} orang`,
-      explain: `Jumlah fisik pekerja: ${h.totalPekerja} orang. (Setara dengan ${h.hokTotal} HOK)`,
+      explain: `Jumlah fisik pekerja: ${h.totalPekerja} orang. (Setara dengan ${h.hokTotal} hari kerja)`,
     });
     rows.push({
       label: "24.a2. Pekerja Dibayar",
       value: `${h.pekerjaDibayar} orang`,
-      explain: `Buruh tani bayaran: ${h.pekerjaDibayar} orang.\n` +
-        `Setara dengan HOK Dibayar: ${h.hokDibayar} HOK.`,
+      explain: `Buruh tani bayaran (musiman/borongan): ${h.pekerjaDibayar} orang.\n` +
+        `Setara dengan hari kerja Dibayar: ${h.hokDibayar} hari.`,
     });
     rows.push({
       label: "24.b2. Pekerja Tidak Dibayar",
       value: `${h.pekerjaTidakDibayar} orang`,
       explain: `Keluarga petani kedelai: 2 orang (anggota keluarga/pemilik sawah/tegalan).\n` +
-        `Setara dengan HOK Tidak Dibayar: ${h.hokTidakDibayar} HOK.`,
+        `Setara dengan hari kerja Tidak Dibayar: ${h.hokTidakDibayar} hari.`,
     });
     rows.push({
       label: "24.c2. Total Pekerja (a2+b2)",
@@ -425,8 +436,8 @@ export function buildRows(params: {
     rows.push({
       label: "26.a. Upah Tenaga Kerja",
       value: rp(h.upah),
-      explain: `Upah TK = HOK dibayar × upah harian.\n` +
-        `${h.hokDibayar} HOK × Rp ${(h.upahHarian ?? 70000).toLocaleString("id-ID")}/HOK = ${rp(h.upah)}`,
+      explain: `Upah TK = hari kerja dibayar × upah per hari.\n` +
+        `${h.hokDibayar} hari × Rp ${(h.upahHarian ?? 70000).toLocaleString("id-ID")}/hari = ${rp(h.upah)}`,
     });
 
     let explain26b = "";
@@ -561,7 +572,7 @@ export function buildRows(params: {
   rows.push({
     label: "24.a2. Pekerja Dibayar",
     value: `${h.pekerjaDibayar} orang`,
-    explain: `Pekerja dibayar / buruh tani: ${h.pekerjaDibayar} orang.`,
+    explain: `Pekerja dibayar / buruh tani musiman/borongan: ${h.pekerjaDibayar} orang.`,
   });
   rows.push({
     label: "24.b2. Pekerja Tidak Dibayar",
@@ -579,8 +590,8 @@ export function buildRows(params: {
   rows.push({
     label: "26.a. Upah Tenaga Kerja",
     value: rp(h.upah),
-    explain: `Upah TK = HOK dibayar × upah harian.\n` +
-      `${h.hokDibayar} HOK × Rp ${(h.upahHarian ?? 70000).toLocaleString("id-ID")}/HOK = ${rp(h.upah)}`,
+    explain: `Upah TK = hari kerja dibayar × upah per hari.\n` +
+      `${h.hokDibayar} hari × Rp ${(h.upahHarian ?? 70000).toLocaleString("id-ID")}/hari = ${rp(h.upah)}`,
   });
 
   rows.push({

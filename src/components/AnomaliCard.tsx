@@ -1,13 +1,15 @@
 // ─── AnomaliCard — kartu hasil Analisis AI (deteksi anomali SE2026) ───────────
 //
 // Menampilkan: skor kesehatan data (0–100) + daftar temuan
-// (error/warning/ok/info) dengan saran koreksi.
+// (error/warning/ok/info) dengan saran koreksi otomatis (AI).
 import { useState } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
 import { T } from "../constants/theme";
 import {
-  type HasilAnalisis, type Level, type Temuan, type Koreksi,
-  labelSkor,
+    type HasilAnalisis,
+    type Koreksi,
+    labelSkor,
+    type Level, type Temuan,
 } from "../lib/anomaliAnalysis";
 import { Icon } from "./Icon";
 
@@ -74,14 +76,27 @@ export function AnomaliCard({
   analisis,
   koreksi,
   onBenarkan,
+  onBenarkanSemua,
 }: {
   analisis: HasilAnalisis;
   koreksi?: Koreksi[];
   onBenarkan?: (k: Koreksi) => void;
+  onBenarkanSemua?: () => void;
 }) {
   const { temuan, ringkasan } = analisis;
   const { skorKesehatan } = ringkasan;
   const { teks, warna } = labelSkor(skorKesehatan);
+  const [fixingAll, setFixingAll] = useState(false);
+
+  function handleBenarkanSemua() {
+    if (!onBenarkanSemua) return;
+    setFixingAll(true);
+    // Beri tick agar UI sempat render sebelum kalkulasi berat
+    setTimeout(() => {
+      onBenarkanSemua();
+      setFixingAll(false);
+    }, 50);
+  }
 
   // Urut: error → warning → info → ok
   const urut: Record<Level, number> = { error: 0, warning: 1, info: 2, ok: 3 };
@@ -136,20 +151,46 @@ export function AnomaliCard({
         ))}
       </View>
 
-      {/* ── Tombol Benerin Otomatis (AI) + daftar koreksi ────────────────── */}
+      {/* ── Koreksi Otomatis AI ──────────────────────────────────────────── */}
       {(koreksi ?? []).length > 0 && (
         <View style={st.koreksiBox}>
+          {/* ── Header seksi koreksi ── */}
           <View style={st.koreksiHeader}>
-            <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: "rgba(139,92,246,0.15)", alignItems: "center", justifyContent: "center" }}>
+            <View style={st.koreksiIconWrap}>
               <Icon name="cpu" size={18} color="#8b5cf6" />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={st.koreksiTitle}>Benerin Otomatis (AI)</Text>
-              <Text style={st.koreksiSub}>Saran koreksi otomatis berdasarkan analisis anomali</Text>
+              <Text style={st.koreksiTitle}>Auto-Fix Anomali (AI)</Text>
+              <Text style={st.koreksiSub}>
+                {(koreksi ?? []).length} koreksi tersedia · terapkan satu atau semua
+              </Text>
             </View>
           </View>
 
-          {koreksi!.map((k, i) => (
+          {/* ── Tombol BENERIN SEMUA — prominently displayed ── */}
+          {onBenarkanSemua && (
+            <Pressable
+              style={({ pressed }) => [
+                st.benarkanSemuaBtn,
+                (pressed || fixingAll) && { opacity: 0.82 },
+              ]}
+              onPress={handleBenarkanSemua}
+              disabled={fixingAll}
+              accessibilityLabel="Benerin semua anomali otomatis"
+            >
+              {fixingAll ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <Icon name="zap" size={16} color="#fff" />
+              )}
+              <Text style={st.benarkanSemuaTxt}>
+                {fixingAll ? "Memperbaiki…" : `⚡ Benerin Semua Otomatis (${(koreksi ?? []).length} item)`}
+              </Text>
+            </Pressable>
+          )}
+
+          {/* ── Daftar item koreksi individual ── */}
+          {(koreksi ?? []).map((k, i) => (
             <View key={i} style={st.koreksiItem}>
               <View style={{ flex: 1 }}>
                 <Text style={st.koreksiItemLabel}>{k.label}</Text>
@@ -268,6 +309,7 @@ const st = StyleSheet.create({
   // Koreksi AI
   koreksiBox:    { margin: 12, backgroundColor: "#faf5ff", borderRadius: 12, borderWidth: 1, borderColor: "#e9d5ff", overflow: "hidden" },
   koreksiHeader: { flexDirection: "row", alignItems: "center", gap: 12, padding: 12, borderBottomWidth: 1, borderColor: "#e9d5ff" },
+  koreksiIconWrap: { width: 36, height: 36, borderRadius: 18, backgroundColor: "rgba(139,92,246,0.15)", alignItems: "center", justifyContent: "center" },
   koreksiTitle:  { fontSize: 14, fontWeight: "700", color: "#7c3aed" },
   koreksiSub:    { fontSize: 11, color: T.onSurfaceVariant, marginTop: 2 },
   koreksiItem:   { flexDirection: "row", gap: 10, padding: 12, borderBottomWidth: 0.5, borderColor: "rgba(139,92,246,0.15)" },
@@ -279,4 +321,19 @@ const st = StyleSheet.create({
   nilaiBaru:    { fontSize: 13, fontWeight: "700", color: T.secondary },
   terapkanBtn:  { flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: "#8b5cf6", paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, marginTop: 6 },
   terapkanTxt:  { fontSize: 12, fontWeight: "700", color: T.white },
+
+  // Tombol benerin semua
+  benarkanSemuaBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    margin: 12,
+    marginBottom: 4,
+    backgroundColor: "#7c3aed",
+    paddingVertical: 13,
+    paddingHorizontal: 16,
+    borderRadius: 10,
+  },
+  benarkanSemuaTxt: { fontSize: 14, fontWeight: "800", color: "#fff", letterSpacing: 0.2 },
 });

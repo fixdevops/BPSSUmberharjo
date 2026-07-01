@@ -184,27 +184,9 @@ export function analisisAnomali(h: any, u: DataUsaha): HasilAnalisis {
       "Konfirmasi luas ke responden. Ingat: 1 ha = 10.000 m².");
   }
 
-  // ══════════════════════════════════════════════════════════════════════
-  // A09 — HOK/ha di luar rentang wajar
-  // ══════════════════════════════════════════════════════════════════════
-  if (!isTembakau && ha > 0 && (h.hokTotal ?? 0) > 0) {
-    const hokPerHa = h.hokTotal / ha;
-      if (hokPerHa < 5) {
-        dorong(temuan, "A09", "warning",
-          `HOK ${hokPerHa.toFixed(1)}/ha terlalu RENDAH`,
-          "Normal intensitas kerja usaha tanaman pangan: 40–150 HOK/ha.",
-          "Cek kebutuhan TK komoditas. Mungkin luas dibesar-besarkan.");
-      } else if (hokPerHa > 200) {
-        dorong(temuan, "A09", "warning",
-          `HOK ${hokPerHa.toFixed(1)}/ha terlalu TINGGI`,
-          "Di atas 200 HOK/ha jarang terjadi kecuali komoditas padat karya (bawang/cabai).",
-          "Konfirmasi kebutuhan tenaga kerja.");
-      }
-  }
-
-  // ══════════════════════════════════════════════════════════════════════
+  // ══════════════════════════════════════════════════════════════════
   // A04 — Rasio upah / nilai produksi
-  // ══════════════════════════════════════════════════════════════════════
+  // ══════════════════════════════════════════════════════════════════
   const nilaiProd = h.nilaiProd ?? h.pend ?? 0;
   const upah = h.gajiTK ?? h.upah ?? 0;
   if (nilaiProd > 0 && upah > 0) {
@@ -291,37 +273,74 @@ export type Koreksi = {
 export function usulkanKoreksi(h: any, u: DataUsaha): Koreksi[] {
   const koreksi: Koreksi[] = [];
   const nilaiProd = h.nilaiProd ?? h.pend ?? 0;
-  const upah = h.gajiTK ?? h.upah ?? 0;
+  const upah     = h.gajiTK ?? h.upah ?? 0;
   const totalPeng = h.totalPeng ?? 0;
+  const isTembakau = !!h.isTembakau;
+  const ha   = h.ha ?? (h.luasM2_f ? h.luasM2_f / 10000 : 0);
+  const prod = h.prod ?? h.kgBasah ?? 0;
 
-  // ── Koreksi upahHarian jika rasio > 60% ──────────────────────────────────
-  if (nilaiProd > 0 && upah > 0) {
-    const rasio = upah / nilaiProd;
-    if (rasio > 0.60 && (h.hokDibayar ?? 0) > 0) {
-      // Target: rasio 40%
-      const targetUpah = nilaiProd * 0.40;
-      const upahBaru = Math.round(targetUpah / (h.hokDibayar ?? 1));
-      if (upahBaru < u.upahHarian && upahBaru >= 30000) {
+  // ── Koreksi A03: Produktivitas di luar rentang → koreksi nilai panen ──────────
+  if (!isTembakau && ha > 0 && prod > 0) {
+    const rentang = RENTANG_PROD[u.kom];
+    if (rentang) {
+      const prodPerHa = prod / ha;
+      if (prodPerHa > rentang[1]) {
+        // Terlalu tinggi → sarankan panen di batas atas rentang
+        const panenWajar = Math.round(rentang[1] * ha);
         koreksi.push({
-          field: "upahHarian",
-          label: "Turunkan upah harian",
-          nilaiLama: u.upahHarian,
-          nilaiBaru: upahBaru,
-          alasan: `Rasio upah/produksi ${Math.round(rasio * 100)}% (terlalu tinggi). ` +
-            `AI menyarankan Rp ${upahBaru.toLocaleString("id-ID")}/HOK agar rasio turun ke ~40%. ` +
-            `Mempertahankan ${h.hokDibayar} HOK.`,
+          field: "panen",
+          label: "Koreksi hasil panen (terlalu tinggi)",
+          nilaiLama: Math.round(prod),
+          nilaiBaru: panenWajar,
+          alasan:
+            `Produktivitas ${Math.round(prodPerHa).toLocaleString("id-ID")} kg/ha ` +
+            `melebihi patokan ${rentang[1].toLocaleString("id-ID")} kg/ha. ` +
+            `AI menyarankan ${panenWajar.toLocaleString("id-ID")} kg ` +
+            `(${(rentang[1] / 1000).toFixed(1)} ton/ha × ${ha.toFixed(3)} ha).`,
+        });
+      } else if (prodPerHa < rentang[0]) {
+        // Terlalu rendah → sarankan panen di batas bawah rentang
+        const panenMinimal = Math.round(rentang[0] * ha);
+        koreksi.push({
+          field: "panen",
+          label: "Koreksi hasil panen (terlalu rendah)",
+          nilaiLama: Math.round(prod),
+          nilaiBaru: panenMinimal,
+          alasan:
+            `Produktivitas ${Math.round(prodPerHa).toLocaleString("id-ID")} kg/ha ` +
+            `di bawah patokan minimum ${rentang[0].toLocaleString("id-ID")} kg/ha. ` +
+            `AI menyarankan minimal ${panenMinimal.toLocaleString("id-ID")} kg.`,
         });
       }
     }
   }
 
-  // ── Koreksi jika usaha rugi — usulkan turunkan saprotan ───────────────────
+  // ── Koreksi A04: Rasio upah terlalu tinggi → koreksi upah/hari ────────────
+  if (nilaiProd > 0 && upah > 0) {
+    const rasio = upah / nilaiProd;
+    if (rasio > 0.60 && (h.pekerjaDibayar ?? h.hokDibayar ?? 0) > 0) {
+      const targetUpah  = nilaiProd * 0.40;
+      const pekerjaRef  = h.pekerjaDibayar ?? h.hokDibayar ?? 1;
+      const upahBaru    = Math.round(targetUpah / pekerjaRef);
+      if (upahBaru < u.upahHarian && upahBaru >= 30_000) {
+        koreksi.push({
+          field: "upahHarian",
+          label: "Sesuaikan upah per hari kerja",
+          nilaiLama: u.upahHarian,
+          nilaiBaru: upahBaru,
+          alasan:
+            `Beban upah ${Math.round(rasio * 100)}% dari nilai produksi (terlalu tinggi). ` +
+            `AI menyarankan Rp ${upahBaru.toLocaleString("id-ID")}/hari agar rasio turun ke ~40%.`,
+        });
+      }
+    }
+  }
+
+  // ── Koreksi A05: Usaha rugi → koreksi saprotan ────────────────────────
   if (nilaiProd > 0 && totalPeng > nilaiProd) {
     const biaya = h.biaya ?? 0;
-    const oper = h.oper ?? 0;
-    if (biaya > 0 && (h.prod ?? 0) > 0) {
-      const saprotanPerTon = biaya / (h.prod / 1000);
-      // Jika saprotan per ton di atas 50% harga jual, turunkan
+    if (biaya > 0 && prod > 0) {
+      const saprotanPerTon = biaya / (prod / 1000);
       const hargaJual = hargaJualDariKom(u.kom);
       if (hargaJual > 0 && saprotanPerTon > hargaJual * 500) {
         const saprotanBaruPerTon = hargaJual * 400;
@@ -330,8 +349,9 @@ export function usulkanKoreksi(h: any, u: DataUsaha): Koreksi[] {
           label: "Turunkan biaya saprotan per ton",
           nilaiLama: Math.round(saprotanPerTon),
           nilaiBaru: Math.round(saprotanBaruPerTon),
-          alasan: `Biaya saprotan Rp ${Math.round(saprotanPerTon).toLocaleString("id-ID")}/ton melebihi patokan wajar. ` +
-            `AI menyarankan Rp ${Math.round(saprotanBaruPerTon).toLocaleString("id-ID")}/ton agar tidak rugi.`,
+          alasan:
+            `Biaya saprotan Rp ${Math.round(saprotanPerTon).toLocaleString("id-ID")}/ton melebihi patokan. ` +
+            `AI menyarankan Rp ${Math.round(saprotanBaruPerTon).toLocaleString("id-ID")}/ton.`,
         });
       }
     }

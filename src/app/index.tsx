@@ -11,16 +11,15 @@ import { Alert, Pressable, ScrollView, Text, View } from "react-native";
 import { T } from "../constants/theme";
 import { useBreakpoints } from "../hooks/useBreakpoints";
 import { useDatabase } from "../hooks/useDatabase";
+import { analisisAnomali, usulkanKoreksi, type DataUsaha, type HasilAnalisis, type Koreksi } from "../lib/anomaliAnalysis";
 import { buildRows } from "../lib/buildRows";
 import { rp } from "../lib/helpers";
-import { daftarKategori, daftarKondisiPanen, hitungEstimasi, kategoriMap, kondisiPanenLabel, TEMBAKAU, type KondisiPanen } from "../lib/kalkulatorData";
-import { analisisAnomali, type DataUsaha, type HasilAnalisis, type Koreksi, usulkanKoreksi } from "../lib/anomaliAnalysis";
-import { UPAH_HOK } from "../lib/kalkulatorData";
+import { daftarKategori, daftarKondisiPanen, hitungEstimasi, kategoriMap, kondisiPanenLabel, UPAH_HOK, type KondisiPanen } from "../lib/kalkulatorData";
 import { ui } from "../styles/ui";
 
 // ── Komponen UI ──────────────────────────────────────────────────────────────
-import { BerandaKalkulator } from "../components/BerandaKalkulator";
 import { AnomaliCard } from "../components/AnomaliCard";
+import { BerandaKalkulator } from "../components/BerandaKalkulator";
 import { Icon } from "../components/Icon";
 import { InfoCard } from "../components/InfoCard";
 import { BottomNav } from "../components/navigation/BottomNav";
@@ -132,23 +131,102 @@ export default function HomeScreen() {
     }, 0);
   }
 
-  // ── Benerin Otomatis (AI): terapkan koreksi yang diusulkan ────────────────
+  // ── Helper: hitung ulang dengan override parameter tertentu ────────────────
+  // Semua nilai override diambil dari argumen, bukan state (state React async)
+  function hitungUlangDengan(overrides: {
+    upahHarian?: number;
+    panen?:     string;
+    satPanen?:  string;
+    mode?:      string;
+  } = {}) {
+    const upahBaru    = overrides.upahHarian ?? (parseFloat(upahHarian) || UPAH_HOK);
+    const panenBaru   = overrides.panen    ?? panen;
+    const satPanenBaru= overrides.satPanen ?? satPanen;
+    const modeBaru    = overrides.mode     ?? mode;
+
+    setLoading(true);
+    setTimeout(() => {
+      try {
+        const res = hitungEstimasi({
+          kom, mode: modeBaru, luas, satLuas,
+          panen: panenBaru, satPanen: satPanenBaru,
+          musimTanam, jenisTembakau, jumlahPohon, luasTembakau, status,
+          kondisiPanen,
+          upahHarian: upahBaru,
+        });
+        if (res) {
+          setHasil(res);
+          setStep(1);
+          const dataUsaha: DataUsaha = {
+            kom, musimTanam, status,
+            upahHarian: upahBaru,
+          };
+          setAnalisis(analisisAnomali(res, dataUsaha));
+          setKoreksiAI(usulkanKoreksi(res, dataUsaha));
+        }
+      } catch (err) {
+        console.error("[hitungUlang] error:", err);
+        Alert.alert("Error", "Terjadi kesalahan saat menghitung ulang.");
+      } finally {
+        setLoading(false);
+      }
+    }, 0);
+  }
+
+  // ── Benerin Otomatis (AI): terapkan 1 koreksi → langsung re-hitung ────────
   function benarkanOtomatis(k: Koreksi) {
+    setKoreksiAI((prev) => prev.filter((x) => x.field !== k.field));
+
     if (k.field === "upahHarian") {
       setUpahHarian(String(k.nilaiBaru));
-      Alert.alert(
-        "✓ Koreksi Diterapkan",
-        `Upah harian diubah dari Rp ${k.nilaiLama.toLocaleString("id-ID")} → Rp ${k.nilaiBaru.toLocaleString("id-ID")}/HOK.\n\nTekan "Hitung Estimasi SE2026" untuk lihat hasil baru.`
-      );
+      hitungUlangDengan({ upahHarian: k.nilaiBaru });
+
+    } else if (k.field === "panen") {
+      // Terapkan nilai panen baru (dalam KG), mode ke "panen"
+      setPanen(String(k.nilaiBaru));
+      setSatPanen("KG");
+      setMode("panen");
+      hitungUlangDengan({
+        panen:    String(k.nilaiBaru),
+        satPanen: "KG",
+        mode:     "panen",
+      });
+
     } else if (k.field === "sapr1000") {
       Alert.alert(
         "ℹ Koreksi Saprotan",
-        `AI menyarankan biaya saprotan Rp ${k.nilaiBaru.toLocaleString("id-ID")}/ton (dari Rp ${k.nilaiLama.toLocaleString("id-ID")}/ton).\n\n` +
-        `Ini perlu penyesuaian manual parameter komoditas. Hubungi developer untuk kalibrasi saprotan.`
+        `AI menyarankan biaya saprotan Rp ${k.nilaiBaru.toLocaleString("id-ID")}/ton ` +
+        `(dari Rp ${k.nilaiLama.toLocaleString("id-ID")}/ton).\n\n` +
+        `Parameter ini perlu kalibrasi manual. Hubungi developer.`
       );
     }
-    // Hapus koreksi yang sudah diterapkan
-    setKoreksiAI((prev) => prev.filter((x) => x.field !== k.field));
+  }
+
+  // ── Benerin SEMUA (AI): terapkan semua koreksi sekaligus → re-hitung ──────
+  function benarkanSemua() {
+    if (koreksiAI.length === 0) return;
+
+    const koreksiUpah  = koreksiAI.find((k) => k.field === "upahHarian");
+    const koreksiPanen = koreksiAI.find((k) => k.field === "panen");
+
+    // Tentukan nilai final untuk setiap field
+    const upahFinal    = koreksiUpah  ? koreksiUpah.nilaiBaru  : (parseFloat(upahHarian) || UPAH_HOK);
+    const panenFinal   = koreksiPanen ? String(koreksiPanen.nilaiBaru) : panen;
+    const satPanenFinal= koreksiPanen ? "KG"   : satPanen;
+    const modeFinal    = koreksiPanen ? "panen" : mode;
+
+    // Terapkan ke state UI
+    if (koreksiUpah)  setUpahHarian(String(upahFinal));
+    if (koreksiPanen) { setPanen(panenFinal); setSatPanen(satPanenFinal); setMode(modeFinal); }
+
+    // Bersihkan koreksi lalu hitung dengan semua nilai baru
+    setKoreksiAI([]);
+    hitungUlangDengan({
+      upahHarian: upahFinal,
+      panen:      panenFinal,
+      satPanen:   satPanenFinal,
+      mode:       modeFinal,
+    });
   }
 
   // buildRows dipanggil di render — bungkus supaya tidak crash halaman
@@ -279,7 +357,7 @@ export default function HomeScreen() {
                   <View style={{ flex: 1 }}>
                     <Text style={[ui.pageTitle, isMobile && { fontSize: 20 }]}>Parameter Estimasi</Text>
                     <Text style={ui.pageSubtitle}>
-                      Kalkulasi statistik Sensus Ekonomi 2026 — berbasis HOK & kg/ha
+                      Kalkulasi statistik Sensus Ekonomi 2026 — berbasis hari kerja & kg/ha
                     </Text>
                   </View>
                   <Badge text="SE2026 v1" />
@@ -381,10 +459,17 @@ export default function HomeScreen() {
                           width="100%"
                           onPress={() => openPicker("Jenis Tembakau", ["Tembakau Basah", "Tembakau Kering"], jenisTembakau, setJenisTembakau)}
                         />
-                        <InputField label="Jumlah Pohon" value={jumlahPohon} onChangeText={setJumlahPohon}
-                          placeholder="contoh: 1000" keyboardType="numeric" width={isTablet ? "48%" : "100%"} />
-                        <InputField label="Luas Lahan (m²) — untuk PBB" value={luasTembakau} onChangeText={setLuasTembakau}
-                          placeholder="contoh: 15" keyboardType="numeric" width={isTablet ? "48%" : "100%"} />
+                        {jenisTembakau === "Tembakau Kering" ? (
+                          <InputField label="Kg Daun Basah (yang mau dirajang)" value={jumlahPohon} onChangeText={setJumlahPohon}
+                            placeholder="contoh: 100 kg" keyboardType="numeric" width={isTablet ? "48%" : "100%"} />
+                        ) : (
+                          <>
+                            <InputField label="Jumlah Pohon" value={jumlahPohon} onChangeText={setJumlahPohon}
+                              placeholder="contoh: 1000" keyboardType="numeric" width={isTablet ? "48%" : "100%"} />
+                            <InputField label="Luas Lahan (m²) — untuk PBB" value={luasTembakau} onChangeText={setLuasTembakau}
+                              placeholder="contoh: 15" keyboardType="numeric" width={isTablet ? "48%" : "100%"} />
+                          </>
+                        )}
                       </>
                     )}
 
@@ -412,7 +497,7 @@ export default function HomeScreen() {
                     <SelectField label="Status Lahan" value={status} width={isTablet ? "48%" : "100%"}
                       onPress={() => openPicker("Status Lahan", ["Milik Sendiri", "Sewa", "Bagi Hasil"], status, setStatus)} />
                     <SelectField label="Desa" value="Sumberharjo" width={isTablet ? "48%" : "100%"} onPress={() => {}} />
-                    <InputField label="Upah Harian / HOK (Rp)" value={upahHarian} onChangeText={setUpahHarian}
+                    <InputField label="Upah per Hari Kerja (Rp)" value={upahHarian} onChangeText={setUpahHarian}
                       placeholder={`contoh: ${UPAH_HOK}`} keyboardType="numeric" width={isTablet ? "48%" : "100%"} />
                     <InputField label="Tahun Mulai Usaha" value={tahun} onChangeText={setTahun}
                       placeholder="YYYY" keyboardType="numeric" width={isTablet ? "48%" : "100%"} />
@@ -467,36 +552,41 @@ export default function HomeScreen() {
                       </View>
                       <Pressable style={ui.detailToggleBtn} onPress={() => setShowDetail(!showDetail)}>
                         <Icon name={showDetail ? "x" : "bar-chart-2"} size={13} color={T.secondary} />
-                        <Text style={ui.detailToggleTxt}>{showDetail ? "Tutup" : "Detail HOK"}</Text>
+                        <Text style={ui.detailToggleTxt}>{showDetail ? "Tutup" : "Detail Hari"}</Text>
                       </Pressable>
                     </View>
 
                     {/* Detail HOK collapsible */}
                     {showDetail && (
                       <View style={ui.detailBox}>
-                        <Text style={ui.detailBoxTitle}>Rincian HOK (Hari Orang Kerja)</Text>
+                        <Text style={ui.detailBoxTitle}>Rincian Hari Kerja (Hari Usaha)</Text>
                         <View style={ui.detailHeaderRow}>
                           <Text style={[ui.detailCell, { flex: 5, fontWeight: "700", color: T.onSurface }]}>Komponen</Text>
-                          <Text style={[ui.detailCell, { flex: 2, textAlign: "center", fontWeight: "700", color: T.onSurface }]}>HOK</Text>
+                          <Text style={[ui.detailCell, { flex: 2, textAlign: "center", fontWeight: "700", color: T.onSurface }]}>Hari Kerja</Text>
                           <Text style={[ui.detailCell, { flex: 3, textAlign: "right", fontWeight: "700", color: T.onSurface }]}>Estimasi Biaya</Text>
                         </View>
 
                         {hasil.isTembakau && hasil.jenis === "Tembakau Basah" && (<>
-                          <DetailRow label="Kowak/Bajak (Rp 75rb/HOK)"    qty={`${hasil.tkKowak} org`}  amount={rp(hasil.tkKowak * 75000)} />
-                          <DetailRow label="Macul/Bedengan (Rp 75rb/HOK)" qty={`${hasil.tkMacul} org`}  amount={rp(hasil.tkMacul * 75000)} />
-                          <DetailRow label="Panen/Petik (Rp 75rb/HOK)"    qty={`${hasil.tkPanen} org`}  amount={rp(hasil.tkPanen * 75000)} />
-                          <DetailRow label="Total HOK Dibayar"              qty={`${hasil.hokDibayar} HOK`} amount={rp(hasil.gajiTK)} />
+                          <DetailRow label="Kowak/Bersih Lahan (Rp 75rb/hari)"     qty={`${hasil.tkKowak ?? 0} org`}  amount={rp(hasil.biayaKowak ?? 0)} />
+                          <DetailRow label="Macul/Bedengan (Rp 75rb/hari)"         qty={`${hasil.tkMacul ?? 0} org`}  amount={rp(hasil.biayaMacul ?? 0)} />
+                          <DetailRow label="Tanam Bit (Rp 70rb/hari)"           qty={`${hasil.tkTanam ?? 0} org`}  amount={rp(hasil.biayaTanam ?? 0)} />
+                          <DetailRow label="Matun/Rumput (Rp 70rb/hari)"          qty={`${hasil.tkMatun ?? 0} org`}  amount={rp(hasil.biayaMatun ?? 0)} />
+                          <DetailRow label="Panen/Petik Daun (Rp 80rb/hari)"     qty={`${hasil.tkPanen ?? 0} org`}  amount={rp(hasil.biayaPanen ?? 0)} />
+                          <DetailRow label="Total Upah TK"                       qty={`${hasil.hokDibayar} hari`} amount={rp(hasil.gajiTK)} />
                         </>)}
                         {hasil.isTembakau && hasil.jenis === "Tembakau Kering" && (<>
-                          <DetailRow label={`Ngrajang (Rp ${TEMBAKAU.upahRajang.toLocaleString()}/kg)`} qty={`${Math.round(hasil.kgBasah).toLocaleString()} kg`} amount={rp(TEMBAKAU.upahRajang * hasil.kgBasah)} />
-                          <DetailRow label={`Mepe/Jemur (Rp ${TEMBAKAU.upahMepe.toLocaleString()}/kg)`} qty={`${Math.round(hasil.kgBasah).toLocaleString()} kg`} amount={rp(TEMBAKAU.upahMepe * hasil.kgBasah)} />
-                          <DetailRow label="Total Upah TK"                  qty={`${hasil.hokDibayar} HOK`} amount={rp(hasil.gajiTK)} />
+                          <DetailRow label={`Ngrajang (Rp 1.000/kg)`}           qty={`${Math.round(hasil.kgBasah).toLocaleString()} kg`} amount={rp(hasil.biayaRajang ?? 0)} />
+                          <DetailRow label={`Mepe/Jemur (Rp 250/kg)`}            qty={`${Math.round(hasil.kgBasah).toLocaleString()} kg`} amount={rp(hasil.biayaMepe ?? 0)} />
+                          <DetailRow label={`Sortasi (Rp 150/kg)`}                qty={`${Math.round(hasil.kgBasah).toLocaleString()} kg`} amount={rp(hasil.biayaSortasi ?? 0)} />
+                          <DetailRow label={`Press (Rp 100/kg)`}                  qty={`${Math.round(hasil.kgBasah).toLocaleString()} kg`} amount={rp(hasil.biayaPress ?? 0)} />
+                          <DetailRow label={`Packing (Rp 50/kg)`}                qty={`${Math.round(hasil.kgBasah).toLocaleString()} kg`} amount={rp(hasil.biayaPacking ?? 0)} />
+                          <DetailRow label="Total Upah TK (26.a)"                qty={`${hasil.hokDibayar} hari`} amount={rp(hasil.gajiTK)} />
                         </>)}
                         {!hasil.isTembakau && (<>
-                          <DetailRow label="HOK Laki-laki (40%)"            qty={`${hasil.hokLaki} HOK`}      amount={rp(hasil.hokLaki * (hasil.upahHarian ?? UPAH_HOK))} />
-                          <DetailRow label="HOK Perempuan (60%)"            qty={`${hasil.hokPerempuan} HOK`} amount={rp(hasil.hokPerempuan * (hasil.upahHarian ?? UPAH_HOK))} />
-                          <DetailRow label="HOK Tidak Dibayar (keluarga)"   qty={`${hasil.hokTidakDibayar} HOK`} amount="Rp 0" />
-                          <DetailRow label="Total HOK Dibayar"              qty={`${hasil.hokDibayar} HOK`}   amount={rp(hasil.upah)} />
+                          <DetailRow label="Hari Kerja Laki-laki (40%)"            qty={`${hasil.hokLaki} hari`}      amount={rp(hasil.hokLaki * (hasil.upahHarian ?? UPAH_HOK))} />
+                          <DetailRow label="Hari Kerja Perempuan (60%)"            qty={`${hasil.hokPerempuan} hari`} amount={rp(hasil.hokPerempuan * (hasil.upahHarian ?? UPAH_HOK))} />
+                          <DetailRow label="Pekerja Keluarga (tidak dibayar)"   qty={`${hasil.hokTidakDibayar} hari`} amount="Rp 0" />
+                          <DetailRow label="Total Hari Kerja Dibayar"              qty={`${hasil.hokDibayar} hari`}   amount={rp(hasil.upah)} />
                           {kom === "Padi" && (
                             <DetailRow label="Combi Panen + Angkut" qty={`${(hasil.prod / 100).toFixed(1)} kw`} amount={rp(hasil.combiCost)} />
                           )}
@@ -544,6 +634,7 @@ export default function HomeScreen() {
                     analisis={analisis}
                     koreksi={koreksiAI}
                     onBenarkan={benarkanOtomatis}
+                    onBenarkanSemua={koreksiAI.length > 0 ? benarkanSemua : undefined}
                   />
                 )}
 
