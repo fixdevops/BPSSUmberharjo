@@ -4,15 +4,15 @@
 
 import { useState } from "react";
 import {
-    ActivityIndicator,
-    Image,
-    KeyboardAvoidingView,
-    Platform,
-    Pressable,
-    ScrollView,
-    Text,
-    TextInput,
-    View,
+  ActivityIndicator,
+  Image,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  Text,
+  TextInput,
+  View,
 } from "react-native";
 
 import { Icon } from "../components/Icon";
@@ -252,10 +252,9 @@ export function KeyAuthScreen({ onAccessGranted }: Props) {
             </Text>
           </View>
           {[
-            "1. Hubungi Admin BPS melalui Server Discord yang ditentukan.",
-            "2. Ketik perintah /mintakunciweb di channel yang sesuai.",
-            "3. Bot Discord akan mengirim kunci ke Direct Message (DM) Anda.",
-            "4. Salin kunci dari DM dan tempelkan ke kolom di atas.",
+            "1. Hubungi Admin BPS (Asyam Fikri) untuk mendapatkan kunci akses.",
+            "2. Kunci akan dikirimkan langsung oleh Admin.",
+            "3. Salin kunci yang diberikan dan tempelkan ke kolom di atas.",
             "⚠ Setiap kunci hanya bisa digunakan satu kali.",
           ].map((item, i) => (
             <Text key={i} style={{ fontSize: 12, color: "#1e3a8a", lineHeight: 18 }}>
