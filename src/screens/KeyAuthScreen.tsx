@@ -252,7 +252,7 @@ export function KeyAuthScreen({ onAccessGranted }: Props) {
             </Text>
           </View>
           {[
-            "1. Hubungi Admin BPS (Asyam Fikri) untuk mendapatkan kunci akses.",
+            "1. Hubungi Developer untuk mendapatkan kunci akses.",
             "2. Kunci akan dikirimkan langsung oleh Admin.",
             "3. Salin kunci yang diberikan dan tempelkan ke kolom di atas.",
             "⚠ Setiap kunci hanya bisa digunakan satu kali.",
