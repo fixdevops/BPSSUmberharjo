@@ -3,6 +3,8 @@
   "outputDirectory": "dist",
   "framework": null,
   "rewrites": [
-    { "source": "/((?!gambargue\\.jpeg|logoiconenew\\.jpeg).*)", "destination": "/index.html" }
+    { "source": "/api/verify",   "destination": "/api/verify" },
+    { "source": "/api/mint-key", "destination": "/api/mint-key" },
+    { "source": "/((?!gambargue\\.jpeg|logoiconenew\\.jpeg|api/).*)", "destination": "/index.html" }
   ]
 }
