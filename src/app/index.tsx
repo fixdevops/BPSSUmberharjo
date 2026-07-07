@@ -52,13 +52,7 @@ export default function HomeScreen() {
   const { ready: dbReady, error: dbError }  = useDatabase();
 
   // ── Autentikasi kunci akses ───────────────────────────────────────────────
-  // Cek localStorage saat mount; jika belum punya akses, tampilkan KeyAuthScreen
   const [accessGranted, setAccessGranted] = useState<boolean>(() => isAccessGranted());
-
-  // Tampilkan halaman verifikasi kunci jika belum punya akses
-  if (!accessGranted) {
-    return <KeyAuthScreen onAccessGranted={() => setAccessGranted(true)} />;
-  }
 
   // ── Tab aktif ────────────────────────────────────────────────────────────
   const [activePage, setActivePage] = useState<string>("estimasi");
@@ -185,6 +179,11 @@ export default function HomeScreen() {
     }
   } catch (err) {
     console.error("[buildRows] error:", err);
+  }
+
+  // ─── Autentikasi — tampilkan KeyAuthScreen jika belum punya akses ───────────
+  if (!accessGranted) {
+    return <KeyAuthScreen onAccessGranted={() => setAccessGranted(true)} />;
   }
 
   // ─── DB belum siap ────────────────────────────────────────────────────────
