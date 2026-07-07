@@ -35,13 +35,13 @@ export type HasilAnalisis = {
 // ─── Rentang produktivitas wajar per komoditas (kg/ha) ────────────────────────
 // Patokan lapangan Bojonegoro (bisa berbeda per wilayah).
 const RENTANG_PROD: Record<string, [number, number]> = {
-  Padi:          [4_000, 9_000],
-  Jagung:        [3_000, 7_000],
+  Padi:          [4_000, 10_000],
+  Jagung:        [3_000, 8_000],
   Kedelai:       [1_000, 2_500],
   "Kacang Hijau":[800, 2_000],
   "Bawang Merah":[5_000, 12_000],
   Cabai:         [3_000, 10_000],
-  Tebu:          [50_000, 90_000],
+  Tebu:          [50_000, 100_000],
 };
 
 // ─── Data usaha yang relevan untuk analisis ───────────────────────────────────

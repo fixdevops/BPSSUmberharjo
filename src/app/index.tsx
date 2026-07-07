@@ -11,14 +11,12 @@ import { Alert, Pressable, ScrollView, Text, View } from "react-native";
 import { T } from "../constants/theme";
 import { useBreakpoints } from "../hooks/useBreakpoints";
 import { useDatabase } from "../hooks/useDatabase";
-import { analisisAnomali, usulkanKoreksi, type DataUsaha, type HasilAnalisis, type Koreksi } from "../lib/anomaliAnalysis";
-import { buildRows } from "../lib/buildRows";
+import { buildRows, buildRowsPeternakan } from "../lib/buildRows";
 import { rp } from "../lib/helpers";
 import { daftarKategori, daftarKondisiPanen, hitungEstimasi, kategoriMap, kondisiPanenLabel, UPAH_HOK, type KondisiPanen } from "../lib/kalkulatorData";
 import { ui } from "../styles/ui";
 
 // ── Komponen UI ──────────────────────────────────────────────────────────────
-import { AnomaliCard } from "../components/AnomaliCard";
 import { BerandaKalkulator } from "../components/BerandaKalkulator";
 import { Icon } from "../components/Icon";
 import { InfoCard } from "../components/InfoCard";
@@ -79,12 +77,13 @@ export default function HomeScreen() {
   const [loading,    setLoading]    = useState(false);
   const [step,       setStep]       = useState(0);
 
-  // ── State input tenaga kerja (HOK-based) untuk analisis anomali ──────────
+  // ── State input tenaga kerja (HOK-based) ─────────────────────────────────
   const [upahHarian, setUpahHarian] = useState(String(UPAH_HOK)); // Rp/HOK
 
-  // ── State hasil analisis anomali + koreksi AI ────────────────────────────
-  const [analisis, setAnalisis] = useState<HasilAnalisis | null>(null);
-  const [koreksiAI, setKoreksiAI] = useState<Koreksi[]>([]);
+  // ── State override peternakan ─────────────────────────────────────────────
+  const [peternakanLaki,      setPeternakanLaki]      = useState(""); // pekerja laki-laki (jiwa)
+  const [peternakanPerempuan, setPeternakanPerempuan] = useState(""); // pekerja perempuan (jiwa)
+  const [peternakanDibayar,   setPeternakanDibayar]   = useState<"Dibayar" | "Tidak Dibayar">("Dibayar");
 
   // ── Picker ────────────────────────────────────────────────────────────────
   const [pickerVisible, setPickerVisible] = useState(false);
@@ -110,17 +109,13 @@ export default function HomeScreen() {
           musimTanam, jenisTembakau, jumlahPohon, luasTembakau, status,
           kondisiPanen,
           upahHarian: parseFloat(upahHarian) || UPAH_HOK,
+          peternakanLaki:      peternakanLaki      ? parseInt(peternakanLaki)      : undefined,
+          peternakanPerempuan: peternakanPerempuan ? parseInt(peternakanPerempuan) : undefined,
+          peternakanDibayar:   kategori === "Peternakan" ? peternakanDibayar === "Dibayar" : undefined,
         });
         if (res) {
           setHasil(res);
           setStep(1);
-          // ── Jalankan analisis anomali + koreksi AI (aturan cerdas offline) ─
-          const dataUsaha: DataUsaha = {
-            kom, musimTanam, status,
-            upahHarian: parseFloat(upahHarian) || UPAH_HOK,
-          };
-          setAnalisis(analisisAnomali(res, dataUsaha));
-          setKoreksiAI(usulkanKoreksi(res, dataUsaha));
         }
       } catch (err) {
         console.error("[hitung] error:", err);
@@ -132,7 +127,6 @@ export default function HomeScreen() {
   }
 
   // ── Helper: hitung ulang dengan override parameter tertentu ────────────────
-  // Semua nilai override diambil dari argumen, bukan state (state React async)
   function hitungUlangDengan(overrides: {
     upahHarian?: number;
     panen?:     string;
@@ -153,16 +147,13 @@ export default function HomeScreen() {
           musimTanam, jenisTembakau, jumlahPohon, luasTembakau, status,
           kondisiPanen,
           upahHarian: upahBaru,
+          peternakanLaki:      peternakanLaki      ? parseInt(peternakanLaki)      : undefined,
+          peternakanPerempuan: peternakanPerempuan ? parseInt(peternakanPerempuan) : undefined,
+          peternakanDibayar:   kategori === "Peternakan" ? peternakanDibayar === "Dibayar" : undefined,
         });
         if (res) {
           setHasil(res);
           setStep(1);
-          const dataUsaha: DataUsaha = {
-            kom, musimTanam, status,
-            upahHarian: upahBaru,
-          };
-          setAnalisis(analisisAnomali(res, dataUsaha));
-          setKoreksiAI(usulkanKoreksi(res, dataUsaha));
         }
       } catch (err) {
         console.error("[hitungUlang] error:", err);
@@ -173,66 +164,14 @@ export default function HomeScreen() {
     }, 0);
   }
 
-  // ── Benerin Otomatis (AI): terapkan 1 koreksi → langsung re-hitung ────────
-  function benarkanOtomatis(k: Koreksi) {
-    setKoreksiAI((prev) => prev.filter((x) => x.field !== k.field));
-
-    if (k.field === "upahHarian") {
-      setUpahHarian(String(k.nilaiBaru));
-      hitungUlangDengan({ upahHarian: k.nilaiBaru });
-
-    } else if (k.field === "panen") {
-      // Terapkan nilai panen baru (dalam KG), mode ke "panen"
-      setPanen(String(k.nilaiBaru));
-      setSatPanen("KG");
-      setMode("panen");
-      hitungUlangDengan({
-        panen:    String(k.nilaiBaru),
-        satPanen: "KG",
-        mode:     "panen",
-      });
-
-    } else if (k.field === "sapr1000") {
-      Alert.alert(
-        "ℹ Koreksi Saprotan",
-        `AI menyarankan biaya saprotan Rp ${k.nilaiBaru.toLocaleString("id-ID")}/ton ` +
-        `(dari Rp ${k.nilaiLama.toLocaleString("id-ID")}/ton).\n\n` +
-        `Parameter ini perlu kalibrasi manual. Hubungi developer.`
-      );
-    }
-  }
-
-  // ── Benerin SEMUA (AI): terapkan semua koreksi sekaligus → re-hitung ──────
-  function benarkanSemua() {
-    if (koreksiAI.length === 0) return;
-
-    const koreksiUpah  = koreksiAI.find((k) => k.field === "upahHarian");
-    const koreksiPanen = koreksiAI.find((k) => k.field === "panen");
-
-    // Tentukan nilai final untuk setiap field
-    const upahFinal    = koreksiUpah  ? koreksiUpah.nilaiBaru  : (parseFloat(upahHarian) || UPAH_HOK);
-    const panenFinal   = koreksiPanen ? String(koreksiPanen.nilaiBaru) : panen;
-    const satPanenFinal= koreksiPanen ? "KG"   : satPanen;
-    const modeFinal    = koreksiPanen ? "panen" : mode;
-
-    // Terapkan ke state UI
-    if (koreksiUpah)  setUpahHarian(String(upahFinal));
-    if (koreksiPanen) { setPanen(panenFinal); setSatPanen(satPanenFinal); setMode(modeFinal); }
-
-    // Bersihkan koreksi lalu hitung dengan semua nilai baru
-    setKoreksiAI([]);
-    hitungUlangDengan({
-      upahHarian: upahFinal,
-      panen:      panenFinal,
-      satPanen:   satPanenFinal,
-      mode:       modeFinal,
-    });
-  }
-
   // buildRows dipanggil di render — bungkus supaya tidak crash halaman
   let rows: ReturnType<typeof buildRows> = [];
   try {
-    rows = buildRows({ hasil, kom, mode, panen, satPanen, status, musimTanam });
+    if (hasil?.isPeternakan) {
+      rows = buildRowsPeternakan(hasil);
+    } else {
+      rows = buildRows({ hasil, kom, mode, panen, satPanen, status, musimTanam });
+    }
   } catch (err) {
     console.error("[buildRows] error:", err);
   }
@@ -385,7 +324,7 @@ export default function HomeScreen() {
                       onPress={() => openPicker("Komoditas", kategoriMap[kategori] ?? [], kom, setKom)}
                     />
 
-                    {kom !== "Tembakau" && (
+                    {kom !== "Tembakau" && kategori !== "Peternakan" && (
                       <>
                         <SelectField
                           label="Mode Input"
@@ -408,6 +347,63 @@ export default function HomeScreen() {
                               onPress={() => openPicker("Satuan Panen", ["KUINTAL", "KG", "TON"], satPanen, setSatPanen)} />
                           </>
                         )}
+                      </>
+                    )}
+
+                    {/* ── INPUT PETERNAKAN ───────────────────────────────── */}
+                    {kategori === "Peternakan" && (
+                      <>
+                        <InputField
+                          label="Jumlah Ternak (Ekor)"
+                          value={jumlahPohon}
+                          onChangeText={setJumlahPohon}
+                          placeholder={
+                            kom === "Sapi" ? "contoh: 2" :
+                            kom === "Kambing" ? "contoh: 5" :
+                            "contoh: 50"
+                          }
+                          keyboardType="numeric"
+                          width={isTablet ? "48%" : "100%"}
+                        />
+                        <InputField
+                          label="Pekerja Laki-laki (Jiwa)"
+                          value={peternakanLaki}
+                          onChangeText={setPeternakanLaki}
+                          placeholder="contoh: 1 (kosong = otomatis)"
+                          keyboardType="numeric"
+                          width={isTablet ? "48%" : "100%"}
+                        />
+                        <InputField
+                          label="Pekerja Perempuan (Jiwa)"
+                          value={peternakanPerempuan}
+                          onChangeText={setPeternakanPerempuan}
+                          placeholder="contoh: 1 (kosong = otomatis)"
+                          keyboardType="numeric"
+                          width={isTablet ? "48%" : "100%"}
+                        />
+                        <View style={[ui.fieldWrap, { width: isTablet ? "48%" : "100%" }]}>
+                          <Text style={ui.fieldLabel}>Pekerja Dibayar?</Text>
+                          <View style={ui.musimToggleRow}>
+                            {(["Dibayar", "Tidak Dibayar"] as const).map((opt) => {
+                              const active = peternakanDibayar === opt;
+                              return (
+                                <Pressable
+                                  key={opt}
+                                  style={({ pressed }) => [
+                                    ui.musimToggleBtn,
+                                    active && ui.musimToggleBtnActive,
+                                    pressed && { opacity: 0.75 },
+                                  ]}
+                                  onPress={() => setPeternakanDibayar(opt)}
+                                  accessibilityLabel={opt}
+                                >
+                                  <Icon name={active ? "check" : "chevron-down"} size={13} color={active ? T.onPrimary : T.onSurfaceVariant} />
+                                  <Text style={[ui.musimToggleTxt, active && ui.musimToggleTxtActive]}>{opt}</Text>
+                                </Pressable>
+                              );
+                            })}
+                          </View>
+                        </View>
                       </>
                     )}
 
@@ -473,7 +469,8 @@ export default function HomeScreen() {
                       </>
                     )}
 
-                    {/* Kondisi Hasil Panen — semua komoditas */}
+                    {/* Kondisi Hasil Panen — tanaman & tembakau saja, bukan peternakan */}
+                    {kategori !== "Peternakan" && (
                     <SelectField
                       label="Kondisi Hasil Panen"
                       value={kondisiPanenLabel[kondisiPanen]}
@@ -488,21 +485,36 @@ export default function HomeScreen() {
                         }
                       )}
                     />
+                    )}
                   </View>
                 </SectionCard>
 
-                {/* Section 2: Lahan & Tenaga Kerja */}
-                <SectionCard icon="location_on" title="Section 2: Detail Lahan & Tenaga Kerja">
-                  <View style={[ui.formGrid, isTablet && { flexDirection: "row", flexWrap: "wrap" }]}>
-                    <SelectField label="Status Lahan" value={status} width={isTablet ? "48%" : "100%"}
-                      onPress={() => openPicker("Status Lahan", ["Milik Sendiri", "Sewa", "Bagi Hasil"], status, setStatus)} />
-                    <SelectField label="Desa" value="Sumberharjo" width={isTablet ? "48%" : "100%"} onPress={() => {}} />
-                    <InputField label="Upah per Hari Kerja (Rp)" value={upahHarian} onChangeText={setUpahHarian}
-                      placeholder={`contoh: ${UPAH_HOK}`} keyboardType="numeric" width={isTablet ? "48%" : "100%"} />
-                    <InputField label="Tahun Mulai Usaha" value={tahun} onChangeText={setTahun}
-                      placeholder="YYYY" keyboardType="numeric" width={isTablet ? "48%" : "100%"} />
-                  </View>
-                </SectionCard>
+                {/* Section 2: berbeda per kategori */}
+                {kategori === "Peternakan" ? (
+                  /* ── PETERNAKAN: Kandang & Info Usaha ──────────────────── */
+                  <SectionCard icon="location_on" title="Section 2: Detail Kandang & Usaha">
+                    <View style={[ui.formGrid, isTablet && { flexDirection: "row", flexWrap: "wrap" }]}>
+                      <SelectField label="Status Kandang" value={status} width={isTablet ? "48%" : "100%"}
+                        onPress={() => openPicker("Status Kandang", ["Milik Sendiri", "Sewa", "Bagi Hasil"], status, setStatus)} />
+                      <SelectField label="Desa" value="Sumberharjo" width={isTablet ? "48%" : "100%"} onPress={() => {}} />
+                      <InputField label="Tahun Mulai Usaha" value={tahun} onChangeText={setTahun}
+                        placeholder="YYYY" keyboardType="numeric" width={isTablet ? "48%" : "100%"} />
+                    </View>
+                  </SectionCard>
+                ) : (
+                  /* ── TANAMAN PANGAN / PERKEBUNAN: Lahan & TK ───────────── */
+                  <SectionCard icon="location_on" title="Section 2: Detail Lahan & Tenaga Kerja">
+                    <View style={[ui.formGrid, isTablet && { flexDirection: "row", flexWrap: "wrap" }]}>
+                      <SelectField label="Status Lahan" value={status} width={isTablet ? "48%" : "100%"}
+                        onPress={() => openPicker("Status Lahan", ["Milik Sendiri", "Sewa", "Bagi Hasil"], status, setStatus)} />
+                      <SelectField label="Desa" value="Sumberharjo" width={isTablet ? "48%" : "100%"} onPress={() => {}} />
+                      <InputField label="Upah per Hari Kerja (Rp)" value={upahHarian} onChangeText={setUpahHarian}
+                        placeholder={`contoh: ${UPAH_HOK}`} keyboardType="numeric" width={isTablet ? "48%" : "100%"} />
+                      <InputField label="Tahun Mulai Usaha" value={tahun} onChangeText={setTahun}
+                        placeholder="YYYY" keyboardType="numeric" width={isTablet ? "48%" : "100%"} />
+                    </View>
+                  </SectionCard>
+                )}
 
                 {/* Shortcut ke tab lapangan */}
                 <View style={{ flexDirection: "row", gap: 10, marginBottom: 4 }}>
@@ -548,7 +560,9 @@ export default function HomeScreen() {
                     <View style={ui.resultCardHeader}>
                       <View>
                         <Text style={ui.resultCardTitle}>Hasil Estimasi</Text>
-                        <Text style={ui.resultCardSub}>Komoditas: {kom} · Desa Sumberharjo</Text>
+                        <Text style={ui.resultCardSub}>
+                          Komoditas: {hasil?.isPeternakan ? hasil.jenisTernak : kom} · Desa Sumberharjo
+                        </Text>
                       </View>
                       <Pressable style={ui.detailToggleBtn} onPress={() => setShowDetail(!showDetail)}>
                         <Icon name={showDetail ? "x" : "bar-chart-2"} size={13} color={T.secondary} />
@@ -582,7 +596,21 @@ export default function HomeScreen() {
                           <DetailRow label={`Packing (Rp 50/kg)`}                qty={`${Math.round(hasil.kgBasah).toLocaleString()} kg`} amount={rp(hasil.biayaPacking ?? 0)} />
                           <DetailRow label="Total Upah TK (26.a)"                qty={`${hasil.hokDibayar} hari`} amount={rp(hasil.gajiTK)} />
                         </>)}
-                        {!hasil.isTembakau && (<>
+                        {hasil.isPeternakan && (() => {
+                          const mandiri = hasil.mandiri === true || (hasil.upahHarian ?? 0) <= 0 || hasil.hokDibayar === 0;
+                          if (mandiri) return (<>
+                            <DetailRow label="Pemilik (laki-laki) — tidak dibayar"   qty={`${hasil.hokLaki} hari`}      amount="Rp 0" />
+                            <DetailRow label="Keluarga (perempuan) — tidak dibayar"  qty={`${hasil.hokPerempuan} hari`} amount="Rp 0" />
+                            <DetailRow label="Total Upah TK (Mandiri/Owner)"         qty="0 hari"                       amount="Rp 0" />
+                          </>);
+                          return (<>
+                            <DetailRow label="Hari Kerja Laki-laki (60%)"    qty={`${hasil.hokLaki} hari`}         amount={rp(Math.round(hasil.biayaTK * 0.60))} />
+                            <DetailRow label="Hari Kerja Perempuan (40%)"    qty={`${hasil.hokPerempuan} hari`}    amount={rp(Math.round(hasil.biayaTK * 0.40))} />
+                            <DetailRow label="Keluarga (tidak dibayar)"      qty={`${hasil.hokTidakDibayar} hari`} amount="Rp 0" />
+                            <DetailRow label="Total Gaji TK (flat/siklus)"   qty={`${hasil.hokDibayar} hari`}      amount={rp(hasil.biayaTK)} />
+                          </>);
+                        })()}
+                        {!hasil.isTembakau && !hasil.isPeternakan && (<>
                           <DetailRow label="Hari Kerja Laki-laki (40%)"            qty={`${hasil.hokLaki} hari`}      amount={rp(hasil.hokLaki * (hasil.upahHarian ?? UPAH_HOK))} />
                           <DetailRow label="Hari Kerja Perempuan (60%)"            qty={`${hasil.hokPerempuan} hari`} amount={rp(hasil.hokPerempuan * (hasil.upahHarian ?? UPAH_HOK))} />
                           <DetailRow label="Pekerja Keluarga (tidak dibayar)"   qty={`${hasil.hokTidakDibayar} hari`} amount="Rp 0" />
@@ -628,19 +656,10 @@ export default function HomeScreen() {
                   </View>
                 )}
 
-                {/* ── Analisis AI: deteksi anomali SE2026 ───────────────────── */}
-                {analisis && (
-                  <AnomaliCard
-                    analisis={analisis}
-                    koreksi={koreksiAI}
-                    onBenarkan={benarkanOtomatis}
-                    onBenarkanSemua={koreksiAI.length > 0 ? benarkanSemua : undefined}
-                  />
-                )}
-
+                {/* ── Footer ─────────────────────────────────────────── */}
                 <View style={ui.footer}>
                   <Text style={ui.footerText}>© 2026 BPS Sumberharjo – SE2026</Text>
-                  <Text style={ui.footerText}>Versi v1.2.0 · Analisis AI Anomali</Text>
+                  <Text style={ui.footerText}>Versi v1.2.0 · Tanaman Pangan & Peternakan</Text>
                 </View>
               </>
             )}

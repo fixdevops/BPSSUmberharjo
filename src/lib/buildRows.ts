@@ -1,7 +1,7 @@
 // ─── buildRows: Susun baris hasil estimasi untuk ditampilkan di ResultCard ────
 // Versi BPS Realistis — semua explain berbasis ha, HOK, kg/ha
 import { rp } from "./helpers";
-import { db, explainSaprotan, kondisiPanenLabel, TEMBAKAU } from "./kalkulatorData";
+import { db, dbTernak, explainSaprotan, kondisiPanenLabel, TEMBAKAU } from "./kalkulatorData";
 
 export type ResultRowItem = {
   label:    string;
@@ -85,12 +85,12 @@ export function buildRows(params: {
         label: "26.a. Upah Tenaga Kerja",
         value: rp(h.gajiTK),
         explain: isKering
-          ? `Biaya produksi tembakau kering = Σ upah per jenis pekerjaan × kg basah:\n` +
-            `  • Ngrajang : ${Math.round(h.kgBasah).toLocaleString("id-ID")} kg × Rp 1.000 = ${rp(h.biayaRajang ?? 0)}\n` +
-            `  • Mepe     : ${Math.round(h.kgBasah).toLocaleString("id-ID")} kg × Rp 250   = ${rp(h.biayaMepe ?? 0)}\n` +
-            `  • Sortasi  : ${Math.round(h.kgBasah).toLocaleString("id-ID")} kg × Rp 150   = ${rp(h.biayaSortasi ?? 0)}\n` +
-            `  • Press    : ${Math.round(h.kgBasah).toLocaleString("id-ID")} kg × Rp 100   = ${rp(h.biayaPress ?? 0)}\n` +
-            `  • Packing  : ${Math.round(h.kgBasah).toLocaleString("id-ID")} kg × Rp 50    = ${rp(h.biayaPacking ?? 0)}\n` +
+          ? `Biaya TK tembakau kering = Σ upah per jenis pekerjaan × kg basah:\n` +
+            `  • Ngrajang : ${Math.round(h.kgBasah).toLocaleString("id-ID")} kg × Rp 1.500 = ${rp(h.biayaRajang ?? 0)}\n` +
+            `  • Mepe     : ${Math.round(h.kgBasah).toLocaleString("id-ID")} kg × Rp 500   = ${rp(h.biayaMepe ?? 0)}\n` +
+            `  • Sortasi  : ${Math.round(h.kgBasah).toLocaleString("id-ID")} kg × Rp 300   = ${rp(h.biayaSortasi ?? 0)}\n` +
+            `  • Press    : ${Math.round(h.kgBasah).toLocaleString("id-ID")} kg × Rp 200   = ${rp(h.biayaPress ?? 0)}\n` +
+            `  • Packing  : ${Math.round(h.kgBasah).toLocaleString("id-ID")} kg × Rp 100   = ${rp(h.biayaPacking ?? 0)}\n` +
             `Total 26.a = ${rp(h.gajiTK)}`
           : `Upah TK per jenis pekerjaan basah (hari kerja × upah/hari):\n` +
             `  • Kowak ${h.tkKowak ?? 0} hari × Rp 75.000 = ${rp(h.biayaKowak ?? 0)}\n` +
@@ -104,7 +104,7 @@ export function buildRows(params: {
         label: "26.b. Biaya Produksi (Saprotan)",
         value: rp(h.biayaProd),
         explain: isKering
-          ? `Tembakau kering: biaya produksi = upah TK rajang (sudah termasuk di 26.a).\nSaprotan terpisah: Rp ${Math.round((h.biayaProd ?? 0)).toLocaleString("id-ID")}`
+          ? explainSaprotan("Tembakau Kering", h.kgBasah / 1000, h.biayaProd)
           : explainSaprotan("Tembakau Basah",  h.ribuan, h.biayaProd),
       },
       {
@@ -163,7 +163,7 @@ export function buildRows(params: {
       {
         label: "28.a. Nilai Tanah & Bangunan",
         value: rp(h.asetTanah_t),
-        explain: `Luas tempat produksi ${h.luasM2_t} m² × Rp 100.000/m² = ${rp(h.asetTanah_t)}`,
+        explain: `Luas lahan tembakau ${h.luasM2_t} m² × Rp 100.000/m² = ${rp(h.asetTanah_t)}`,
       },
       {
         label: "28.b. Nilai Aset Selain Tanah",
@@ -680,6 +680,162 @@ export function buildRows(params: {
     explain: `Luas lahan:\n` +
       `  • ${Math.round(h.luasM2_f).toLocaleString("id-ID")} m²\n` +
       `  • ${(h.luasM2_f / 10000).toFixed(4)} Hektar (ha)`,
+  });
+
+  return rows;
+}
+
+// ======================================================================
+// BUILDROWS PETERNAKAN — sesuai spec gemini-code-1783406649841
+// Model flat per siklus: Laba = NilaiProd - (Gaji + BiayaProd + Ops)
+// ======================================================================
+export function buildRowsPeternakan(h: any): ResultItem[] {
+  if (!h || !h.isPeternakan) return [];
+
+  const d = dbTernak[h.jenisTernak as string];
+  const rows: ResultItem[] = [];
+  const mandiri: boolean = h.mandiri === true || (h.upahHarian ?? 0) <= 0 || h.hokDibayar === 0;
+
+  // ── Info usaha ──────────────────────────────────────────────────────────────
+  rows.push({
+    label: "Jenis Ternak",
+    value: h.jenisTernak,
+    explain: `Komoditas peternakan: ${h.jenisTernak}. Patokan BPS Bojonegoro 2026.`,
+  });
+  rows.push({
+    label: "Jumlah Ternak",
+    value: `${h.jumlahEkor} ekor`,
+    explain: `Total populasi ternak: ${h.jumlahEkor} ekor.`,
+  });
+  rows.push({
+    label: "Periode Pemeliharaan",
+    value: `${d?.periodeBulan ?? h.periodeBulan} bulan / siklus`,
+    explain: `Lama 1 siklus pemeliharaan sampai siap jual: ${d?.periodeBulan ?? h.periodeBulan} bulan.`,
+  });
+  rows.push({
+    label: "Status Pekerja",
+    value: mandiri ? "Mandiri (Owner)" : "Ada Pekerja",
+    explain: mandiri
+      ? `Seluruh pekerjaan dilakukan pemilik & keluarga sendiri.\nGaji TK = Rp 0 (Mandiri/Owner).`
+      : `Menggunakan tenaga kerja upahan.\nGaji dihitung dari patokan flat per siklus.`,
+  });
+  rows.push({
+    label: "Bobot Jual Estimasi",
+    value: `${h.beratTotal.toFixed(1)} kg`,
+    explain: `${h.jumlahEkor} ekor × ${d?.beratJual ?? "—"} kg/ekor = ${h.beratTotal.toFixed(1)} kg`,
+  });
+
+  // ── 24 — Pekerja ───────────────────────────────────────────────────────────
+  rows.push({ section: "24 — Pekerja Peternakan (Sensus Ekonomi 2026)" });
+  rows.push({
+    label: "24.a1. Pekerja Laki-laki",
+    value: `${h.pekerjaLaki} orang`,
+    explain: mandiri
+      ? `Pemilik (laki-laki) mengerjakan sendiri: 1 orang.\nTidak dibayar — kerja mandiri.`
+      : `Pekerja laki-laki (pakan, kandang, angkut): ${h.pekerjaLaki} orang. Setara ${h.hokLaki} hari kerja.`,
+  });
+  rows.push({
+    label: "24.b1. Pekerja Perempuan",
+    value: `${h.pekerjaPerempuan} orang`,
+    explain: mandiri
+      ? `Anggota keluarga perempuan (istri/anak) membantu: 1 orang. Tidak menerima upah.`
+      : `Pekerja perempuan (bantu pakan, perawatan): ${h.pekerjaPerempuan} orang. Setara ${h.hokPerempuan} hari kerja.`,
+  });
+  rows.push({
+    label: "24.c1. Total Pekerja (a1+b1)",
+    value: `${h.totalPekerja} orang`,
+    explain: `Total fisik pekerja: ${h.totalPekerja} orang. (Setara ${h.hokTotal} hari kerja)`,
+  });
+  rows.push({
+    label: "24.a2. Pekerja Dibayar",
+    value: `${h.pekerjaDibayar} orang`,
+    explain: mandiri
+      ? `Tidak ada tenaga kerja bayaran — semua dikerjakan pemilik & keluarga.`
+      : `Tenaga kerja upahan: ${h.pekerjaDibayar} orang. Setara ${h.hokDibayar} hari kerja.`,
+  });
+  rows.push({
+    label: "24.b2. Pekerja Tidak Dibayar",
+    value: `${h.pekerjaTidakDibayar} orang`,
+    explain: mandiri
+      ? `Semua pekerja tidak dibayar (pemilik + keluarga): ${h.pekerjaTidakDibayar} orang.\n  • Laki-laki (pemilik): 1\n  • Perempuan (keluarga): 1`
+      : `Pemilik/keluarga (tidak dibayar): ${h.pekerjaTidakDibayar} orang.`,
+  });
+  rows.push({
+    label: "24.c2. Total Pekerja (a2+b2)",
+    value: `${h.totalPekerja} orang`,
+    explain: `Total: ${h.totalPekerja} orang (harus sama dengan 24.c1).`,
+  });
+
+  // ── 26 — Pengeluaran ───────────────────────────────────────────────────────
+  rows.push({ section: "26 — Pengeluaran Usaha Peternakan" });
+  rows.push({
+    label: "26.a. Upah Tenaga Kerja",
+    value: rp(h.biayaTK),
+    explain: mandiri
+      ? `Gaji TK = Rp 0\nAlgoritma spec: jika jumlahPekerja ≤ 0 atau upah ≤ 0 → Gaji = 0 (Mandiri/Owner).`
+      : `Gaji flat per siklus:\n${h.jumlahEkor} ekor × Rp ${(d?.gajiDefault ?? 0).toLocaleString("id-ID")}/ekor = ${rp(h.biayaTK)}`,
+  });
+  rows.push({
+    label: "26.b. Biaya Produksi (Pakan + Vaksin)",
+    value: rp(h.biayaPakan),
+    explain: `Biaya produksi flat per siklus:\n${h.jumlahEkor} ekor × Rp ${(d?.biayaProduksi ?? 0).toLocaleString("id-ID")}/ekor = ${rp(h.biayaPakan)}\n\nKomponen:\n${
+      h.jenisTernak === "Sapi"
+        ? "  • Jerami + konsentrat + bekatul\n  • Garam mineral, air minum\n  • Vaksin anthrax & SE, obat cacing"
+        : h.jenisTernak === "Kambing"
+        ? "  • Rumput segar (Odot/Gajah) + konsentrat\n  • Dedak + garam\n  • Vaksin SE, obat cacing, vitamin"
+        : h.jenisTernak === "Ayam Broiler"
+        ? "  • Pakan starter (DOC–14 hari) + finisher\n  • Air minum bebas\n  • Vitamin & vaksin"
+        : "  • Dedak halus + jagung giling\n  • Sayuran + air minum\n  • Vaksin ND, obat cacing"
+    }`,
+  });
+  rows.push({
+    label: "26.d. Biaya Operasional",
+    value: rp(h.biayaOps ?? 0),
+    explain: `Biaya operasional pendukung (listrik, air, dll) flat per siklus:\n${h.jumlahEkor} ekor × Rp ${(d?.biayaOps ?? 0).toLocaleString("id-ID")}/ekor = ${rp(h.biayaOps ?? 0)}`,
+  });
+  rows.push({
+    label: "26.f. Total Pengeluaran",
+    value: rp(h.totalPeng),
+    explain: `Upah TK         : ${rp(h.biayaTK)}\nBiaya Produksi  : ${rp(h.biayaPakan)}\nBiaya Ops       : ${rp(h.biayaOps ?? 0)}\nTotal           = ${rp(h.totalPeng)}\n\nFormula spec:\nLaba = Nilai Produksi − (Gaji + BiayaProduksi + BiayaOps)`,
+  });
+
+  // ── 27 — Nilai Produksi ────────────────────────────────────────────────────
+  rows.push({ section: "27 — Nilai Produksi Peternakan" });
+  rows.push({
+    label: "27.a. Nilai Jual Ternak",
+    value: rp(h.nilaiProd),
+    explain: `${h.jumlahEkor} ekor × Rp ${Math.round(h.nilaiProd / h.jumlahEkor).toLocaleString("id-ID")}/ekor = ${rp(h.nilaiProd)}\n\nPatokan Bojonegoro 2026:\n  • Harga/ekor : Rp ${(d?.hargaJual ?? 0).toLocaleString("id-ID")}\n  • Harga/kg   : Rp ${(d?.hargaPerKg ?? 0).toLocaleString("id-ID")}`,
+  });
+  rows.push({
+    label: "27.c. Total Nilai Produksi",
+    value: rp(h.nilaiProd),
+    explain: `Total pendapatan kotor dari penjualan ternak 1 siklus.`,
+  });
+  rows.push({
+    label: "Laba Kotor (Estimasi)",
+    value: rp(h.pendBersih),
+    explain: `Nilai Produksi − (Gaji + BiayaProduksi + Ops):\n` +
+      `${rp(h.nilaiProd)} − (${rp(h.biayaTK)} + ${rp(h.biayaPakan)} + ${rp(h.biayaOps ?? 0)}) = ${rp(h.pendBersih)}` +
+      (mandiri ? `\n\n✓ Status Mandiri: Gaji = Rp 0 → laba lebih tinggi.` : "") +
+      (h.pendBersih < 0 ? `\n\n⚠ Merugi — periksa input data.` : ""),
+  });
+
+  // ── 28 — Aset ─────────────────────────────────────────────────────────────
+  rows.push({ section: "28 — Aset Usaha Peternakan" });
+  rows.push({
+    label: "28.a. Nilai Kandang",
+    value: rp(h.asetKandang),
+    explain: `Estimasi nilai kandang:\n${h.jumlahEkor} ekor × Rp ${Math.round(h.asetKandang / h.jumlahEkor).toLocaleString("id-ID")}/ekor = ${rp(h.asetKandang)}`,
+  });
+  rows.push({
+    label: "28.b. Nilai Ternak (Aset)",
+    value: rp(h.asetTernak),
+    explain: `Nilai pasar ternak saat ini:\n${h.jumlahEkor} ekor × Rp ${(d?.hargaJual ?? 0).toLocaleString("id-ID")}/ekor = ${rp(h.asetTernak)}`,
+  });
+  rows.push({
+    label: "28.c. Nilai Total Aset",
+    value: rp(h.totalAset),
+    explain: `Kandang : ${rp(h.asetKandang)}\nTernak  : ${rp(h.asetTernak)}\nTotal   = ${rp(h.totalAset)}`,
   });
 
   return rows;
