@@ -31,9 +31,11 @@ import { SectionCard } from "../components/ui/SectionCard";
 import { Stepper } from "../components/ui/Stepper";
 
 // ── Screen lapangan ───────────────────────────────────────────────────────────
+import { isAccessGranted } from "../lib/keyAuth";
 import { DataLapanganScreen } from "../screens/DataLapanganScreen";
 import { DetailBangunanScreen } from "../screens/DetailBangunanScreen";
 import { FormBangunanScreen } from "../screens/FormBangunanScreen";
+import { KeyAuthScreen } from "../screens/KeyAuthScreen";
 import { MapScreen } from "../screens/MapScreen";
 import { SettingsScreen } from "../screens/SettingsScreen";
 import { SLSScreen } from "../screens/SLSScreen";
@@ -48,6 +50,15 @@ type Screen =
 export default function HomeScreen() {
   const { isMobile, isTablet, showSidebar } = useBreakpoints();
   const { ready: dbReady, error: dbError }  = useDatabase();
+
+  // ── Autentikasi kunci akses ───────────────────────────────────────────────
+  // Cek localStorage saat mount; jika belum punya akses, tampilkan KeyAuthScreen
+  const [accessGranted, setAccessGranted] = useState<boolean>(() => isAccessGranted());
+
+  // Tampilkan halaman verifikasi kunci jika belum punya akses
+  if (!accessGranted) {
+    return <KeyAuthScreen onAccessGranted={() => setAccessGranted(true)} />;
+  }
 
   // ── Tab aktif ────────────────────────────────────────────────────────────
   const [activePage, setActivePage] = useState<string>("estimasi");
