@@ -29,7 +29,10 @@ export default async function handler(req, res) {
   // ── Buat kunci baru di Redis ──────────────────────────────────────────────
   let redis;
   try {
-    redis = Redis.fromEnv();
+    redis = new Redis({
+      url:   process.env.KV_REST_API_URL,
+      token: process.env.KV_REST_API_TOKEN,
+    });
   } catch (err) {
     return res.status(500).json({ status: "error", message: "Konfigurasi server bermasalah." });
   }
