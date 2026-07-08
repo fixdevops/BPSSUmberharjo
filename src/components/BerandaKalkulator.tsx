@@ -3,7 +3,7 @@ import { useState } from "react";
 import { Alert, Platform, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { T } from "../constants/theme";
 import { useBreakpoints } from "../hooks/useBreakpoints";
-import { copyToClipboard, rp } from "../lib/helpers";
+import { copyToClipboard, formatRibuanInput, parseFormatted, rp } from "../lib/helpers";
 import { ui } from "../styles/ui";
 import { Icon } from "./Icon";
 import { SectionCard } from "./ui/SectionCard";
