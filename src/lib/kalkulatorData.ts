@@ -90,8 +90,8 @@ export const saprotanDetail: Record<string, ItemSaprotan[]> = {
   // Tembakau Rajangan (pascapanen): hanya bahan baku + sarana proses rajangan
   // Satuan per 100 kg daun basah yang diproses
   "Tembakau Kering": [
-    { nama: "Tembakau matang (bahan baku)", vol: 100, satuan: "kg",   harga: 12_000  },
-    { nama: "Widek (bambu rajang)",         vol: 1,   satuan: "unit", harga: 200_000 },
+    { nama: "Tembakau basah (bahan baku)", vol: 100, satuan: "kg",   harga: 4_000   },
+    { nama: "Widek (bambu rajang)",        vol: 1,   satuan: "unit", harga: 200_000 }, // masuk aset
   ],
 };
 
@@ -232,7 +232,7 @@ export const TEMBAKAU = {
 
   // Harga jual patokan Bojonegoro 2026
   hargaBasah:     4_000,  // Rp/kg daun basah (tembakau daun segar petik)
-  hargaKering:    65_000, // Rp/kg daun kering rajang siap jual
+  hargaKering:    39_000, // Rp/kg daun kering rajang siap jual
 
   // HOK per 1.000 pohon (BASAH) — estimasi untuk form SE2026
   hokPer1000:     10,     // kowak(2) + macul(2) + panen(1) per 3.000 pohon → ~3,3 per 1.000
@@ -839,6 +839,7 @@ export type HitungParams = {
   tembakauNgrajang?: number; // orang ngrajang (kering)
   tembakauMepe?:     number; // orang mepe (kering)
   luasTembakauKering?: number; // luas tempat produksi kering (m²) — info saja
+  hargaWidek?:       number; // harga per unit widek (default 200.000)
 };
 
 // ─── Fungsi Hitung Utama ──────────────────────────────────────────────────────
@@ -871,14 +872,20 @@ export function hitungEstimasi(params: HitungParams): any | null {
       // Luas tempat produksi (m²) — hanya informasi, tidak dihitung biaya
       const luasTempatInfo = params.luasTembakauKering ?? 0;
 
-      // ── Biaya produksi: bahan baku saja (Rp 12.000/kg basah) ─────────
-      const biayaTembakauMatang = Math.round(kgBasah * 12_000);
+      // ── Biaya produksi: bahan baku saja (Rp 4.000/kg basah) ──────────
+      const biayaTembakauMatang = Math.round(kgBasah * 4_000);
       const biayaProd           = biayaTembakauMatang;
 
-      // ── Auto-fill jumlah pekerja (default ~2.000-2.500 kg = 7 orang) ─
+      // Widek — masuk ASET, bukan biaya produksi
+      // Harga dari input user, default Rp 200.000/unit
+      const hargaWidekPerUnit = params.hargaWidek ?? 200_000;
+      // Jumlah widek: estimasi alat fisik yang dimiliki (1 unit per 1.000 kg kapasitas)
+      const jumlahWidek = Math.max(1, Math.ceil(kgBasah / 1_000));
+
+      // ── Auto-fill jumlah pekerja (default ~5.000 kg = 7 orang) ─────────
       // Skala proporsional berbasis kg basah
-      // Referensi: 2.000 kg → makani=2, ngrajang=2, mepe=3
-      const refKg = 2_000;
+      // Referensi: 5.000 kg → makani=2, ngrajang=2, mepe=3
+      const refKg = 5_000;
       const autoMakani   = Math.max(1, Math.round(2 * kgBasah / refKg));
       const autoNgrajang = Math.max(1, Math.round(2 * kgBasah / refKg));
       const autoMepe     = Math.max(1, Math.round(3 * kgBasah / refKg));
@@ -936,12 +943,11 @@ export function hitungEstimasi(params: HitungParams): any | null {
       const totalPeng  = gajiTK + biayaProd + ops + bagiHasilPot;
       const pendBersih = nilaiProd - totalPeng;
 
-      // ── Aset: peralatan rajangan ──────────────────────────────────────
-      const jumlahWidek     = Math.max(1, Math.ceil(kgBasah / 100));
+      // ── Aset: peralatan rajangan (widek masuk di sini, BUKAN biaya produksi) ──
       const asetMesinRajang = kgBasah >= 100 ? TB.asetMesinKecil : 0;
-      const asetWidekAset   = jumlahWidek * 200_000;
+      const asetWidekAset   = jumlahWidek * hargaWidekPerUnit;   // pakai harga input user
       const asetTimbangan   = 150_000;
-      const asetRakJemur    = Math.max(1, Math.ceil(kgBasah / 200)) * 100_000;
+      const asetRakJemur    = Math.max(1, Math.ceil(kgBasah / 500)) * 100_000;
       const asetLain_t      = asetMesinRajang + asetWidekAset + asetTimbangan + asetRakJemur;
       const asetTanah_t     = 0;
       const totalAset       = asetLain_t;
@@ -953,6 +959,7 @@ export function hitungEstimasi(params: HitungParams): any | null {
         jumlahWidek,
         luasTempatInfo,       // luas tempat (info saja)
         biayaTembakauMatang,
+        hargaWidekPerUnit,    // harga per unit widek (input atau default)
         biayaWidek: 0,        // widek masuk aset, bukan biaya produksi
         nilaiProd, pendPetani, biayaProd, ops, gajiTK, nonT, totalPeng, pendBersih,
         asetTanah_t, asetLain_t, totalAset,

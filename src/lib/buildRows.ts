@@ -90,7 +90,7 @@ export function buildRows(params: {
             `  • Ngrajang : ${h.orgNgrajang ?? 0} orang × Rp 77.000 = ${rp(h.biayaRajang ?? 0)}\n` +
             `  • Mepe     : ${h.orgMepe ?? 0} orang × Rp 77.000 = ${rp(h.biayaMepe ?? 0)}\n\n` +
             `  Total 26.a = ${rp(h.gajiTK)}\n\n` +
-            `  Default ~2.000 kg: makani=2, ngrajang=2, mepe=3 → 7 × Rp 77.000 = Rp 539.000`
+            `  Default ~5.000 kg: makani=2, ngrajang=2, mepe=3 → 7 × Rp 77.000 = Rp 539.000`
           : `Upah TK tembakau basah — dibayar 1 kali (Rp 77.000/orang):\n\n` +
             `  • Kowak  : ${h.orgKowak ?? 0} orang × Rp 77.000 = ${rp(h.biayaKowak ?? 0)}\n` +
             `  • Macul  : ${h.orgMacul ?? 0} orang × Rp 77.000 = ${rp(h.biayaMacul ?? 0)}\n` +
@@ -104,7 +104,7 @@ export function buildRows(params: {
         value: rp(h.biayaProd),
         explain: isKering
           ? `Biaya Produksi (26.b) — Bahan Baku Tembakau Kering:\n\n` +
-            `  • Tembakau basah (bahan baku): ${Math.round(h.kgBasah).toLocaleString("id-ID")} kg × Rp 12.000 = ${rp(h.biayaTembakauMatang ?? 0)}\n\n` +
+            `  • Tembakau basah (bahan baku): ${Math.round(h.kgBasah).toLocaleString("id-ID")} kg × Rp 4.000 = ${rp(h.biayaTembakauMatang ?? 0)}\n\n` +
             `  Total 26.b = ${rp(h.biayaProd)}\n\n` +
             `  ⚠ Peralatan (mesin, widek, timbangan, rak jemur) dicatat sebagai Aset Usaha.`
           : `Saprotan tembakau basah:\n` +
@@ -193,10 +193,11 @@ export function buildRows(params: {
             (h.asetMesinRajang > 0
               ? `  • Mesin rajang       : Rp ${(h.asetMesinRajang ?? 0).toLocaleString("id-ID")}\n`
               : `  • Mesin rajang       : (tidak ada — skala < 100 kg)\n`) +
-            `  • Widek (${h.jumlahWidek ?? 1} unit)    : Rp ${(h.asetWidekAset ?? 0).toLocaleString("id-ID")}\n` +
+            `  • Widek (${h.jumlahWidek ?? 1} unit @ Rp ${(h.hargaWidekPerUnit ?? 200_000).toLocaleString("id-ID")}) : Rp ${(h.asetWidekAset ?? 0).toLocaleString("id-ID")}\n` +
             `  • Timbangan          : Rp ${(h.asetTimbangan ?? 150_000).toLocaleString("id-ID")}\n` +
             `  • Rak jemur          : Rp ${(h.asetRakJemur ?? 0).toLocaleString("id-ID")}\n` +
-            `  Total = ${rp(h.asetLain_t)}`
+            `  Total = ${rp(h.asetLain_t)}\n\n` +
+            `  ⚠ Widek masuk Aset Usaha, bukan biaya produksi.`
           : `Mesin kecil   : Rp ${TB.asetMesinKecil.toLocaleString("id-ID")}\nWidek bambu   : Rp ${TB.asetWidek.toLocaleString("id-ID")}\nTotal = ${rp(h.asetLain_t)}`,
       },
       {
@@ -224,7 +225,7 @@ export function buildRows(params: {
             `  ${rp(h.nilaiProd)} − ${rp(h.totalPeng)} = ${rp(h.pendBersih)}\n\n` +
             `  Rincian pengeluaran:\n` +
             `    Upah TK rajangan : ${rp(h.gajiTK)}\n` +
-            `    Bahan baku+widek : ${rp(h.biayaProd)}\n` +
+            `    Bahan baku        : ${rp(h.biayaProd)}\n` +
             `    Operasional      : ${rp(h.ops)}\n` +
             (h.bagiHasilPot > 0 ? `    Bagi hasil       : ${rp(h.bagiHasilPot)}\n` : ``) +
             `    Total Pengeluaran: ${rp(h.totalPeng)}\n\n` +

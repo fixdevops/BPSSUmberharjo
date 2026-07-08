@@ -101,6 +101,7 @@ export default function HomeScreen() {
   const [tembakauNgrajang, setTembakauNgrajang] = useState(""); // jumlah orang ngrajang (kering)
   const [tembakauMepe,    setTembakauMepe]    = useState(""); // jumlah orang mepe (kering)
   const [luasTembakauKering, setLuasTembakauKering] = useState(""); // luas tempat produksi kering (m²)
+  const [hargaWidek,      setHargaWidek]      = useState(""); // harga per unit widek (default 200.000)
 
   // ── Picker ────────────────────────────────────────────────────────────────
   const [pickerVisible, setPickerVisible] = useState(false);
@@ -146,6 +147,7 @@ export default function HomeScreen() {
           tembakauNgrajang: tembakauNgrajang ? parseInt(strip(tembakauNgrajang)) : undefined,
           tembakauMepe:     tembakauMepe     ? parseInt(strip(tembakauMepe))     : undefined,
           luasTembakauKering: luasTembakauKering ? parseFloat(strip(luasTembakauKering)) : undefined,
+          hargaWidek:       hargaWidek       ? parseFloat(strip(hargaWidek))     : undefined,
         });
         if (res) {
           setHasil(res);
@@ -199,6 +201,7 @@ export default function HomeScreen() {
           tembakauNgrajang: tembakauNgrajang ? parseInt(strip(tembakauNgrajang)) : undefined,
           tembakauMepe:     tembakauMepe     ? parseInt(strip(tembakauMepe))     : undefined,
           luasTembakauKering: luasTembakauKering ? parseFloat(strip(luasTembakauKering)) : undefined,
+          hargaWidek:       hargaWidek       ? parseFloat(strip(hargaWidek))     : undefined,
         });
         if (res) {
           setHasil(res);
@@ -524,6 +527,14 @@ export default function HomeScreen() {
                               value={luasTembakauKering}
                               onChangeText={setLuasTembakauKering}
                               placeholder="info saja, tidak dihitung biaya"
+                              keyboardType="decimal-pad"
+                              width={isTablet ? "48%" : "100%"}
+                            />
+                            <InputField
+                              label="Harga Widek per Unit (Rp)"
+                              value={hargaWidek}
+                              onChangeText={setHargaWidek}
+                              placeholder="kosong = Rp 200.000"
                               keyboardType="decimal-pad"
                               width={isTablet ? "48%" : "100%"}
                             />
