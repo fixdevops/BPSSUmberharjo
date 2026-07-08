@@ -231,62 +231,58 @@ export const TEMBAKAU = {
   susut:          0.20,   // konversi basah → kering (20% yield = 80% susut)
 
   // Harga jual patokan Bojonegoro 2026
-  hargaBasah:     12_000, // Rp/kg daun basah (tembakau daun segar petik, patokan Bojonegoro)
+  hargaBasah:     12_000, // Rp/kg daun basah (tembakau daun segar petik)
   hargaKering:    65_000, // Rp/kg daun kering rajang siap jual
 
-  // HOK per 1.000 pohon (BASAH) — total estimasi HOK untuk form SE2026
-  // (hanya untuk estimasi pelaporan HOK, bukan dasar perhitungan upah)
-  hokPer1000:     13,     // kowak(2) + macul(3) + tanam(2) + matun(3) + panen(3)
+  // HOK per 1.000 pohon (BASAH) — estimasi untuk form SE2026
+  hokPer1000:     10,     // kowak(2) + macul(2) + panen(1) per 3.000 pohon → ~3,3 per 1.000
   hokRasioLaki:   0.5,    // tembakau basah: 50% laki-laki
 
-  // Upah TIDAK dihitung per hari — ini hanya referensi untuk label
-  upahHarian:     75_000, // (tidak dipakai dalam perhitungan — hanya legacy)
+  // Upah per orang (1 kali bayar, bukan per hari/HOK)
+  upahPerOrang:   77_000, // Rp 77.000 per orang — dibayar SEKALI
 
   // ── Detail upah per jenis pekerjaan TEMBAKAU KERING (per kg basah) ────────
   // Hanya 2 jenis: Ngrajang & Mepe — bayar 1 kali (borongan, bukan per hari)
-  // Sortasi/press/packing dilakukan pemilik/mandiri (tidak dibayar)
   pekerjaanKering: {
     ngrajang:  { label: "Ngrajang (rajang daun)", upahPerKg: 1_500, gender: "campuran" as const },
     mepe:      { label: "Mepe (jemur daun)",      upahPerKg: 500,   gender: "perempuan" as const },
   },
 
   // ── Detail upah per jenis pekerjaan TEMBAKAU BASAH (borongan/sekali) ──────
-  // Upah ini bukan per hari, melainkan borongan per 1.000 pohon
-  // gajiTK dihitung FLAT: gajiBasahPer1000 × ribuan (bukan HOK × upah)
+  // Upah Rp 77.000 per orang, dibayar 1 kali
+  // Matun = 0 (tidak ada penyiangan di sistem ini)
   pekerjaanBasah: {
-    kowak:  { label: "Kowak (bersih lahan)",     upahBorongan: 75_000, gender: "laki" as const },
-    macul:  { label: "Macul (bedengan)",         upahBorongan: 75_000, gender: "campuran" as const },
-    tanam:  { label: "Tanam bibit",              upahBorongan: 70_000, gender: "campuran" as const },
-    matun:  { label: "Matun (rumput)",           upahBorongan: 70_000, gender: "perempuan" as const },
-    panen:  { label: "Panen/petik daun",         upahBorongan: 80_000, gender: "perempuan" as const },
+    kowak:  { label: "Kowak (bersih lahan)",  upahBorongan: 77_000, gender: "laki" as const },
+    macul:  { label: "Macul (bedengan)",      upahBorongan: 77_000, gender: "campuran" as const },
+    matun:  { label: "Matun (rumput)",        upahBorongan: 0,       gender: "perempuan" as const }, // tidak ada
+    panen:  { label: "Panen/petik daun",      upahBorongan: 77_000, gender: "perempuan" as const },
   },
 
   // ── Biaya per 1.000 pohon BASAH ──────────────────────────────────────────
-  // Sesuai spec: Gaji 500k, Biaya Produksi 400k, Ops 180k → Nilai Prod 3.000.000
-  gajiBasahPer1000:     500_000,
-  saprotanBasahPer1000: 400_000,
-  operBasahPer1000:     180_000,
-  nilaiBasahPer1000:    3_000_000, // Nilai produksi per 1.000 pohon (flat, sesuai spec)
+  // Upah TK: dihitung dari jumlah orang × upahPerOrang (BUKAN gajiBasahPer1000)
+  // Default untuk 3.000 pohon: kowak=2, macul=2, matun=0, panen=1 → 5 orang × 77k = 385k
+  // Per 1.000 pohon: ~128k (hanya referensi legacy, tidak dipakai langsung)
+  gajiBasahPer1000:     128_333, // legacy — tidak dipakai, perhitungan real dari orgX × upahPerOrang
+  saprotanBasahPer1000: 248_500, // Rp 248.500 per 1.000 pohon (sesuai prompt)
+  operBasahPer1000:     180_000, // Rp 180.000 per 1.000 pohon
+  nilaiBasahPer1000:    0,       // tidak dipakai — nilaiProd = kgBasah × hargaBasah
 
   // ── Biaya per siklus KERING ───────────────────────────────────────────────
-  // Sesuai spec: Gaji 150k, Biaya Produksi 800k, Ops 100k → Nilai Prod 4.800.000
-  // Tembakau Kering: input = jumlah siklus/batch
-  gajiKeringFlat:        150_000, // Rp gaji TK per siklus kering (flat, sesuai spec)
-  gajiKeringPer1000:     0,       // tidak dipakai (legacy)
-  saprotanKeringPer1000: 800_000, // biaya input produksi per siklus kering
-  operKeringPer1000:     100_000, // biaya operasional per siklus kering
-  nilaiKeringPerSiklus:  4_800_000, // Nilai produksi per siklus kering (flat, sesuai spec)
+  gajiKeringFlat:        150_000,
+  gajiKeringPer1000:     0,
+  saprotanKeringPer1000: 800_000,
+  operKeringPer1000:     100_000,
+  nilaiKeringPerSiklus:  4_800_000,
 
-  // Aset (SESUAI SPEC: hanya Mesin Kecil + Widek — tanah/bangunan/mesin besar TIDAK diakui)
-  asetTanah:       0,           // tidak diakui per spec
-  asetMesinKecil:  1_000_000,   // Rp 1.000.000
-  asetMesinBesar:  0,           // tidak diakui per spec
-  asetWidek:         800_000,   // Rp 800.000
-  // Total aset = 1.800.000 (Mesin Kecil + Widek)
+  // Aset (hanya Mesin Kecil + Widek)
+  asetTanah:       0,
+  asetMesinKecil:  1_000_000,
+  asetMesinBesar:  0,
+  asetWidek:         800_000,
   luasProduksi:         15,   // m²
 
-  // PBB (hanya untuk basah)
-  pbbPerM2:           500,    // Rp/m²/tahun
+  // PBB — DIPAKSA 0 sesuai prompt
+  pbbPerM2:           0,    // Rp 0
 };
 
 // ─── Data Peternakan — FLAT per siklus (sesuai spec gemini-code-1783406649841) ──
@@ -979,74 +975,70 @@ export function hitungEstimasi(params: HitungParams): any | null {
     const ribuan = pohon / 1000;
 
     // Luas otomatis jika tidak diisi: patokan Bojonegoro 1.000 pohon = 15 m²
-    // Jarak tanam standar tembakau: 0,5 m × 0,3 m per pohon ≈ 0,15 m²/pohon
     const luasInputRaw = parseFloat(luasTembakau);
     const luasM2_t = Math.max(5,
       (!luasTembakau || luasTembakau.trim() === "" || isNaN(luasInputRaw) || luasInputRaw <= 0)
-        ? Math.round(pohon * 0.015) // auto: 0,015 m²/pohon → 1.000 pohon = 15 m²
+        ? Math.round(pohon * 0.015)
         : luasInputRaw
     );
 
-    // ── Nilai produksi FLAT per 1.000 pohon sesuai spec ──────────────────
-    const nilaiProd = TB.nilaiBasahPer1000 * ribuan * _faktorTembakau;
-    const kgBasah   = TB.kgPer1000 * ribuan * _faktorTembakau; // estimasi berat (display)
+    // ── Nilai produksi berbasis PRODUKSI NYATA (kg × harga), bukan flat ──
+    const kgBasah   = TB.kgPer1000 * ribuan * _faktorTembakau; // 180 kg × ribuan × faktor
     const kgKering  = kgBasah * TB.susut;
+    const nilaiProd = Math.round(kgBasah * TB.hargaBasah); // kg basah × Rp 12.000
 
-    // HOK breakdown per pekerjaan (basah) — tanpa Tanam Bibit
-    const pb = TB.pekerjaanBasah;
-    // Auto-fill jika tidak diisi: HOK proporsional per 1.000 pohon
-    // (hanya untuk proporsi biaya, bukan dasar total gaji)
-    const tkKowak  = Math.max(1, Math.round(2 * ribuan));
-    const tkMacul  = Math.max(1, Math.round(3 * ribuan));
-    const tkMatun  = Math.max(1, Math.round(3 * ribuan));
-    const tkPanen  = Math.max(1, Math.round(3 * ribuan));
-    const tkTanam  = 0; // Tanam Bibit tidak dihitung (tidak dibayar/pemilik sendiri)
-
-    // HOK basah total = kowak + macul + matun + panen (tanpa tanam)
-    const totalHOKBase = tkKowak + tkMacul + tkMatun + tkPanen;
-    const hokLaki      = Math.round(totalHOKBase * TB.hokRasioLaki);
-    const hokPerempuan = totalHOKBase - hokLaki;
-    const hokTidakDibayar = 1; // pemilik saja
-    const hokDibayar   = Math.max(1, totalHOKBase - hokTidakDibayar);
-    const hokTotal     = hokDibayar + hokTidakDibayar;
-
-    // ── Gaji TK FLAT sesuai spec: 500.000 per 1.000 pohon ────────────────
-    // Upah BUKAN per hari (HOK), melainkan FLAT borongan per 1.000 pohon
-    // gajiTK dihitung dari gajiBasahPer1000 (500k) × ribuan pohon
-    const gajiTK = TB.gajiBasahPer1000 * ribuan;
-
-    // Biaya per pekerjaan — proporsional dari gajiTK flat untuk display
-    // Proporsi: kowak:macul:matun:panen = 2:3:3:3
-    const biayaKowak  = Math.round(gajiTK * (tkKowak  / totalHOKBase));
-    const biayaMacul  = Math.round(gajiTK * (tkMacul  / totalHOKBase));
-    const biayaTanam  = 0; // tidak dihitung
-    const biayaMatun  = Math.round(gajiTK * (tkMatun  / totalHOKBase));
-    const biayaPanen  = gajiTK - biayaKowak - biayaMacul - biayaMatun;
-
-    // Pekerja (Jiwa) — gunakan input manual jika ada, atau auto-fill jika kosong
-    // Max total 4 orang
-    const autoKowak  = 1;
-    const autoMacul  = 1;
-    const autoMatun  = Math.min(1, Math.round(ribuan));
-    const autoPanen  = Math.min(1, Math.round(ribuan));
+    // ── Jumlah pekerja per jenis pekerjaan (input manual atau auto) ──────
+    // Default untuk 3.000 pohon: kowak=2, macul=2, matun=0, panen=1
+    // Skala proporsional: per 1.000 pohon = 2/3 kowak, 2/3 macul, 0 matun, 1/3 panen
+    const autoKowak  = Math.max(1, Math.round(ribuan * (2/3))); // 2 org per 3.000 = 0,667/1000
+    const autoMacul  = Math.max(1, Math.round(ribuan * (2/3)));
+    const autoMatun  = 0; // TIDAK ADA penyiangan/matun
+    const autoPanen  = Math.max(1, Math.round(ribuan * (1/3))); // 1 org per 3.000 = 0,333/1000
+    
     const orgKowak = params.tembakauKowak  ?? autoKowak;
     const orgMacul = params.tembakauMacul  ?? autoMacul;
-    const orgMatun = params.tembakauMatun  ?? autoMatun;
+    const orgMatun = 0; // DIPAKSA 0 — tidak ada matun
     const orgPanen = params.tembakauPanen  ?? autoPanen;
+
+    // Jumlah total pekerja (max 4: pemilik=1 + pekerja dibayar max 3)
     const pekerjaTidakDibayar = 1; // pemilik
     const pekerjaDibayarRaw   = orgKowak + orgMacul + orgMatun + orgPanen;
-    const pekerjaDibayar      = Math.min(3, pekerjaDibayarRaw); // max 3 dibayar
-    const totalPekerja        = Math.min(4, pekerjaDibayar + pekerjaTidakDibayar); // max 4
+    const pekerjaDibayar      = Math.min(3, pekerjaDibayarRaw);
+    const totalPekerja        = Math.min(4, pekerjaDibayar + pekerjaTidakDibayar);
     const pekerjaLaki = Math.max(1, Math.min(totalPekerja - 1, Math.round(totalPekerja * 0.50)));
     const pekerjaPerempuan = totalPekerja - pekerjaLaki;
 
-    // Biaya produksi & operasional (per 1.000 pohon) — FLAT sesuai spec
-    // Basah: saprotan 400k, ops 180k per 1.000 pohon
-    let biayaProd = TB.saprotanBasahPer1000 * ribuan;
-    let ops = TB.operBasahPer1000 * ribuan;
-    const nonT = luasM2_t * TB.pbbPerM2;
+    // ── Gaji TK: jumlah orang × Rp 77.000 (SEKALI BAYAR) ─────────────────
+    // BUKAN flat × ribuan, melainkan total orang yang dibayar
+    const gajiTK = (orgKowak + orgMacul + orgMatun + orgPanen) * TB.upahPerOrang;
 
-    // Status
+    // Biaya per pekerjaan — proporsi dari gajiTK (hanya untuk display)
+    const totalOrang = orgKowak + orgMacul + orgMatun + orgPanen;
+    const biayaKowak  = totalOrang > 0 ? Math.round(orgKowak * TB.upahPerOrang) : 0;
+    const biayaMacul  = totalOrang > 0 ? Math.round(orgMacul * TB.upahPerOrang) : 0;
+    const biayaTanam  = 0; // tidak dihitung
+    const biayaMatun  = 0; // DIPAKSA 0 — tidak ada matun
+    const biayaPanen  = totalOrang > 0 ? Math.round(orgPanen * TB.upahPerOrang) : 0;
+
+    // HOK estimasi (hanya untuk form SE2026, bukan dasar upah)
+    const tkKowak  = orgKowak;
+    const tkMacul  = orgMacul;
+    const tkMatun  = 0; // tidak ada
+    const tkPanen  = orgPanen;
+    const tkTanam  = 0;
+    const totalHOKBase = tkKowak + tkMacul + tkMatun + tkPanen;
+    const hokLaki      = Math.round(totalHOKBase * TB.hokRasioLaki);
+    const hokPerempuan = totalHOKBase - hokLaki;
+    const hokTidakDibayar = 1;
+    const hokDibayar   = Math.max(0, totalHOKBase - hokTidakDibayar);
+    const hokTotal     = hokDibayar + hokTidakDibayar;
+
+    // ── Biaya produksi & operasional ──────────────────────────────────────
+    let biayaProd = TB.saprotanBasahPer1000 * ribuan; // Rp 248.500 × ribuan
+    let ops = TB.operBasahPer1000 * ribuan;            // Rp 180.000 × ribuan
+    const nonT = 0; // DIPAKSA 0 sesuai prompt
+
+    // Status lahan
     let sewaLahan = 0;
     let bagiHasilPot = 0;
     let pendPetani = nilaiProd;
@@ -1061,18 +1053,19 @@ export function hitungEstimasi(params: HitungParams): any | null {
     const totalPeng = gajiTK + biayaProd + ops + nonT + bagiHasilPot;
     const pendBersih = nilaiProd - totalPeng;
 
-    // ── Aset: Mesin Kecil + Widek SAJA (sesuai spec) ──────────────────────
+    // ── Aset ──────────────────────────────────────────────────────────────
     const asetTanah_t = 0;
-    const asetLain_t  = TB.asetMesinKecil + TB.asetWidek; // 1.000.000 + 800.000 = 1.800.000
+    const asetLain_t  = TB.asetMesinKecil + TB.asetWidek;
     const totalAset   = asetLain_t;
 
     return {
       isTembakau: true,
       jenis: jenisTembakau,
       pohon, ribuan, kgBasah, kgKering,
-      nilaiProd, biayaProd, ops, gajiTK, nonT, totalPeng, pendBersih,
+      nilaiProd, pendPetani, biayaProd, ops, gajiTK, nonT, totalPeng, pendBersih,
       asetTanah_t, asetLain_t, totalAset, luasM2_t,
-      upahHarian: params.upahHarian ?? TB.upahHarian,
+      upahPerOrang: TB.upahPerOrang,    // Rp 77.000
+      upahHarian: TB.upahPerOrang,      // alias untuk kompatibilitas
       bagiHasilPot, sewaLahan,
       hokTotal, hokLaki, hokPerempuan, hokDibayar, hokTidakDibayar,
       pekerjaLaki, pekerjaPerempuan, pekerjaDibayar, pekerjaTidakDibayar, totalPekerja,

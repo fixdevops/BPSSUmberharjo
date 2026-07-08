@@ -553,8 +553,6 @@ export default function HomeScreen() {
                                   placeholder="auto" keyboardType="numeric" width={isTablet ? "48%" : "100%"} />
                                 <InputField label="Macul (orang)" value={tembakauMacul} onChangeText={setTembakauMacul}
                                   placeholder="auto" keyboardType="numeric" width={isTablet ? "48%" : "100%"} />
-                                <InputField label="Matun (orang)" value={tembakauMatun} onChangeText={setTembakauMatun}
-                                  placeholder="auto" keyboardType="numeric" width={isTablet ? "48%" : "100%"} />
                                 <InputField label="Panen (orang)" value={tembakauPanen} onChangeText={setTembakauPanen}
                                   placeholder="auto" keyboardType="numeric" width={isTablet ? "48%" : "100%"} />
                               </View>
@@ -685,11 +683,10 @@ export default function HomeScreen() {
                         </View>
 
                         {hasil.isTembakau && hasil.jenis === "Tembakau Basah" && (<>
-                          <DetailRow label="Kowak/Bersih Lahan (borongan)"         qty={`${hasil.orgKowak ?? hasil.tkKowak ?? 0} org`}  amount={rp(hasil.biayaKowak ?? 0)} />
-                          <DetailRow label="Macul/Bedengan (borongan)"             qty={`${hasil.orgMacul ?? hasil.tkMacul ?? 0} org`}  amount={rp(hasil.biayaMacul ?? 0)} />
-                          <DetailRow label="Matun/Rumput (borongan)"               qty={`${hasil.orgMatun ?? hasil.tkMatun ?? 0} org`}  amount={rp(hasil.biayaMatun ?? 0)} />
-                          <DetailRow label="Panen/Petik Daun (borongan)"           qty={`${hasil.orgPanen ?? hasil.tkPanen ?? 0} org`}  amount={rp(hasil.biayaPanen ?? 0)} />
-                          <DetailRow label="Total Upah TK"                         qty="1 kali"                                         amount={rp(hasil.gajiTK)} />
+                          <DetailRow label="Kowak/Bersih Lahan (Rp 77rb/orang)"    qty={`${hasil.orgKowak ?? 0} org`}  amount={rp(hasil.biayaKowak ?? 0)} />
+                          <DetailRow label="Macul/Bedengan (Rp 77rb/orang)"        qty={`${hasil.orgMacul ?? 0} org`}  amount={rp(hasil.biayaMacul ?? 0)} />
+                          <DetailRow label="Panen/Petik Daun (Rp 77rb/orang)"      qty={`${hasil.orgPanen ?? 0} org`}  amount={rp(hasil.biayaPanen ?? 0)} />
+                          <DetailRow label="Total Upah TK"                         qty="1 kali"                         amount={rp(hasil.gajiTK)} />
                         </>)}
                         {hasil.isTembakau && hasil.jenis === "Tembakau Kering" && (<>
                           <DetailRow label={`Ngrajang (Rp 1.500/kg)`}            qty={`${hasil.pekerjaRajang ?? 0} org`}                                        amount={rp(hasil.biayaRajang ?? 0)} />

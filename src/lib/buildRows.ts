@@ -90,13 +90,13 @@ export function buildRows(params: {
             `  • Mepe     : ${h.pekerjaMepe ?? 0} orang = ${rp(h.biayaMepe ?? 0)}\n\n` +
             `  Total 26.a = ${rp(h.gajiTK)}\n\n` +
             `  (Max 4 orang total)`
-          : `Upah TK tembakau basah — dibayar 1 kali (borongan per 1.000 pohon):\n` +
-            `  • Kowak  : ${h.orgKowak ?? 0} orang = ${rp(h.biayaKowak ?? 0)}\n` +
-            `  • Macul  : ${h.orgMacul ?? 0} orang = ${rp(h.biayaMacul ?? 0)}\n` +
-            `  • Matun  : ${h.orgMatun ?? 0} orang = ${rp(h.biayaMatun ?? 0)}\n` +
-            `  • Panen  : ${h.orgPanen ?? 0} orang = ${rp(h.biayaPanen ?? 0)}\n\n` +
+          : `Upah TK tembakau basah — dibayar 1 kali (Rp 77.000/orang):\n\n` +
+            `  • Kowak  : ${h.orgKowak ?? 0} orang × Rp 77.000 = ${rp(h.biayaKowak ?? 0)}\n` +
+            `  • Macul  : ${h.orgMacul ?? 0} orang × Rp 77.000 = ${rp(h.biayaMacul ?? 0)}\n` +
+            `  • Matun  : 0 orang (tidak ada penyiangan) = Rp 0\n` +
+            `  • Panen  : ${h.orgPanen ?? 0} orang × Rp 77.000 = ${rp(h.biayaPanen ?? 0)}\n\n` +
             `  Total 26.a = ${rp(h.gajiTK)}\n\n` +
-            `  (Max 4 orang total)`,
+            `  Default 3.000 pohon: kowak=2, macul=2, matun=0, panen=1 → 5 × Rp 77.000 = Rp 385.000`,
       },
       {
         label: "26.b. Biaya Produksi",
@@ -108,28 +108,30 @@ export function buildRows(params: {
             `  • Widek (bambu rajang)         : ${h.jumlahWidek ?? 1} unit × Rp 200.000 = ${rp(h.biayaWidek ?? 0)}\n\n` +
             `  Total 26.b = ${rp(h.biayaProd)}\n\n` +
             `  ⚠ Tidak termasuk: pupuk kandang, Urea, NPK, fungisida, insektisida, atau biaya budidaya lainnya.`
-          : explainSaprotan("Tembakau Basah",  h.ribuan, h.biayaProd),
+          : `Saprotan tembakau basah:\n` +
+            `  Rp ${TB.saprotanBasahPer1000.toLocaleString("id-ID")} per 1.000 pohon × ${h.ribuan.toLocaleString("id-ID", { minimumFractionDigits: 3, maximumFractionDigits: 3 })} ribuan\n` +
+            `  = ${rp(h.biayaProd)}`,
       },
       {
         label: "26.d. Biaya Operasional",
         value: rp(h.ops),
         explain: isKering
           ? `Operasional tembakau kering: 15% dari biaya TK.\n${rp(h.gajiTK ?? 0)} × 15% = ${rp(h.ops)}`
-          : `Operasional tembakau basah: Rp ${TB.operBasahPer1000.toLocaleString("id-ID")} per 1.000 pohon\n× ${h.ribuan.toLocaleString("id-ID", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} = ${rp(h.ops)}`,
+          : `Operasional tembakau basah:\n` +
+            `  Rp ${TB.operBasahPer1000.toLocaleString("id-ID")} per 1.000 pohon × ${h.ribuan.toLocaleString("id-ID", { minimumFractionDigits: 3, maximumFractionDigits: 3 })} ribuan\n` +
+            `  = ${rp(h.ops)}`,
       },
       {
         label: "26.e. Biaya Non-Operasional (PBB)",
-        value: isKering ? "Rp 0" : rp(h.nonT),
-        explain: isKering
-          ? `Tembakau Kering: tidak ada biaya non-tunai (PBB dibebankan ke usaha basah).`
-          : `PBB lahan: ${fmt(h.luasM2_t)} m² × Rp ${TB.pbbPerM2.toLocaleString("id-ID")}/m² = ${rp(h.nonT)}`,
+        value: "Rp 0",
+        explain: `PBB dan biaya non-operasional lainnya = Rp 0 (sesuai ketentuan SE2026 Sumberharjo).`,
       },
       {
         label: "26.f. Total Pengeluaran",
         value: rp(h.totalPeng),
         explain:
           `Gaji TK    : ${rp(h.gajiTK)}\nSaprotan   : ${rp(h.biayaProd)}\n` +
-          `Operasional: ${rp(h.ops)}\nNon-Tunai  : ${rp(h.nonT)}\nTotal = ${rp(h.totalPeng)}`,
+          `Operasional: ${rp(h.ops)}\nNon-Tunai  : Rp 0\nTotal = ${rp(h.totalPeng)}`,
       },
       // ── PENDAPATAN ──────────────────────────────────────────────────────
       { section: "27 — Pendapatan Usaha Tembakau" },
@@ -141,7 +143,8 @@ export function buildRows(params: {
             `  ${Math.round(h.kgBasah).toLocaleString("id-ID")} kg basah × susut ${TB.susut} = ${Math.round(h.kgKering).toLocaleString("id-ID")} kg kering rajang\n` +
             `  ${Math.round(h.kgKering).toLocaleString("id-ID")} kg × Rp ${TB.hargaKering.toLocaleString("id-ID")}/kg = ${rp(h.nilaiProd)}\n\n` +
             `  ⚠ Nilai dihitung dari input aktual (${Math.round(h.kgBasah).toLocaleString("id-ID")} kg basah), bukan estimasi siklus.`
-          : `${fmt(h.kgBasah)} kg × Rp ${TB.hargaBasah.toLocaleString("id-ID")}/kg = ${rp(h.nilaiProd)}`,
+          : `${fmt(h.kgBasah)} kg basah × Rp ${TB.hargaBasah.toLocaleString("id-ID")}/kg = ${rp(h.nilaiProd)}\n` +
+            `(180 kg per 1.000 pohon × ${h.ribuan.toLocaleString("id-ID", { minimumFractionDigits: 3, maximumFractionDigits: 3 })} ribuan pohon)`,
       },
       {
         label: "27.c. Total Nilai Produksi",
