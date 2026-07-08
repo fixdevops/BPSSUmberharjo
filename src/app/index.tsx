@@ -466,13 +466,19 @@ export default function HomeScreen() {
                           onPress={() => openPicker("Jenis Tembakau", ["Tembakau Basah", "Tembakau Kering"], jenisTembakau, setJenisTembakau)}
                         />
                         {jenisTembakau === "Tembakau Kering" ? (
-                          <InputField label="Kg Daun Basah (yang mau dirajang)" value={jumlahPohon} onChangeText={setJumlahPohon}
-                            placeholder="contoh: 100 kg" keyboardType="numeric" width={isTablet ? "48%" : "100%"} />
+                          <InputField
+                            label="Jumlah Daun Basah yang Dirajang (kg)"
+                            value={jumlahPohon}
+                            onChangeText={setJumlahPohon}
+                            placeholder="contoh: 1000 kg"
+                            keyboardType="numeric"
+                            width={isTablet ? "48%" : "100%"}
+                          />
                         ) : (
                           <>
                             <InputField label="Jumlah Pohon" value={jumlahPohon} onChangeText={setJumlahPohon}
                               placeholder="contoh: 1000" keyboardType="numeric" width={isTablet ? "48%" : "100%"} />
-                            <InputField label="Luas Lahan (m²) — untuk PBB" value={luasTembakau} onChangeText={setLuasTembakau}
+                            <InputField label="Luas Lahan Tanam (m²)" value={luasTembakau} onChangeText={setLuasTembakau}
                               placeholder="contoh: 15" keyboardType="numeric" width={isTablet ? "48%" : "100%"} />
                           </>
                         )}
@@ -507,6 +513,19 @@ export default function HomeScreen() {
                       <SelectField label="Status Kandang" value={status} width={isTablet ? "48%" : "100%"}
                         onPress={() => openPicker("Status Kandang", ["Milik Sendiri", "Sewa", "Bagi Hasil"], status, setStatus)} />
                       <SelectField label="Desa" value="Sumberharjo" width={isTablet ? "48%" : "100%"} onPress={() => {}} />
+                      <InputField label="Tahun Mulai Usaha" value={tahun} onChangeText={setTahun}
+                        placeholder="YYYY" keyboardType="numeric" width={isTablet ? "48%" : "100%"} />
+                    </View>
+                  </SectionCard>
+                ) : kom === "Tembakau" && jenisTembakau === "Tembakau Kering" ? (
+                  /* ── TEMBAKAU KERING (Rajangan): tidak ada lahan ────────── */
+                  <SectionCard icon="settings" title="Section 2: Detail Usaha Rajangan">
+                    <View style={[ui.formGrid, isTablet && { flexDirection: "row", flexWrap: "wrap" }]}>
+                      <SelectField label="Status Usaha" value={status} width={isTablet ? "48%" : "100%"}
+                        onPress={() => openPicker("Status Usaha", ["Milik Sendiri", "Bagi Hasil"], status, (v) => setStatus(v))} />
+                      <SelectField label="Desa" value="Sumberharjo" width={isTablet ? "48%" : "100%"} onPress={() => {}} />
+                      <InputField label="Upah per Hari Kerja (Rp)" value={upahHarian} onChangeText={setUpahHarian}
+                        placeholder={`contoh: ${UPAH_HOK}`} keyboardType="numeric" width={isTablet ? "48%" : "100%"} />
                       <InputField label="Tahun Mulai Usaha" value={tahun} onChangeText={setTahun}
                         placeholder="YYYY" keyboardType="numeric" width={isTablet ? "48%" : "100%"} />
                     </View>

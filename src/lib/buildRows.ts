@@ -85,13 +85,15 @@ export function buildRows(params: {
         label: "26.a. Upah Tenaga Kerja",
         value: rp(h.gajiTK),
         explain: isKering
-          ? `Biaya TK tembakau kering = Σ upah per jenis pekerjaan × kg basah:\n` +
-            `  • Ngrajang : ${Math.round(h.kgBasah).toLocaleString("id-ID")} kg × Rp 1.500 = ${rp(h.biayaRajang ?? 0)}\n` +
-            `  • Mepe     : ${Math.round(h.kgBasah).toLocaleString("id-ID")} kg × Rp 500   = ${rp(h.biayaMepe ?? 0)}\n` +
-            `  • Sortasi  : ${Math.round(h.kgBasah).toLocaleString("id-ID")} kg × Rp 300   = ${rp(h.biayaSortasi ?? 0)}\n` +
-            `  • Press    : ${Math.round(h.kgBasah).toLocaleString("id-ID")} kg × Rp 200   = ${rp(h.biayaPress ?? 0)}\n` +
-            `  • Packing  : ${Math.round(h.kgBasah).toLocaleString("id-ID")} kg × Rp 100   = ${rp(h.biayaPacking ?? 0)}\n` +
-            `Total 26.a = ${rp(h.gajiTK)}`
+          ? `Upah TK rajangan tembakau (berbasis kg daun basah = ${Math.round(h.kgBasah).toLocaleString("id-ID")} kg):\n\n` +
+            `  • Ngrajang : ${Math.round(h.kgBasah).toLocaleString("id-ID")} kg × Rp 1.500/kg = ${rp(h.biayaRajang ?? 0)}\n` +
+            `  • Mepe     : ${Math.round(h.kgBasah).toLocaleString("id-ID")} kg × Rp 500/kg   = ${rp(h.biayaMepe ?? 0)}\n` +
+            `  • Sortasi  : ${Math.round(h.kgBasah).toLocaleString("id-ID")} kg × Rp 300/kg   = ${rp(h.biayaSortasi ?? 0)}\n` +
+            `  • Press    : ${Math.round(h.kgBasah).toLocaleString("id-ID")} kg × Rp 200/kg   = ${rp(h.biayaPress ?? 0)}\n` +
+            `  • Packing  : ${Math.round(h.kgBasah).toLocaleString("id-ID")} kg × Rp 100/kg   = ${rp(h.biayaPacking ?? 0)}\n\n` +
+            `  Total 26.a = ${rp(h.gajiTK)}\n\n` +
+            `  HOK total estimasi: ${h.hokTotal} hari\n` +
+            `  (Ngrajang: ${h.hokNgrajang ?? 0} hari, Mepe: ${h.hokMepe ?? 0} hari, Sortasi: ${h.hokSortasi ?? 0} hari, Press: ${h.hokPress ?? 0} hari, Packing: ${h.hokPacking ?? 0} hari)`
           : `Upah TK per jenis pekerjaan basah (hari kerja × upah/hari):\n` +
             `  • Kowak ${h.tkKowak ?? 0} hari × Rp 75.000 = ${rp(h.biayaKowak ?? 0)}\n` +
             `  • Macul ${h.tkMacul ?? 0} hari × Rp 75.000 = ${rp(h.biayaMacul ?? 0)}\n` +
@@ -101,10 +103,15 @@ export function buildRows(params: {
             `Total 26.a = ${rp(h.gajiTK)}`,
       },
       {
-        label: "26.b. Biaya Produksi (Saprotan)",
+        label: "26.b. Biaya Produksi",
         value: rp(h.biayaProd),
         explain: isKering
-          ? explainSaprotan("Tembakau Kering", h.kgBasah / 1000, h.biayaProd)
+          ? `Biaya Produksi (26.b) — Usaha Rajangan Tembakau:\n` +
+            `Hanya komponen proses rajangan (pascapanen), tidak termasuk biaya budidaya:\n\n` +
+            `  • Tembakau matang (bahan baku): ${Math.round(h.kgBasah).toLocaleString("id-ID")} kg × Rp 12.000 = ${rp(h.biayaTembakauMatang ?? 0)}\n` +
+            `  • Widek (bambu rajang)         : ${h.jumlahWidek ?? 1} unit × Rp 200.000 = ${rp(h.biayaWidek ?? 0)}\n\n` +
+            `  Total 26.b = ${rp(h.biayaProd)}\n\n` +
+            `  ⚠ Tidak termasuk: pupuk kandang, Urea, NPK, fungisida, insektisida, atau biaya budidaya lainnya.`
           : explainSaprotan("Tembakau Basah",  h.ribuan, h.biayaProd),
       },
       {
@@ -134,8 +141,10 @@ export function buildRows(params: {
         label: "27.a. Nilai Produksi / Penjualan",
         value: rp(h.nilaiProd),
         explain: isKering
-          ? `${Math.round(h.kgBasah).toLocaleString()} kg basah × susut ${TB.susut} = ${Math.round(h.kgKering).toLocaleString()} kg kering\n` +
-            `${Math.round(h.kgKering).toLocaleString()} kg × Rp ${TB.hargaKering.toLocaleString()}/kg = ${rp(h.nilaiProd)}`
+          ? `Konversi hasil rajangan:\n` +
+            `  ${Math.round(h.kgBasah).toLocaleString("id-ID")} kg basah × susut ${TB.susut} = ${Math.round(h.kgKering).toLocaleString("id-ID")} kg kering rajang\n` +
+            `  ${Math.round(h.kgKering).toLocaleString("id-ID")} kg × Rp ${TB.hargaKering.toLocaleString("id-ID")}/kg = ${rp(h.nilaiProd)}\n\n` +
+            `  ⚠ Nilai dihitung dari input aktual (${Math.round(h.kgBasah).toLocaleString("id-ID")} kg basah), bukan estimasi siklus.`
           : `${Math.round(h.kgBasah).toLocaleString()} kg × Rp ${TB.hargaBasah.toLocaleString()}/kg = ${rp(h.nilaiProd)}`,
       },
       {
@@ -163,24 +172,58 @@ export function buildRows(params: {
       {
         label: "28.a. Nilai Tanah & Bangunan",
         value: rp(h.asetTanah_t),
-        explain: `Luas lahan tembakau ${h.luasM2_t} m² × Rp 100.000/m² = ${rp(h.asetTanah_t)}`,
+        explain: isKering
+          ? `Usaha rajangan (pascapanen) tidak memerlukan lahan — nilai tanah Rp 0.\n` +
+            `Proses rajangan dilakukan di tempat pengolahan, bukan di lahan pertanian.`
+          : `Nilai tanah dihitung berdasarkan luas lahan tanam yang digunakan untuk budidaya tembakau.\nLuas lahan tanam: ${h.luasM2_t} m² × Rp 100.000/m² = ${rp(h.asetTanah_t)}`,
       },
       {
-        label: "28.b. Nilai Aset Selain Tanah",
+        label: "28.b. Nilai Aset Peralatan",
         value: rp(h.asetLain_t),
         explain: isKering
-          ? `Mesin rajang  : Rp ${TB.asetMesinKecil.toLocaleString()}\nMesin kering  : Rp ${TB.asetMesinBesar.toLocaleString()}\nWidek bambu   : Rp ${TB.asetWidek.toLocaleString()}\nTotal = ${rp(h.asetLain_t)}`
+          ? `Peralatan usaha rajangan tembakau:\n` +
+            (h.asetMesinRajang > 0
+              ? `  • Mesin rajang       : Rp ${(h.asetMesinRajang ?? 0).toLocaleString("id-ID")}\n`
+              : `  • Mesin rajang       : (tidak ada — skala < 100 kg)\n`) +
+            `  • Widek (${h.jumlahWidek ?? 1} unit)    : Rp ${(h.asetWidekAset ?? 0).toLocaleString("id-ID")}\n` +
+            `  • Timbangan          : Rp ${(h.asetTimbangan ?? 150_000).toLocaleString("id-ID")}\n` +
+            `  • Rak jemur          : Rp ${(h.asetRakJemur ?? 0).toLocaleString("id-ID")}\n` +
+            `  Total = ${rp(h.asetLain_t)}`
           : `Mesin kecil   : Rp ${TB.asetMesinKecil.toLocaleString()}\nWidek bambu   : Rp ${TB.asetWidek.toLocaleString()}\nTotal = ${rp(h.asetLain_t)}`,
       },
       {
         label: "28.c. Nilai Total Aset",
         value: rp(h.totalAset),
-        explain: `Tanah/Bangunan: ${rp(h.asetTanah_t)}\nAlat/Peralatan: ${rp(h.asetLain_t)}\nTotal Aset     = ${rp(h.totalAset)}`,
+        explain: isKering
+          ? `Usaha rajangan — hanya aset peralatan:\n` +
+            `  Peralatan : ${rp(h.asetLain_t)}\n` +
+            `  Total Aset = ${rp(h.totalAset)}`
+          : `Tanah/Bangunan: ${rp(h.asetTanah_t)}\nAlat/Peralatan: ${rp(h.asetLain_t)}\nTotal Aset     = ${rp(h.totalAset)}`,
       },
-      {
+      // 28.d hanya untuk Tembakau Basah (ada lahan)
+      ...(!isKering ? [{
         label: "28.d. Luas Tanah Dikuasai",
         value: `${h.luasM2_t} m²`,
-        explain: `Luas tanah/lapangan jemur tembakau: ${h.luasM2_t} m² = ${(h.luasM2_t / 10000).toFixed(4)} ha.`,
+        explain: `Luas lahan tanam tembakau yang dikuasai/diusahakan: ${h.luasM2_t} m² (${(h.luasM2_t / 10000).toFixed(4)} ha). Luas ini digunakan sebagai dasar informasi usaha budidaya dan perhitungan PBB.`,
+      }] : []),
+      // ── LABA BERSIH ESTIMASI ────────────────────────────────────────────
+      { section: "Ringkasan Usaha" },
+      {
+        label: "Laba Bersih Estimasi",
+        value: rp(h.pendBersih),
+        explain: isKering
+          ? `Nilai Produksi − Total Pengeluaran:\n` +
+            `  ${rp(h.nilaiProd)} − ${rp(h.totalPeng)} = ${rp(h.pendBersih)}\n\n` +
+            `  Rincian pengeluaran:\n` +
+            `    Upah TK rajangan : ${rp(h.gajiTK)}\n` +
+            `    Bahan baku+widek : ${rp(h.biayaProd)}\n` +
+            `    Operasional      : ${rp(h.ops)}\n` +
+            (h.bagiHasilPot > 0 ? `    Bagi hasil       : ${rp(h.bagiHasilPot)}\n` : ``) +
+            `    Total Pengeluaran: ${rp(h.totalPeng)}\n\n` +
+            (h.pendBersih < 0 ? `  ⚠ Merugi — periksa input kg atau harga jual.` : `  ✓ Usaha menguntungkan.`)
+          : `Nilai Produksi − Total Pengeluaran:\n` +
+            `  ${rp(h.nilaiProd)} − ${rp(h.totalPeng)} = ${rp(h.pendBersih)}\n\n` +
+            (h.pendBersih < 0 ? `  ⚠ Merugi — periksa input data.` : `  ✓ Usaha menguntungkan.`),
       },
     ];
   }
