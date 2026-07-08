@@ -29,7 +29,7 @@ function StatCard({ icon, label, value, color }: {
       padding: 10, alignItems: "center", gap: 3,
     }}>
       <Icon name={icon} size={18} color={color ?? T.primary} />
-      <Text style={{ fontSize: 18, fontWeight: "700", color: color ?? T.primary }}>{value}</Text>
+      <Text style={{ fontSize: 18, fontWeight: "700", color: color ?? T.primary }}>{value.toLocaleString("id-ID")}</Text>
       <Text style={{ fontSize: 9, color: T.onSurfaceVariant, textAlign: "center", lineHeight: 13 }}>{label}</Text>
     </View>
   );
@@ -102,7 +102,7 @@ function BangunanCard({ item, onPress, onDelete }: {
             {/* kanan: KK + GPS */}
             <View style={{ alignItems: "flex-end", gap: 4 }}>
               <Text style={{ fontSize: 13, fontWeight: "700", color: T.primary }}>
-                {item.jumlah_kk ?? 0} KK
+                {(item.jumlah_kk ?? 0).toLocaleString("id-ID")} KK
               </Text>
               <View style={{ flexDirection: "row", alignItems: "center", gap: 3 }}>
                 <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: hasGPS ? "#22c55e" : T.outlineVariant }} />

@@ -119,14 +119,14 @@ export function buildRows(params: {
         value: rp(h.ops),
         explain: isKering
           ? `Operasional tembakau kering: 15% dari biaya TK.\n${rp(h.gajiTK ?? 0)} × 15% = ${rp(h.ops)}`
-          : `Operasional tembakau basah: Rp ${TB.operBasahPer1000.toLocaleString()} per 1.000 pohon\n× ${h.ribuan.toFixed(2)} = ${rp(h.ops)}`,
+          : `Operasional tembakau basah: Rp ${TB.operBasahPer1000.toLocaleString("id-ID")} per 1.000 pohon\n× ${h.ribuan.toLocaleString("id-ID", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} = ${rp(h.ops)}`,
       },
       {
         label: "26.e. Biaya Non-Operasional (PBB)",
         value: isKering ? "Rp 0" : rp(h.nonT),
         explain: isKering
           ? `Tembakau Kering: tidak ada biaya non-tunai (PBB dibebankan ke usaha basah).`
-          : `PBB lahan: ${h.luasM2_t} m² × Rp ${TB.pbbPerM2.toLocaleString()}/m² = ${rp(h.nonT)}`,
+          : `PBB lahan: ${fmt(h.luasM2_t)} m² × Rp ${TB.pbbPerM2.toLocaleString("id-ID")}/m² = ${rp(h.nonT)}`,
       },
       {
         label: "26.f. Total Pengeluaran",
@@ -145,7 +145,7 @@ export function buildRows(params: {
             `  ${Math.round(h.kgBasah).toLocaleString("id-ID")} kg basah × susut ${TB.susut} = ${Math.round(h.kgKering).toLocaleString("id-ID")} kg kering rajang\n` +
             `  ${Math.round(h.kgKering).toLocaleString("id-ID")} kg × Rp ${TB.hargaKering.toLocaleString("id-ID")}/kg = ${rp(h.nilaiProd)}\n\n` +
             `  ⚠ Nilai dihitung dari input aktual (${Math.round(h.kgBasah).toLocaleString("id-ID")} kg basah), bukan estimasi siklus.`
-          : `${Math.round(h.kgBasah).toLocaleString()} kg × Rp ${TB.hargaBasah.toLocaleString()}/kg = ${rp(h.nilaiProd)}`,
+          : `${fmt(h.kgBasah)} kg × Rp ${TB.hargaBasah.toLocaleString("id-ID")}/kg = ${rp(h.nilaiProd)}`,
       },
       {
         label: "27.c. Total Nilai Produksi",
@@ -160,12 +160,12 @@ export function buildRows(params: {
         explain: isKering
           ? `Konversi Hasil:\n` +
             `  • ${Math.round(h.kgKering).toLocaleString("id-ID")} kg\n` +
-            `  • ${(h.kgKering / 100).toFixed(2)} kuintal\n` +
-            `  • ${(h.kgKering / 1000).toFixed(3)} ton`
+            `  • ${(h.kgKering / 100).toLocaleString("id-ID", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} kuintal\n` +
+            `  • ${(h.kgKering / 1000).toLocaleString("id-ID", { minimumFractionDigits: 3, maximumFractionDigits: 3 })} ton`
           : `Konversi Hasil:\n` +
             `  • ${Math.round(h.kgBasah).toLocaleString("id-ID")} kg\n` +
-            `  • ${(h.kgBasah / 100).toFixed(2)} kuintal\n` +
-            `  • ${(h.kgBasah / 1000).toFixed(3)} ton`,
+            `  • ${(h.kgBasah / 100).toLocaleString("id-ID", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} kuintal\n` +
+            `  • ${(h.kgBasah / 1000).toLocaleString("id-ID", { minimumFractionDigits: 3, maximumFractionDigits: 3 })} ton`,
       },
       // ── ASET ─────────────────────────────────────────────────────────────
       { section: "28 — Aset Usaha Tembakau" },
@@ -189,7 +189,7 @@ export function buildRows(params: {
             `  • Timbangan          : Rp ${(h.asetTimbangan ?? 150_000).toLocaleString("id-ID")}\n` +
             `  • Rak jemur          : Rp ${(h.asetRakJemur ?? 0).toLocaleString("id-ID")}\n` +
             `  Total = ${rp(h.asetLain_t)}`
-          : `Mesin kecil   : Rp ${TB.asetMesinKecil.toLocaleString()}\nWidek bambu   : Rp ${TB.asetWidek.toLocaleString()}\nTotal = ${rp(h.asetLain_t)}`,
+          : `Mesin kecil   : Rp ${TB.asetMesinKecil.toLocaleString("id-ID")}\nWidek bambu   : Rp ${TB.asetWidek.toLocaleString("id-ID")}\nTotal = ${rp(h.asetLain_t)}`,
       },
       {
         label: "28.c. Nilai Total Aset",
@@ -203,8 +203,8 @@ export function buildRows(params: {
       // 28.d hanya untuk Tembakau Basah (ada lahan)
       ...(!isKering ? [{
         label: "28.d. Luas Tanah Dikuasai",
-        value: `${h.luasM2_t} m²`,
-        explain: `Luas lahan tanam tembakau yang dikuasai/diusahakan: ${h.luasM2_t} m² (${(h.luasM2_t / 10000).toFixed(4)} ha). Luas ini digunakan sebagai dasar informasi usaha budidaya dan perhitungan PBB.`,
+        value: `${fmt(h.luasM2_t)} m²`,
+        explain: `Luas lahan tanam tembakau yang dikuasai/diusahakan: ${fmt(h.luasM2_t)} m² (${(h.luasM2_t / 10000).toLocaleString("id-ID", { minimumFractionDigits: 4, maximumFractionDigits: 4 })} ha). Luas ini digunakan sebagai dasar informasi usaha budidaya dan perhitungan PBB.`,
       }] : []),
       // ── LABA BERSIH ESTIMASI ────────────────────────────────────────────
       { section: "Ringkasan Usaha" },
@@ -249,12 +249,12 @@ export function buildRows(params: {
       value: musimLabel,
       explain: isDuaMusim
         ? `2 musim tanam dalam 1 tahun:\n` +
-          `• ${h.musimList[0]}: produktivitas ${d.prod.toLocaleString()} kg/ha, harga Rp ${d.harga.toLocaleString()}/kg\n` +
-          `• ${h.musimList[1]}: produktivitas ${Math.round(d.prod * 0.85).toLocaleString()} kg/ha (−15%), harga Rp 6.800/kg\n` +
+          `• ${h.musimList[0]}: produktivitas ${d.prod.toLocaleString("id-ID")} kg/ha, harga Rp ${d.harga.toLocaleString("id-ID")}/kg\n` +
+          `• ${h.musimList[1]}: produktivitas ${Math.round(d.prod * 0.85).toLocaleString("id-ID")} kg/ha (−15%), harga Rp 6.800/kg\n` +
           `Semua nilai keuangan di bawah adalah akumulasi 2 musim.`
         : musimLabel === "Walikan"
-          ? `Musim Walikan (kering/irigasi pompanisasi):\n• Produktivitas −15% → ${Math.round(d.prod * 0.85).toLocaleString()} kg/ha\n• Harga GKP lebih tinggi: Rp 6.800/kg\n• Biaya saprotan +3% (pompanisasi)`
-          : `Musim Rendengan (hujan):\n• Produktivitas standar ${d.prod.toLocaleString()} kg/ha\n• Harga GKP: Rp ${d.harga.toLocaleString()}/kg`,
+          ? `Musim Walikan (kering/irigasi pompanisasi):\n• Produktivitas −15% → ${Math.round(d.prod * 0.85).toLocaleString("id-ID")} kg/ha\n• Harga GKP lebih tinggi: Rp 6.800/kg\n• Biaya saprotan +3% (pompanisasi)`
+          : `Musim Rendengan (hujan):\n• Produktivitas standar ${d.prod.toLocaleString("id-ID")} kg/ha\n• Harga GKP: Rp ${d.harga.toLocaleString("id-ID")}/kg`,
     });
 
     rows.push({
@@ -323,7 +323,7 @@ export function buildRows(params: {
     } else if (status === "Sewa") {
       const saprotanSaja = h.biaya - h.sewaLahan;
       explain26b = explainSaprotan("Padi", ha, saprotanSaja) +
-        `\n\n+ Sewa sawah: ${ha.toFixed(3)} ha × Rp 12.000.000/ha = ${rp(h.sewaLahan)}\nTotal (saprotan + sewa) = ${rp(h.biaya)}`;
+        `\n\n+ Sewa sawah: ${ha.toLocaleString("id-ID", { minimumFractionDigits: 3, maximumFractionDigits: 3 })} ha × Rp 12.000.000/ha = ${rp(h.sewaLahan)}\nTotal (saprotan + sewa) = ${rp(h.biaya)}`;
     } else {
       explain26b = explainSaprotan("Padi", ha, h.biaya) + `\n\n(Bagi hasil dicatat terpisah sebagai 26.c)`;
     }
@@ -341,12 +341,12 @@ export function buildRows(params: {
     if (isDuaMusim) {
       const a2 = h.perMusim[0]; const b2 = h.perMusim[1];
       explain26d =
-        `Musim ${a2.musim}:\n  Combi panen : ${(a2.prod / 100).toFixed(1)} kw × Rp 50.000 = ${rp(a2.combiCost)}\n  BBM irigasi : -\n  Subtotal    = ${rp(a2.oper)}\n\n` +
-        `Musim ${b2.musim}:\n  Combi panen : ${(b2.prod / 100).toFixed(1)} kw × Rp 50.000 = ${rp(b2.combiCost)}\n  BBM irigasi : ${ha.toFixed(3)} ha × Rp 187.500 = ${rp(b2.bbmCost)}\n  Subtotal    = ${rp(b2.oper)}\n\nTotal = ${rp(h.oper)}`;
+        `Musim ${a2.musim}:\n  Combi panen : ${(a2.prod / 100).toLocaleString("id-ID", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} kw × Rp 50.000 = ${rp(a2.combiCost)}\n  BBM irigasi : -\n  Subtotal    = ${rp(a2.oper)}\n\n` +
+        `Musim ${b2.musim}:\n  Combi panen : ${(b2.prod / 100).toLocaleString("id-ID", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} kw × Rp 50.000 = ${rp(b2.combiCost)}\n  BBM irigasi : ${ha.toLocaleString("id-ID", { minimumFractionDigits: 3, maximumFractionDigits: 3 })} ha × Rp 187.500 = ${rp(b2.bbmCost)}\n  Subtotal    = ${rp(b2.oper)}\n\nTotal = ${rp(h.oper)}`;
     } else if (musimLabel === "Walikan") {
-      explain26d = `Combi panen : ${(h.prod / 100).toFixed(1)} kw × Rp 50.000 = ${rp(h.combiCost)}\nBBM irigasi : ${ha.toFixed(3)} ha × Rp 187.500/ha = ${rp(h.bbmCost)}\nTotal = ${rp(h.oper)}`;
+      explain26d = `Combi panen : ${(h.prod / 100).toLocaleString("id-ID", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} kw × Rp 50.000 = ${rp(h.combiCost)}\nBBM irigasi : ${ha.toLocaleString("id-ID", { minimumFractionDigits: 3, maximumFractionDigits: 3 })} ha × Rp 187.500/ha = ${rp(h.bbmCost)}\nTotal = ${rp(h.oper)}`;
     } else {
-      explain26d = `Combi panen+angkut: ${(h.prod / 100).toFixed(1)} kw × Rp 50.000 = ${rp(h.combiCost)}\nTotal = ${rp(h.oper)}`;
+      explain26d = `Combi panen+angkut: ${(h.prod / 100).toLocaleString("id-ID", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} kw × Rp 50.000 = ${rp(h.combiCost)}\nTotal = ${rp(h.oper)}`;
     }
     rows.push({ label: "26.d. Biaya Operasional", value: rp(h.oper), explain: explain26d });
 
@@ -368,9 +368,9 @@ export function buildRows(params: {
       label: "27.a. Nilai Produksi / Penjualan",
       value: rp(h.pend),
       explain: isDuaMusim
-        ? `Musim ${h.perMusim[0].musim}: ${Math.round(h.perMusim[0].prod).toLocaleString()} kg × Rp ${d.harga.toLocaleString()} = ${rp(h.perMusim[0].pend)}\n` +
-          `Musim ${h.perMusim[1].musim}: ${Math.round(h.perMusim[1].prod).toLocaleString()} kg × Rp 6.800 = ${rp(h.perMusim[1].pend)}`
-        : `${Math.round(h.prod).toLocaleString("id-ID")} kg × Rp ${hargaJualR.toLocaleString()}/kg = ${rp(h.pend)}`,
+        ? `Musim ${h.perMusim[0].musim}: ${Math.round(h.perMusim[0].prod).toLocaleString("id-ID")} kg × Rp ${d.harga.toLocaleString("id-ID")} = ${rp(h.perMusim[0].pend)}\n` +
+          `Musim ${h.perMusim[1].musim}: ${Math.round(h.perMusim[1].prod).toLocaleString("id-ID")} kg × Rp 6.800 = ${rp(h.perMusim[1].pend)}`
+        : `${Math.round(h.prod).toLocaleString("id-ID")} kg × Rp ${hargaJualR.toLocaleString("id-ID")}/kg = ${rp(h.pend)}`,
     });
 
     rows.push({
@@ -384,8 +384,8 @@ export function buildRows(params: {
       value: `${Math.round(h.prod).toLocaleString("id-ID")} kg GKP`,
       explain: `Konversi Gabah Kering Panen (GKP):\n` +
         `  • ${Math.round(h.prod).toLocaleString("id-ID")} kg\n` +
-        `  • ${(h.prod / 100).toFixed(2)} kuintal\n` +
-        `  • ${(h.prod / 1000).toFixed(3)} ton`,
+        `  • ${(h.prod / 100).toLocaleString("id-ID", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} kuintal\n` +
+        `  • ${(h.prod / 1000).toLocaleString("id-ID", { minimumFractionDigits: 3, maximumFractionDigits: 3 })} ton`,
     });
 
     // ── ASET ─────────────────────────────────────────────────────────
@@ -393,7 +393,7 @@ export function buildRows(params: {
     rows.push({
       label: "28.a. Nilai Aset Lahan Sawah",
       value: rp(h.asetTanah),
-      explain: `Lahan sawah ${Math.round(h.luasM2_f).toLocaleString()} m² × Rp 100.000/m² = ${rp(h.asetTanah)}`,
+      explain: `Lahan sawah ${Math.round(h.luasM2_f).toLocaleString("id-ID")} m² × Rp 100.000/m² = ${rp(h.asetTanah)}`,
     });
 
     rows.push({
@@ -418,7 +418,7 @@ export function buildRows(params: {
       value: `${Math.round(h.luasM2_f).toLocaleString("id-ID")} m²`,
       explain: `Luas lahan sawah:\n` +
         `  • ${Math.round(h.luasM2_f).toLocaleString("id-ID")} m²\n` +
-        `  • ${(h.luasM2_f / 10000).toFixed(4)} Hektar (ha)`,
+        `  • ${(h.luasM2_f / 10000).toLocaleString("id-ID", { minimumFractionDigits: 4, maximumFractionDigits: 4 })} Hektar (ha)`,
     });
 
     return rows;
@@ -489,7 +489,7 @@ export function buildRows(params: {
     } else if (status === "Sewa") {
       const saprotanSaja = h.biaya - h.sewaLahan;
       explain26b = explainSaprotan("Kedelai", ha, saprotanSaja) +
-        `\n\n+ Sewa tegalan: ${ha.toFixed(3)} ha × Rp 12.000.000/ha = ${rp(h.sewaLahan)}\nTotal = ${rp(h.biaya)}`;
+        `\n\n+ Sewa tegalan: ${ha.toLocaleString("id-ID", { minimumFractionDigits: 3, maximumFractionDigits: 3 })} ha × Rp 12.000.000/ha = ${rp(h.sewaLahan)}\nTotal = ${rp(h.biaya)}`;
     } else {
       explain26b = explainSaprotan("Kedelai", ha, h.biaya) + `\n\n(Bagi hasil dicatat terpisah sebagai 26.c)`;
     }
@@ -507,7 +507,7 @@ export function buildRows(params: {
       label: "26.d. Biaya Operasional",
       value: rp(h.oper),
       explain: `Perontokan (threshing), penjemuran, pengangkutan biji kedelai:\n` +
-        `Rp ${d.ops1000.toLocaleString()} / 1.000 kg × ${(h.prod / 1000).toFixed(2)} = ${rp(h.oper)}`,
+        `Rp ${d.ops1000.toLocaleString("id-ID")} / 1.000 kg × ${(h.prod / 1000).toLocaleString("id-ID", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} = ${rp(h.oper)}`,
     });
 
     rows.push({
@@ -527,7 +527,7 @@ export function buildRows(params: {
     rows.push({
       label: "27.a. Nilai Produksi / Penjualan",
       value: rp(h.pend),
-      explain: `${Math.round(h.prod).toLocaleString("id-ID")} kg × Rp ${d.harga.toLocaleString()}/kg = ${rp(h.pend)}`,
+      explain: `${Math.round(h.prod).toLocaleString("id-ID")} kg × Rp ${d.harga.toLocaleString("id-ID")}/kg = ${rp(h.pend)}`,
     });
 
     rows.push({
@@ -541,8 +541,8 @@ export function buildRows(params: {
       value: `${Math.round(h.prod).toLocaleString("id-ID")} kg biji kering`,
       explain: `Konversi Hasil Kedelai:\n` +
         `  • ${Math.round(h.prod).toLocaleString("id-ID")} kg\n` +
-        `  • ${(h.prod / 100).toFixed(2)} kuintal\n` +
-        `  • ${(h.prod / 1000).toFixed(3)} ton`,
+        `  • ${(h.prod / 100).toLocaleString("id-ID", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} kuintal\n` +
+        `  • ${(h.prod / 1000).toLocaleString("id-ID", { minimumFractionDigits: 3, maximumFractionDigits: 3 })} ton`,
     });
 
     // ── ASET ─────────────────────────────────────────────────────────
@@ -550,7 +550,7 @@ export function buildRows(params: {
     rows.push({
       label: "28.a. Nilai Aset Lahan Tegalan",
       value: rp(h.asetTanah),
-      explain: `Lahan tegalan ${Math.round(h.luasM2_f).toLocaleString()} m² × Rp 80.000/m² (kelas tanah di bawah sawah) = ${rp(h.asetTanah)}`,
+      explain: `Lahan tegalan ${Math.round(h.luasM2_f).toLocaleString("id-ID")} m² × Rp 80.000/m² (kelas tanah di bawah sawah) = ${rp(h.asetTanah)}`,
     });
 
     rows.push({
@@ -575,7 +575,7 @@ export function buildRows(params: {
       value: `${Math.round(h.luasM2_f).toLocaleString("id-ID")} m²`,
       explain: `Luas lahan tegalan:\n` +
         `  • ${Math.round(h.luasM2_f).toLocaleString("id-ID")} m²\n` +
-        `  • ${(h.luasM2_f / 10000).toFixed(4)} Hektar (ha)`,
+        `  • ${(h.luasM2_f / 10000).toLocaleString("id-ID", { minimumFractionDigits: 4, maximumFractionDigits: 4 })} Hektar (ha)`,
     });
 
     return rows;
@@ -655,7 +655,7 @@ export function buildRows(params: {
     label: "26.d. Biaya Operasional",
     value: rp(h.oper),
     explain: `Biaya penunjang operasional panen & angkut:\n` +
-      `Rp ${(d?.ops1000 ?? 0).toLocaleString()} / 1.000 kg × ${(h.prod / 1000).toFixed(2)} = ${rp(h.oper)}`,
+      `Rp ${(d?.ops1000 ?? 0).toLocaleString("id-ID")} / 1.000 kg × ${(h.prod / 1000).toLocaleString("id-ID", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} = ${rp(h.oper)}`,
   });
 
   rows.push({
@@ -675,7 +675,7 @@ export function buildRows(params: {
   rows.push({
     label: "27.a. Nilai Produksi / Penjualan",
     value: rp(h.pend),
-    explain: `${Math.round(h.prod).toLocaleString("id-ID")} kg × Rp ${(d?.harga ?? 0).toLocaleString()}/kg = ${rp(h.pend)}`,
+    explain: `${Math.round(h.prod).toLocaleString("id-ID")} kg × Rp ${(d?.harga ?? 0).toLocaleString("id-ID")}/kg = ${rp(h.pend)}`,
   });
 
   rows.push({
@@ -689,8 +689,8 @@ export function buildRows(params: {
     value: `${Math.round(h.prod).toLocaleString("id-ID")} kg`,
     explain: `Konversi Hasil Panen:\n` +
       `  • ${Math.round(h.prod).toLocaleString("id-ID")} kg\n` +
-      `  • ${(h.prod / 100).toFixed(2)} kuintal\n` +
-      `  • ${(h.prod / 1000).toFixed(3)} ton`,
+      `  • ${(h.prod / 100).toLocaleString("id-ID", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} kuintal\n` +
+      `  • ${(h.prod / 1000).toLocaleString("id-ID", { minimumFractionDigits: 3, maximumFractionDigits: 3 })} ton`,
   });
 
   // ── ASET ─────────────────────────────────────────────────────────
@@ -698,7 +698,7 @@ export function buildRows(params: {
   rows.push({
     label: "28.a. Nilai Aset Lahan",
     value: rp(h.asetTanah),
-    explain: `Lahan ${Math.round(h.luasM2_f).toLocaleString()} m² × Rp 90.000/m² = ${rp(h.asetTanah)}`,
+    explain: `Lahan ${Math.round(h.luasM2_f).toLocaleString("id-ID")} m² × Rp 90.000/m² = ${rp(h.asetTanah)}`,
   });
 
   rows.push({
@@ -722,7 +722,7 @@ export function buildRows(params: {
     value: `${Math.round(h.luasM2_f).toLocaleString("id-ID")} m²`,
     explain: `Luas lahan:\n` +
       `  • ${Math.round(h.luasM2_f).toLocaleString("id-ID")} m²\n` +
-      `  • ${(h.luasM2_f / 10000).toFixed(4)} Hektar (ha)`,
+      `  • ${(h.luasM2_f / 10000).toLocaleString("id-ID", { minimumFractionDigits: 4, maximumFractionDigits: 4 })} Hektar (ha)`,
   });
 
   return rows;
@@ -764,8 +764,8 @@ export function buildRowsPeternakan(h: any): ResultItem[] {
   });
   rows.push({
     label: "Bobot Jual Estimasi",
-    value: `${h.beratTotal.toFixed(1)} kg`,
-    explain: `${h.jumlahEkor} ekor × ${d?.beratJual ?? "—"} kg/ekor = ${h.beratTotal.toFixed(1)} kg`,
+    value: `${h.beratTotal.toLocaleString("id-ID", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} kg`,
+    explain: `${h.jumlahEkor} ekor × ${d?.beratJual ?? "—"} kg/ekor = ${h.beratTotal.toLocaleString("id-ID", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} kg`,
   });
 
   // ── 24 — Pekerja ───────────────────────────────────────────────────────────

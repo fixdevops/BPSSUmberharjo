@@ -93,7 +93,7 @@ export function LuasField({
       </View>
       {luas && !isNaN(parseFloat(luas)) && (
         <Text style={{ fontSize: 10, color: T.secondary, marginTop: 3 }}>
-          = {(parseFloat(luas) / 10000).toFixed(4)} ha
+          = {(parseFloat(luas) / 10000).toLocaleString("id-ID", { minimumFractionDigits: 4, maximumFractionDigits: 4 })} ha
         </Text>
       )}
     </View>

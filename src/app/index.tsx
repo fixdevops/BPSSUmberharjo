@@ -618,11 +618,11 @@ export default function HomeScreen() {
                           <DetailRow label="Total Upah TK"                       qty={`${hasil.hokDibayar} hari`} amount={rp(hasil.gajiTK)} />
                         </>)}
                         {hasil.isTembakau && hasil.jenis === "Tembakau Kering" && (<>
-                          <DetailRow label={`Ngrajang (Rp 1.000/kg)`}           qty={`${Math.round(hasil.kgBasah).toLocaleString()} kg`} amount={rp(hasil.biayaRajang ?? 0)} />
-                          <DetailRow label={`Mepe/Jemur (Rp 250/kg)`}            qty={`${Math.round(hasil.kgBasah).toLocaleString()} kg`} amount={rp(hasil.biayaMepe ?? 0)} />
-                          <DetailRow label={`Sortasi (Rp 150/kg)`}                qty={`${Math.round(hasil.kgBasah).toLocaleString()} kg`} amount={rp(hasil.biayaSortasi ?? 0)} />
-                          <DetailRow label={`Press (Rp 100/kg)`}                  qty={`${Math.round(hasil.kgBasah).toLocaleString()} kg`} amount={rp(hasil.biayaPress ?? 0)} />
-                          <DetailRow label={`Packing (Rp 50/kg)`}                qty={`${Math.round(hasil.kgBasah).toLocaleString()} kg`} amount={rp(hasil.biayaPacking ?? 0)} />
+                          <DetailRow label={`Ngrajang (Rp 1.000/kg)`}           qty={`${Math.round(hasil.kgBasah).toLocaleString("id-ID")} kg`} amount={rp(hasil.biayaRajang ?? 0)} />
+                          <DetailRow label={`Mepe/Jemur (Rp 250/kg)`}            qty={`${Math.round(hasil.kgBasah).toLocaleString("id-ID")} kg`} amount={rp(hasil.biayaMepe ?? 0)} />
+                          <DetailRow label={`Sortasi (Rp 150/kg)`}                qty={`${Math.round(hasil.kgBasah).toLocaleString("id-ID")} kg`} amount={rp(hasil.biayaSortasi ?? 0)} />
+                          <DetailRow label={`Press (Rp 100/kg)`}                  qty={`${Math.round(hasil.kgBasah).toLocaleString("id-ID")} kg`} amount={rp(hasil.biayaPress ?? 0)} />
+                          <DetailRow label={`Packing (Rp 50/kg)`}                qty={`${Math.round(hasil.kgBasah).toLocaleString("id-ID")} kg`} amount={rp(hasil.biayaPacking ?? 0)} />
                           <DetailRow label="Total Upah TK (26.a)"                qty={`${hasil.hokDibayar} hari`} amount={rp(hasil.gajiTK)} />
                         </>)}
                         {hasil.isPeternakan && (() => {
@@ -645,10 +645,10 @@ export default function HomeScreen() {
                           <DetailRow label="Pekerja Keluarga (tidak dibayar)"   qty={`${hasil.hokTidakDibayar} hari`} amount="Rp 0" />
                           <DetailRow label="Total Hari Kerja Dibayar"              qty={`${hasil.hokDibayar} hari`}   amount={rp(hasil.upah)} />
                           {kom === "Padi" && (
-                            <DetailRow label="Combi Panen + Angkut" qty={`${(hasil.prod / 100).toFixed(1)} kw`} amount={rp(hasil.combiCost)} />
+                            <DetailRow label="Combi Panen + Angkut" qty={`${(hasil.prod / 100).toLocaleString("id-ID", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} kw`} amount={rp(hasil.combiCost)} />
                           )}
                           {kom === "Padi" && hasil.bbmCost > 0 && (
-                            <DetailRow label="BBM Irigasi (Walikan)" qty={`${(hasil.ha ?? hasil.luasM2_f / 10000).toFixed(3)} ha`} amount={rp(hasil.bbmCost)} />
+                            <DetailRow label="BBM Irigasi (Walikan)" qty={`${(hasil.ha ?? hasil.luasM2_f / 10000).toLocaleString("id-ID", { minimumFractionDigits: 3, maximumFractionDigits: 3 })} ha`} amount={rp(hasil.bbmCost)} />
                           )}
                         </>)}
                       </View>

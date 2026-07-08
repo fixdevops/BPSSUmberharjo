@@ -157,10 +157,10 @@ function RTCard({ item, onPress, onDelete }: { item: RT; onPress: () => void; on
             </View>
             <View style={{ alignItems: "flex-end", gap: 3 }}>
               <View style={{ backgroundColor: T.primaryFixed, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3 }}>
-                <Text style={{ fontSize: 12, fontWeight: "700", color: T.primary }}>{item.jumlah_bangunan ?? 0} bangunan</Text>
+                <Text style={{ fontSize: 12, fontWeight: "700", color: T.primary }}>{(item.jumlah_bangunan ?? 0).toLocaleString("id-ID")} bangunan</Text>
               </View>
               <View style={{ backgroundColor: T.secondaryContainer, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3 }}>
-                <Text style={{ fontSize: 11, color: T.secondary }}>{item.jumlah_kk ?? 0} KK</Text>
+                <Text style={{ fontSize: 11, color: T.secondary }}>{(item.jumlah_kk ?? 0).toLocaleString("id-ID")} KK</Text>
               </View>
             </View>
           </View>
