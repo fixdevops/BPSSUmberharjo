@@ -52,8 +52,9 @@ User ingin kalkulator pendataan **Sensus Ekonomi 2026 (SE2026)** yang:
 - [x] **Tembakau kering: input cuma kg daun basah** (bukan jumlah pohon + luas)
 - [x] **Tembakau kering: biaya produksi = Σ upah per jenis pekerjaan × kg**
   - Ngrajang Rp 1.000/kg, Mepe Rp 250/kg, Sortasi Rp 150/kg, Press Rp 100/kg, Packing Rp 50/kg
-- [x] **Tembakau basah: detail per jenis pekerjaan** (HOK × upah/HOK)
-  - Kowak Rp 75rb/HOK, Macul Rp 75rb/HOK, Tanam Rp 70rb/HOK, Matun Rp 70rb/HOK, Panen Rp 80rb/HOK
+- [x] **Tembakau basah: detail per jenis pekerjaan** (upah FLAT borongan, bukan per hari)
+  - Kowak Rp 75rb (borongan), Macul Rp 75rb (borongan), Tanam Rp 70rb (borongan), Matun Rp 70rb (borongan), Panen Rp 80rb (borongan)
+  - Total gaji TK tembakau basah = Rp 500.000 per 1.000 pohon (FLAT) — dibagi proporsional ke masing-masing jenis pekerjaan
 - [x] Detail HOK tembakau (basah & kering) tampil di index.tsx
 - [x] explain di buildRows.ts update per jenis pekerjaan
 
@@ -122,7 +123,7 @@ User minta: "Upah Tenaga Kerja harus sesuai upah semisal pekerjaja dari ini ini 
 - **Upah 26.a sekarang HOK-based** (bukan per-ton). `HOK dibayar × upahHarian = 26.a`
 - **Tembakau beda satuan**: kering = per kg daun basah; basah = per 1.000 pohon
 - **Tembakau kering biaya produksi** = Σ upah per jenis pekerjaan × kg (nggrajang/mepe/sortasi/press/packing)
-- **Tembakau basah biaya TK** = Σ HOK jenis × upah/HOK (kowak/macul/tanam/matun/panen)
+- **Tembakau basah biaya TK** = FLAT Rp 500.000 per 1.000 pohon (dibagi proporsional ke kowak/macul/tanam/matun/panen) — BUKAN per hari × HOK
 
 ### Konstanta Upah Per Jenis Pekerjaan (TEMBAKAU.pekerjaanKering & pekerjaanBasah)
 Sudah didefinisikan di `kalkulatorData.ts`. Tinggal dipakai. Patokan Bojonegoro, bisa diubah per wilayah.

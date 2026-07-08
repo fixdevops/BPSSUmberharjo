@@ -85,21 +85,17 @@ export function buildRows(params: {
         label: "26.a. Upah Tenaga Kerja",
         value: rp(h.gajiTK),
         explain: isKering
-          ? `Upah TK rajangan tembakau (berbasis kg daun basah = ${Math.round(h.kgBasah).toLocaleString("id-ID")} kg):\n\n` +
+          ? `Upah TK tembakau kering — dibayar 1 kali (borongan):\n\n` +
             `  • Ngrajang : ${Math.round(h.kgBasah).toLocaleString("id-ID")} kg × Rp 1.500/kg = ${rp(h.biayaRajang ?? 0)}\n` +
-            `  • Mepe     : ${Math.round(h.kgBasah).toLocaleString("id-ID")} kg × Rp 500/kg   = ${rp(h.biayaMepe ?? 0)}\n` +
-            `  • Sortasi  : ${Math.round(h.kgBasah).toLocaleString("id-ID")} kg × Rp 300/kg   = ${rp(h.biayaSortasi ?? 0)}\n` +
-            `  • Press    : ${Math.round(h.kgBasah).toLocaleString("id-ID")} kg × Rp 200/kg   = ${rp(h.biayaPress ?? 0)}\n` +
-            `  • Packing  : ${Math.round(h.kgBasah).toLocaleString("id-ID")} kg × Rp 100/kg   = ${rp(h.biayaPacking ?? 0)}\n\n` +
+            `  • Mepe     : ${Math.round(h.kgBasah).toLocaleString("id-ID")} kg × Rp 500/kg   = ${rp(h.biayaMepe ?? 0)}\n\n` +
             `  Total 26.a = ${rp(h.gajiTK)}\n\n` +
-            `  HOK total estimasi: ${h.hokTotal} hari\n` +
-            `  (Ngrajang: ${h.hokNgrajang ?? 0} hari, Mepe: ${h.hokMepe ?? 0} hari, Sortasi: ${h.hokSortasi ?? 0} hari, Press: ${h.hokPress ?? 0} hari, Packing: ${h.hokPacking ?? 0} hari)`
-          : `Upah TK per jenis pekerjaan basah (hari kerja × upah/hari):\n` +
-            `  • Kowak ${h.tkKowak ?? 0} hari × Rp 75.000 = ${rp(h.biayaKowak ?? 0)}\n` +
-            `  • Macul ${h.tkMacul ?? 0} hari × Rp 75.000 = ${rp(h.biayaMacul ?? 0)}\n` +
-            `  • Tanam ${h.tkTanam ?? 0} hari × Rp 70.000 = ${rp(h.biayaTanam ?? 0)}\n` +
-            `  • Matun ${h.tkMatun ?? 0} hari × Rp 70.000 = ${rp(h.biayaMatun ?? 0)}\n` +
-            `  • Panen ${h.tkPanen ?? 0} hari × Rp 80.000 = ${rp(h.biayaPanen ?? 0)}\n` +
+            `  HOK estimasi: Ngrajang ${h.hokNgrajang ?? 0} hari, Mepe ${h.hokMepe ?? 0} hari`
+          : `Upah TK tembakau basah — dibayar 1 kali (borongan per 1.000 pohon):\n` +
+            `  • Kowak  : ${rp(h.biayaKowak ?? 0)}\n` +
+            `  • Macul  : ${rp(h.biayaMacul ?? 0)}\n` +
+            `  • Tanam  : ${rp(h.biayaTanam ?? 0)}\n` +
+            `  • Matun  : ${rp(h.biayaMatun ?? 0)}\n` +
+            `  • Panen  : ${rp(h.biayaPanen ?? 0)}\n` +
             `Total 26.a = ${rp(h.gajiTK)}`,
       },
       {

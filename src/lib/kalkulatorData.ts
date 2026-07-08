@@ -234,31 +234,31 @@ export const TEMBAKAU = {
   hargaBasah:     12_000, // Rp/kg daun basah (tembakau daun segar petik, patokan Bojonegoro)
   hargaKering:    65_000, // Rp/kg daun kering rajang siap jual
 
-  // HOK per 1.000 pohon (BASAH) — total dari 5 jenis pekerjaan
+  // HOK per 1.000 pohon (BASAH) — total estimasi HOK untuk form SE2026
+  // (hanya untuk estimasi pelaporan HOK, bukan dasar perhitungan upah)
   hokPer1000:     13,     // kowak(2) + macul(3) + tanam(2) + matun(3) + panen(3)
   hokRasioLaki:   0.5,    // tembakau basah: 50% laki-laki
 
-  // Upah harian (Rp/HOK) — patokan Bojonegoro 2026
-  upahHarian:     75_000,
+  // Upah TIDAK dihitung per hari — ini hanya referensi untuk label
+  upahHarian:     75_000, // (tidak dipakai dalam perhitungan — hanya legacy)
 
   // ── Detail upah per jenis pekerjaan TEMBAKAU KERING (per kg basah) ────────
-  // Biaya TK rajang = biaya produksi tembakau kering (rajang, jemur, sortasi)
-  // Setiap pekerjaan punya upah per kg + gender dominan
+  // Hanya 2 jenis: Ngrajang & Mepe — bayar 1 kali (borongan, bukan per hari)
+  // Sortasi/press/packing dilakukan pemilik/mandiri (tidak dibayar)
   pekerjaanKering: {
     ngrajang:  { label: "Ngrajang (rajang daun)", upahPerKg: 1_500, gender: "campuran" as const },
     mepe:      { label: "Mepe (jemur daun)",      upahPerKg: 500,   gender: "perempuan" as const },
-    sortasi:   { label: "Sortasi (pilih kualitas)", upahPerKg: 300,  gender: "perempuan" as const },
-    press:     { label: "Press (press bal)",        upahPerKg: 200,  gender: "laki" as const },
-    packing:   { label: "Packing (karung/ikat)",   upahPerKg: 100,   gender: "campuran" as const },
   },
 
-  // ── Detail upah per jenis pekerjaan TEMBAKAU BASAH ──────────────────────
+  // ── Detail upah per jenis pekerjaan TEMBAKAU BASAH (borongan/sekali) ──────
+  // Upah ini bukan per hari, melainkan borongan per 1.000 pohon
+  // gajiTK dihitung FLAT: gajiBasahPer1000 × ribuan (bukan HOK × upah)
   pekerjaanBasah: {
-    kowak:  { label: "Kowak (bersih lahan)",     upahPerHOK: 75_000, gender: "laki" as const },
-    macul:  { label: "Macul (bedengan)",         upahPerHOK: 75_000, gender: "campuran" as const },
-    tanam:  { label: "Tanam bibit",             upahPerHOK: 70_000, gender: "campuran" as const },
-    matun:  { label: "Matun (rumput)",           upahPerHOK: 70_000, gender: "perempuan" as const },
-    panen:  { label: "Panen/petik daun",        upahPerHOK: 80_000, gender: "perempuan" as const },
+    kowak:  { label: "Kowak (bersih lahan)",     upahBorongan: 75_000, gender: "laki" as const },
+    macul:  { label: "Macul (bedengan)",         upahBorongan: 75_000, gender: "campuran" as const },
+    tanam:  { label: "Tanam bibit",              upahBorongan: 70_000, gender: "campuran" as const },
+    matun:  { label: "Matun (rumput)",           upahBorongan: 70_000, gender: "perempuan" as const },
+    panen:  { label: "Panen/petik daun",         upahBorongan: 80_000, gender: "perempuan" as const },
   },
 
   // ── Biaya per 1.000 pohon BASAH ──────────────────────────────────────────
@@ -869,18 +869,17 @@ export function hitungEstimasi(params: HitungParams): any | null {
       const biayaWidek  = jumlahWidek * 200_000;
       const biayaProd   = biayaTembakauMatang + biayaWidek;
 
-      // ── Gaji TK rajangan (berbasis kg basah) ─────────────────────────
-      // Ngrajang: Rp 1.500/kg, Mepe: Rp 500/kg, Sortasi: Rp 300/kg,
-      // Press: Rp 200/kg, Packing: Rp 100/kg → total Rp 2.600/kg
-      const upahPerKgTotal = 1_500 + 500 + 300 + 200 + 100; // 2.600/kg
-      const gajiTK = Math.round(kgBasah * upahPerKgTotal);
+      // ── Gaji TK rajangan (FLAT — bayar 1 kali untuk ngrajang + mepe) ─────
+      // Hanya 2 jenis pekerjaan: Ngrajang & Mepe
+      // Bukan per kg × hari, melainkan total FLAT borongan sekali bayar
+      const biayaRajang  = Math.round(kgBasah * 1_500); // ngrajang: Rp 1.500/kg
+      const biayaMepe    = Math.round(kgBasah * 500);   // mepe: Rp 500/kg
+      const gajiTK       = biayaRajang + biayaMepe;     // total = ngrajang + mepe
 
-      // Rincian per pekerjaan (untuk display)
-      const biayaRajang  = Math.round(kgBasah * 1_500);
-      const biayaMepe    = Math.round(kgBasah * 500);
-      const biayaSortasi = Math.round(kgBasah * 300);
-      const biayaPress   = Math.round(kgBasah * 200);
-      const biayaPacking = Math.round(kgBasah * 100);
+      // Sortasi/press/packing TIDAK termasuk upah TK (dilakukan pemilik/tidak dibayar)
+      const biayaSortasi = 0;
+      const biayaPress   = 0;
+      const biayaPacking = 0;
 
       // ── Biaya operasional (bahan bakar, karung, dll) ──────────────────
       // ~15% dari gaji TK rajangan
@@ -891,26 +890,26 @@ export function hitungEstimasi(params: HitungParams): any | null {
 
       const nonT = 0; // tidak ada PBB untuk usaha rajangan
 
-      // ── HOK estimasi berbasis skala rajangan ──────────────────────────
-      // 1 orang bisa merajang ~50 kg basah/hari, mepe ~30 kg/hari
+      // ── HOK estimasi — hanya ngrajang & mepe ──────────────────────────
       const hokNgrajang  = Math.max(1, Math.ceil(kgBasah / 50));
       const hokMepe      = Math.max(1, Math.ceil(kgBasah / 30));
-      const hokSortasi   = Math.max(1, Math.ceil(kgBasah / 60));
-      const hokPress     = Math.max(1, Math.ceil(kgBasah / 100));
-      const hokPacking   = Math.max(1, Math.ceil(kgBasah / 100));
-      const totalHOKBase    = hokNgrajang + hokMepe + hokSortasi + hokPress + hokPacking;
+      const hokSortasi   = 0; // tidak dihitung (dilakukan pemilik/mandiri)
+      const hokPress     = 0;
+      const hokPacking   = 0;
+      const totalHOKBase    = hokNgrajang + hokMepe;
       const hokTidakDibayar = Math.min(2, totalHOKBase);
       const hokDibayar      = Math.max(0, totalHOKBase - hokTidakDibayar);
-      const hokLaki         = Math.max(1, Math.round(totalHOKBase * 0.40)); // rajang: lebih banyak perempuan
+      const hokLaki         = Math.max(1, Math.round(totalHOKBase * 0.40)); // mepe dominan perempuan
       const hokPerempuan    = totalHOKBase - hokLaki;
       const hokTotal        = hokDibayar + hokTidakDibayar;
 
-      // ── Pekerja jiwa (realistis untuk usaha rajangan) ─────────────────
-      // Skala kecil: 1–2 orang rajang, 1–2 orang mepe, 1 sortasi
+      // ── Pekerja jiwa — hanya ngrajang & mepe ─────────────────────────
+      const pekerjaRajangJml = Math.max(1, Math.ceil(kgBasah / 100));
+      const pekerjaMepeJml   = Math.max(1, Math.ceil(kgBasah / 150));
+      const pekerjaDibayar      = pekerjaRajangJml + pekerjaMepeJml;
       const pekerjaTidakDibayar = Math.min(2, Math.max(1, Math.ceil(kgBasah / 200)));
-      const pekerjaDibayar      = Math.max(0, Math.ceil(kgBasah / 100) - pekerjaTidakDibayar);
       const totalPekerja        = pekerjaDibayar + pekerjaTidakDibayar;
-      const pekerjaPerempuan    = Math.max(1, Math.round(totalPekerja * 0.60)); // mepe & sortasi dominan perempuan
+      const pekerjaPerempuan    = Math.max(1, Math.round(totalPekerja * 0.60)); // mepe dominan perempuan
       const pekerjaLaki         = Math.max(0, totalPekerja - pekerjaPerempuan);
 
       // ── Status usaha ──────────────────────────────────────────────────
@@ -952,11 +951,11 @@ export function hitungEstimasi(params: HitungParams): any | null {
         hokNgrajang, hokMepe, hokSortasi, hokPress, hokPacking,
         pekerjaLaki, pekerjaPerempuan, pekerjaDibayar, pekerjaTidakDibayar, totalPekerja,
         biayaRajang, biayaMepe, biayaSortasi, biayaPress, biayaPacking,
-        pekerjaRajang: Math.max(1, Math.ceil(kgBasah / 100)),
-        pekerjaMepe: Math.max(1, Math.ceil(kgBasah / 150)),
-        pekerjaSortasi: Math.max(1, Math.ceil(kgBasah / 200)),
-        pekerjaPress: 1,
-        pekerjaPacking: 1,
+        pekerjaRajang: pekerjaRajangJml,
+        pekerjaMepe: pekerjaMepeJml,
+        pekerjaSortasi: 0,
+        pekerjaPress: 0,
+        pekerjaPacking: 0,
         musim: musimTanam[0] ?? "—",
         kondisiPanen: kondisiPanen ?? "Sedang",
         faktorKondisi: _faktorTembakau,
@@ -1001,10 +1000,13 @@ export function hitungEstimasi(params: HitungParams): any | null {
     const hokTotal     = hokDibayar + hokTidakDibayar;
 
     // ── Gaji TK FLAT sesuai spec: 500.000 per 1.000 pohon ────────────────
-    // Tidak dihitung dari HOK×upah supaya tidak terdistorsi oleh cap
+    // Upah BUKAN per hari (HOK), melainkan FLAT borongan per 1.000 pohon
+    // gajiTK dihitung dari gajiBasahPer1000 (500k) × ribuan pohon
     const gajiTK = TB.gajiBasahPer1000 * ribuan;
 
     // Biaya per pekerjaan — proporsional dari gajiTK flat untuk display
+    // Meskipun tkKowak, tkMacul adalah HOK, tapi ini hanya untuk proporsi pembagian gajiTK flat
+    // Jadi biayaKowak, biayaMacul, dll adalah BUKAN per hari — melainkan total borongan
     const biayaKowak  = Math.round(gajiTK * (tkKowak  / totalHOKBase));
     const biayaMacul  = Math.round(gajiTK * (tkMacul  / totalHOKBase));
     const biayaTanam  = Math.round(gajiTK * (tkTanam  / totalHOKBase));
