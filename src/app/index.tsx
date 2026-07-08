@@ -64,17 +64,20 @@ export default function HomeScreen() {
   const [kategori, setKategori]   = useState("Tanaman Pangan");
   const [kom, setKom]             = useState("Padi");
   const [mode, setMode]           = useState("panen");
-  const [luas, setLuas]           = useState("6660");
+  const [luas, setLuas]           = useState("6.660");
   const [satLuas, setSatLuas]     = useState("M2");
   const [panen, setPanen]         = useState("100");
   const [satPanen, setSatPanen]   = useState("KUINTAL");
   const [musimTanam, setMusimTanam] = useState<string[]>(["Rendengan"]);
   const [jenisTembakau, setJenisTembakau] = useState("Tembakau Basah");
-  const [jumlahPohon,   setJumlahPohon]   = useState("1000");
+  const [jumlahPohon,   setJumlahPohon]   = useState("1.000");
   const [luasTembakau,  setLuasTembakau]  = useState("15");
   const [kondisiPanen,  setKondisiPanen]  = useState<KondisiPanen>("Sedang");
   const [status, setStatus]   = useState("Milik Sendiri");
   const [tahun,  setTahun]    = useState("2002");
+
+  // ── helper: strip titik ribuan sebelum kalkulasi ──────────────────────────
+  const strip = (v: string) => v.replace(/\./g, "");
 
   // ── State UI estimasi ─────────────────────────────────────────────────────
   const [hasil,      setHasil]      = useState<any>(null);
@@ -83,7 +86,7 @@ export default function HomeScreen() {
   const [step,       setStep]       = useState(0);
 
   // ── State input tenaga kerja (HOK-based) ─────────────────────────────────
-  const [upahHarian, setUpahHarian] = useState(String(UPAH_HOK)); // Rp/HOK
+  const [upahHarian, setUpahHarian] = useState(String(UPAH_HOK).replace(/\B(?=(\d{3})+(?!\d))/g, ".")); // Rp/HOK terformat
 
   // ── State override peternakan ─────────────────────────────────────────────
   const [peternakanLaki,      setPeternakanLaki]      = useState(""); // pekerja laki-laki (jiwa)
@@ -110,12 +113,20 @@ export default function HomeScreen() {
     setTimeout(() => {
       try {
         const res = hitungEstimasi({
-          kom, mode, luas, satLuas, panen, satPanen,
-          musimTanam, jenisTembakau, jumlahPohon, luasTembakau, status,
+          kom, mode,
+          luas:         strip(luas),
+          satLuas,
+          panen:        strip(panen),
+          satPanen,
+          musimTanam,
+          jenisTembakau,
+          jumlahPohon:  strip(jumlahPohon),
+          luasTembakau: strip(luasTembakau),
+          status,
           kondisiPanen,
-          upahHarian: parseFloat(upahHarian) || UPAH_HOK,
-          peternakanLaki:      peternakanLaki      ? parseInt(peternakanLaki)      : undefined,
-          peternakanPerempuan: peternakanPerempuan ? parseInt(peternakanPerempuan) : undefined,
+          upahHarian: parseFormatted(upahHarian) || UPAH_HOK,
+          peternakanLaki:      peternakanLaki      ? parseInt(strip(peternakanLaki))      : undefined,
+          peternakanPerempuan: peternakanPerempuan ? parseInt(strip(peternakanPerempuan)) : undefined,
           peternakanDibayar:   kategori === "Peternakan" ? peternakanDibayar === "Dibayar" : undefined,
         });
         if (res) {
@@ -138,8 +149,8 @@ export default function HomeScreen() {
     satPanen?:  string;
     mode?:      string;
   } = {}) {
-    const upahBaru    = overrides.upahHarian ?? (parseFloat(upahHarian) || UPAH_HOK);
-    const panenBaru   = overrides.panen    ?? panen;
+    const upahBaru    = overrides.upahHarian ?? (parseFormatted(upahHarian) || UPAH_HOK);
+    const panenBaru   = strip(overrides.panen    ?? panen);
     const satPanenBaru= overrides.satPanen ?? satPanen;
     const modeBaru    = overrides.mode     ?? mode;
 
@@ -147,13 +158,20 @@ export default function HomeScreen() {
     setTimeout(() => {
       try {
         const res = hitungEstimasi({
-          kom, mode: modeBaru, luas, satLuas,
-          panen: panenBaru, satPanen: satPanenBaru,
-          musimTanam, jenisTembakau, jumlahPohon, luasTembakau, status,
+          kom, mode: modeBaru,
+          luas:         strip(luas),
+          satLuas,
+          panen:        panenBaru,
+          satPanen:     satPanenBaru,
+          musimTanam,
+          jenisTembakau,
+          jumlahPohon:  strip(jumlahPohon),
+          luasTembakau: strip(luasTembakau),
+          status,
           kondisiPanen,
           upahHarian: upahBaru,
-          peternakanLaki:      peternakanLaki      ? parseInt(peternakanLaki)      : undefined,
-          peternakanPerempuan: peternakanPerempuan ? parseInt(peternakanPerempuan) : undefined,
+          peternakanLaki:      peternakanLaki      ? parseInt(strip(peternakanLaki))      : undefined,
+          peternakanPerempuan: peternakanPerempuan ? parseInt(strip(peternakanPerempuan)) : undefined,
           peternakanDibayar:   kategori === "Peternakan" ? peternakanDibayar === "Dibayar" : undefined,
         });
         if (res) {
@@ -525,7 +543,7 @@ export default function HomeScreen() {
                         onPress={() => openPicker("Status Usaha", ["Milik Sendiri", "Bagi Hasil"], status, (v) => setStatus(v))} />
                       <SelectField label="Desa" value="Sumberharjo" width={isTablet ? "48%" : "100%"} onPress={() => {}} />
                       <InputField label="Upah per Hari Kerja (Rp)" value={upahHarian} onChangeText={setUpahHarian}
-                        placeholder={`contoh: ${UPAH_HOK}`} keyboardType="numeric" width={isTablet ? "48%" : "100%"} />
+                        placeholder={`contoh: ${UPAH_HOK.toLocaleString("id-ID")}`} keyboardType="numeric" width={isTablet ? "48%" : "100%"} />
                       <InputField label="Tahun Mulai Usaha" value={tahun} onChangeText={setTahun}
                         placeholder="YYYY" keyboardType="numeric" width={isTablet ? "48%" : "100%"} />
                     </View>
@@ -538,7 +556,7 @@ export default function HomeScreen() {
                         onPress={() => openPicker("Status Lahan", ["Milik Sendiri", "Sewa", "Bagi Hasil"], status, setStatus)} />
                       <SelectField label="Desa" value="Sumberharjo" width={isTablet ? "48%" : "100%"} onPress={() => {}} />
                       <InputField label="Upah per Hari Kerja (Rp)" value={upahHarian} onChangeText={setUpahHarian}
-                        placeholder={`contoh: ${UPAH_HOK}`} keyboardType="numeric" width={isTablet ? "48%" : "100%"} />
+                        placeholder={`contoh: ${UPAH_HOK.toLocaleString("id-ID")}`} keyboardType="numeric" width={isTablet ? "48%" : "100%"} />
                       <InputField label="Tahun Mulai Usaha" value={tahun} onChangeText={setTahun}
                         placeholder="YYYY" keyboardType="numeric" width={isTablet ? "48%" : "100%"} />
                     </View>

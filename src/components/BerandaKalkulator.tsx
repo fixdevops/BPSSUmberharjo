@@ -3,24 +3,12 @@ import { useState } from "react";
 import { Alert, Platform, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { T } from "../constants/theme";
 import { useBreakpoints } from "../hooks/useBreakpoints";
-import { copyToClipboard, parseRupiah, rp } from "../lib/helpers";
+import { copyToClipboard, rp } from "../lib/helpers";
 import { ui } from "../styles/ui";
 import { Icon } from "./Icon";
 import { SectionCard } from "./ui/SectionCard";
 
 type SumberPendapatan = { id: string; jumlah: string };
-
-/** Format angka ribuan saat mengetik: "1000000" → "1.000.000" */
-function formatInputRibuan(raw: string): string {
-  const digits = raw.replace(/\D/g, "");
-  if (!digits) return "";
-  return parseInt(digits, 10).toLocaleString("id-ID");
-}
-
-/** Bersihkan format ribuan kembali ke digits: "1.000.000" → "1000000" */
-function stripFormat(val: string): string {
-  return val.replace(/\./g, "");
-}
 
 export function BerandaKalkulator() {
   const { isMobile } = useBreakpoints();
@@ -50,15 +38,15 @@ export function BerandaKalkulator() {
   }
 
   function hitung() {
-    const utama = parseRupiah(stripFormat(pendapatanUtama));
-    if (utama <= 0 && sumberTambahan.every((s) => parseRupiah(stripFormat(s.jumlah)) <= 0)) {
+    const utama = parseFormatted(pendapatanUtama);
+    if (utama <= 0 && sumberTambahan.every((s) => parseFormatted(s.jumlah) <= 0)) {
       Alert.alert("Perhatian", "Masukkan minimal satu pendapatan terlebih dahulu.");
       return;
     }
     const utamaPerBulan = utama / 12;
     const tambahanPerBulan = sumberTambahan.map((s, idx) => ({
       nama: `Sumber Lain #${idx + 1}`,
-      perBulan: parseRupiah(stripFormat(s.jumlah)) / 12,
+      perBulan: parseFormatted(s.jumlah) / 12,
     }));
     const totalPerBulan = utamaPerBulan + tambahanPerBulan.reduce((sum, t) => sum + t.perBulan, 0);
     setHasilHitung({ utamaPerBulan, tambahanPerBulan, totalPerBulan });
@@ -73,7 +61,7 @@ export function BerandaKalkulator() {
   }
 
   const totalSetahun = hasilHitung
-    ? parseRupiah(stripFormat(pendapatanUtama)) + sumberTambahan.reduce((sum, s) => sum + parseRupiah(stripFormat(s.jumlah)), 0)
+    ? parseFormatted(pendapatanUtama) + sumberTambahan.reduce((sum, s) => sum + parseFormatted(s.jumlah), 0)
     : 0;
 
   return (
@@ -97,19 +85,19 @@ export function BerandaKalkulator() {
             <TextInput
               style={ui.input}
               value={pendapatanUtama}
-              onChangeText={(v) => { setPendapatanUtama(formatInputRibuan(v)); setSudahHitung(false); }}
+              onChangeText={(v) => { setPendapatanUtama(formatRibuanInput(v)); setSudahHitung(false); }}
               placeholder="contoh: 12.000.000"
               placeholderTextColor={T.outline}
               keyboardType="numeric"
             />
           </View>
-          {pendapatanUtama !== "" && parseRupiah(stripFormat(pendapatanUtama)) > 0 && (
+          {pendapatanUtama !== "" && parseFormatted(pendapatanUtama) > 0 && (
             <View style={st.previewRow}>
               <Icon name="chevron-down" size={13} color={T.secondary} />
               <Text style={st.previewText}>
-                {rp(parseRupiah(stripFormat(pendapatanUtama)))} ÷ 12 ={" "}
+                {rp(parseFormatted(pendapatanUtama))} ÷ 12 ={" "}
                 <Text style={{ fontWeight: "700", color: T.secondary }}>
-                  {rp(parseRupiah(stripFormat(pendapatanUtama)) / 12)} / bulan
+                  {rp(parseFormatted(pendapatanUtama) / 12)} / bulan
                 </Text>
               </Text>
             </View>
@@ -142,19 +130,19 @@ export function BerandaKalkulator() {
                 <TextInput
                   style={ui.input}
                   value={s.jumlah}
-                  onChangeText={(v) => updateSumber(s.id, formatInputRibuan(v))}
+                  onChangeText={(v) => updateSumber(s.id, formatRibuanInput(v))}
                   placeholder="contoh: 5.000.000"
                   placeholderTextColor={T.outline}
                   keyboardType="numeric"
                 />
               </View>
-              {s.jumlah !== "" && parseRupiah(stripFormat(s.jumlah)) > 0 && (
+              {s.jumlah !== "" && parseFormatted(s.jumlah) > 0 && (
                 <View style={[st.previewRow, { marginTop: 8 }]}>
                   <Icon name="chevron-down" size={13} color={T.secondary} />
                   <Text style={st.previewText}>
-                    {rp(parseRupiah(stripFormat(s.jumlah)))} ÷ 12 ={" "}
+                    {rp(parseFormatted(s.jumlah))} ÷ 12 ={" "}
                     <Text style={{ fontWeight: "700", color: T.secondary }}>
-                      {rp(parseRupiah(stripFormat(s.jumlah)) / 12)} / bulan
+                      {rp(parseFormatted(s.jumlah) / 12)} / bulan
                     </Text>
                   </Text>
                 </View>
@@ -201,7 +189,7 @@ export function BerandaKalkulator() {
             <View style={st.hasilBaris}>
               <View style={{ flex: 1 }}>
                 <Text style={st.hasilBarisNama}>Pendapatan Utama</Text>
-                <Text style={st.hasilBarisSetahun}>{rp(parseRupiah(stripFormat(pendapatanUtama)))} ÷ 12</Text>
+                <Text style={st.hasilBarisSetahun}>{rp(parseFormatted(pendapatanUtama))} ÷ 12</Text>
               </View>
               <Text style={st.hasilBarisNilai}>{rp(hasilHitung.utamaPerBulan)}</Text>
             </View>
@@ -210,7 +198,7 @@ export function BerandaKalkulator() {
               <View key={idx} style={[st.hasilBaris, { backgroundColor: "#f0fdf4" }]}>
                 <View style={{ flex: 1 }}>
                   <Text style={st.hasilBarisNama}>{t.nama}</Text>
-                  <Text style={st.hasilBarisSetahun}>{rp(parseRupiah(stripFormat(sumberTambahan[idx]?.jumlah ?? "0")))} ÷ 12</Text>
+                  <Text style={st.hasilBarisSetahun}>{rp(parseFormatted(sumberTambahan[idx]?.jumlah ?? "0"))} ÷ 12</Text>
                 </View>
                 <Text style={[st.hasilBarisNilai, { color: T.secondary }]}>{rp(t.perBulan)}</Text>
               </View>
