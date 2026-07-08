@@ -12,7 +12,7 @@ import { T } from "../constants/theme";
 import { useBreakpoints } from "../hooks/useBreakpoints";
 import { useDatabase } from "../hooks/useDatabase";
 import { buildRows, buildRowsPeternakan } from "../lib/buildRows";
-import { rp } from "../lib/helpers";
+import { parseFormatted, rp } from "../lib/helpers";
 import { daftarKategori, daftarKondisiPanen, hitungEstimasi, kategoriMap, kondisiPanenLabel, UPAH_HOK, type KondisiPanen } from "../lib/kalkulatorData";
 import { ui } from "../styles/ui";
 
@@ -76,8 +76,10 @@ export default function HomeScreen() {
   const [status, setStatus]   = useState("Milik Sendiri");
   const [tahun,  setTahun]    = useState("2002");
 
-  // ── helper: strip titik ribuan sebelum kalkulasi ──────────────────────────
-  const strip = (v: string) => v.replace(/\./g, "");
+  // ── helper: strip format ribuan + normalisasi desimal koma → titik ──────────
+  // Contoh: "6.660,5" → "6660.5"  |  "1,5" → "1.5"  |  "100" → "100"
+  const strip = (v: string) =>
+    v.replace(/\./g, "").replace(",", ".");
 
   // ── State UI estimasi ─────────────────────────────────────────────────────
   const [hasil,      setHasil]      = useState<any>(null);
