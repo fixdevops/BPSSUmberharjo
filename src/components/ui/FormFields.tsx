@@ -1,7 +1,7 @@
 // ─── Form field components: SelectField, InputField, LuasField ───────────────
 import { DimensionValue, Pressable, Text, TextInput, View } from "react-native";
 import { T } from "../../constants/theme";
-import { formatRibuanInput, parseFormatted } from "../../lib/helpers";
+import { formatRibuanDesimalInput, formatRibuanInput, parseFormatted } from "../../lib/helpers";
 import { ui } from "../../styles/ui";
 import { Icon } from "../Icon";
 
@@ -33,8 +33,9 @@ export function SelectField({
 }
 
 // ── InputField ────────────────────────────────────────────────────────────────
-// Jika keyboardType="numeric", otomatis format ribuan id-ID saat mengetik.
-// Untuk field non-numerik (default/text), tidak diformat.
+// keyboardType="numeric"     → format ribuan bulat (Rupiah, ekor, orang)
+// keyboardType="decimal-pad" → format ribuan + boleh desimal (kg, kuintal, ton)
+// keyboardType="default"     → tidak diformat (teks bebas)
 export function InputField({
   label,
   value,
@@ -50,7 +51,15 @@ export function InputField({
   keyboardType?: any;
   width?: DimensionValue;
 }) {
-  const isNumeric = keyboardType === "numeric" || keyboardType === "number-pad";
+  function handleChange(v: string) {
+    if (keyboardType === "decimal-pad") {
+      onChangeText(formatRibuanDesimalInput(v));
+    } else if (keyboardType === "numeric" || keyboardType === "number-pad") {
+      onChangeText(formatRibuanInput(v));
+    } else {
+      onChangeText(v);
+    }
+  }
 
   return (
     <View style={[ui.fieldWrap, { width: width as any }]}>
@@ -58,7 +67,7 @@ export function InputField({
       <TextInput
         style={ui.input}
         value={value}
-        onChangeText={(v) => onChangeText(isNumeric ? formatRibuanInput(v) : v)}
+        onChangeText={handleChange}
         placeholder={placeholder}
         placeholderTextColor={T.outline}
         keyboardType={keyboardType}
@@ -67,7 +76,7 @@ export function InputField({
   );
 }
 
-// ── LuasField — input luas dalam M2 (satuan tetap, tidak bisa diganti) ────────
+// ── LuasField — input luas dalam M2, mendukung desimal ───────────────────────
 export function LuasField({
   luas,
   setLuas,
@@ -75,8 +84,8 @@ export function LuasField({
 }: {
   luas: string;
   setLuas: (v: string) => void;
-  satLuas?: string;       // diabaikan — selalu M2
-  onSatPress?: () => void; // diabaikan — satuan tetap M2
+  satLuas?: string;
+  onSatPress?: () => void;
   width?: DimensionValue;
 }) {
   const luasNum = parseFormatted(luas);
@@ -88,12 +97,11 @@ export function LuasField({
         <TextInput
           style={[ui.input, { flex: 1, borderTopRightRadius: 0, borderBottomRightRadius: 0, borderRightWidth: 0 }]}
           value={luas}
-          onChangeText={(v) => setLuas(formatRibuanInput(v))}
-          placeholder="contoh: 6.660"
+          onChangeText={(v) => setLuas(formatRibuanDesimalInput(v))}
+          placeholder="contoh: 6.660 atau 6.660,5 atau 6660.5"
           placeholderTextColor={T.outline}
-          keyboardType="numeric"
+          keyboardType="decimal-pad"
         />
-        {/* Label M2 tetap — tidak bisa diubah */}
         <View style={[ui.luasSat, { backgroundColor: T.surfaceContainerLow }]}>
           <Text style={[ui.luasSatText, { color: T.onSurfaceVariant, fontWeight: "700" }]}>m²</Text>
         </View>

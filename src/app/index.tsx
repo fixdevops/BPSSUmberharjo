@@ -370,7 +370,7 @@ export default function HomeScreen() {
                         ) : (
                           <>
                             <InputField label="Hasil Panen" value={panen} onChangeText={setPanen}
-                              placeholder="contoh: 100" keyboardType="numeric" width={isTablet ? "48%" : "100%"} />
+                              placeholder="contoh: 100 atau 1,5 atau 1.5" keyboardType="decimal-pad" width={isTablet ? "48%" : "100%"} />
                             <SelectField label="Satuan Panen" value={satPanen} width={isTablet ? "48%" : "100%"}
                               onPress={() => openPicker("Satuan Panen", ["KUINTAL", "KG", "TON"], satPanen, setSatPanen)} />
                           </>
@@ -488,8 +488,8 @@ export default function HomeScreen() {
                             label="Jumlah Daun Basah yang Dirajang (kg)"
                             value={jumlahPohon}
                             onChangeText={setJumlahPohon}
-                            placeholder="contoh: 1000 kg"
-                            keyboardType="numeric"
+                            placeholder="contoh: 1.000 kg"
+                            keyboardType="decimal-pad"
                             width={isTablet ? "48%" : "100%"}
                           />
                         ) : (
