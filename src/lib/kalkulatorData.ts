@@ -231,7 +231,7 @@ export const TEMBAKAU = {
   susut:          0.20,   // konversi basah → kering (20% yield = 80% susut)
 
   // Harga jual patokan Bojonegoro 2026
-  hargaBasah:     12_000, // Rp/kg daun basah (tembakau daun segar petik)
+  hargaBasah:     4_000,  // Rp/kg daun basah (tembakau daun segar petik)
   hargaKering:    65_000, // Rp/kg daun kering rajang siap jual
 
   // HOK per 1.000 pohon (BASAH) — estimasi untuk form SE2026
@@ -264,7 +264,7 @@ export const TEMBAKAU = {
   // Per 1.000 pohon: ~128k (hanya referensi legacy, tidak dipakai langsung)
   gajiBasahPer1000:     128_333, // legacy — tidak dipakai, perhitungan real dari orgX × upahPerOrang
   saprotanBasahPer1000: 248_500, // Rp 248.500 per 1.000 pohon (sesuai prompt)
-  operBasahPer1000:     180_000, // Rp 180.000 per 1.000 pohon
+  operBasahPer1000:     150_000, // Rp 150.000 per 1.000 pohon
   nilaiBasahPer1000:    0,       // tidak dipakai — nilaiProd = kgBasah × hargaBasah
 
   // ── Biaya per siklus KERING ───────────────────────────────────────────────
