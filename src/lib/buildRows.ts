@@ -86,17 +86,17 @@ export function buildRows(params: {
         value: rp(h.gajiTK),
         explain: isKering
           ? `Upah TK tembakau kering — dibayar 1 kali (borongan):\n\n` +
-            `  • Ngrajang : ${Math.round(h.kgBasah).toLocaleString("id-ID")} kg × Rp 1.500/kg = ${rp(h.biayaRajang ?? 0)}\n` +
-            `  • Mepe     : ${Math.round(h.kgBasah).toLocaleString("id-ID")} kg × Rp 500/kg   = ${rp(h.biayaMepe ?? 0)}\n\n` +
+            `  • Ngrajang : ${h.pekerjaRajang ?? 0} orang = ${rp(h.biayaRajang ?? 0)}\n` +
+            `  • Mepe     : ${h.pekerjaMepe ?? 0} orang = ${rp(h.biayaMepe ?? 0)}\n\n` +
             `  Total 26.a = ${rp(h.gajiTK)}\n\n` +
-            `  HOK estimasi: Ngrajang ${h.hokNgrajang ?? 0} hari, Mepe ${h.hokMepe ?? 0} hari`
+            `  (Max 4 orang total)`
           : `Upah TK tembakau basah — dibayar 1 kali (borongan per 1.000 pohon):\n` +
-            `  • Kowak  : ${rp(h.biayaKowak ?? 0)}\n` +
-            `  • Macul  : ${rp(h.biayaMacul ?? 0)}\n` +
-            `  • Tanam  : ${rp(h.biayaTanam ?? 0)}\n` +
-            `  • Matun  : ${rp(h.biayaMatun ?? 0)}\n` +
-            `  • Panen  : ${rp(h.biayaPanen ?? 0)}\n` +
-            `Total 26.a = ${rp(h.gajiTK)}`,
+            `  • Kowak  : ${h.orgKowak ?? 0} orang = ${rp(h.biayaKowak ?? 0)}\n` +
+            `  • Macul  : ${h.orgMacul ?? 0} orang = ${rp(h.biayaMacul ?? 0)}\n` +
+            `  • Matun  : ${h.orgMatun ?? 0} orang = ${rp(h.biayaMatun ?? 0)}\n` +
+            `  • Panen  : ${h.orgPanen ?? 0} orang = ${rp(h.biayaPanen ?? 0)}\n\n` +
+            `  Total 26.a = ${rp(h.gajiTK)}\n\n` +
+            `  (Max 4 orang total)`,
       },
       {
         label: "26.b. Biaya Produksi",

@@ -92,6 +92,14 @@ export default function HomeScreen() {
   const [peternakanPerempuan, setPeternakanPerempuan] = useState(""); // pekerja perempuan (jiwa)
   const [peternakanDibayar,   setPeternakanDibayar]   = useState<"Dibayar" | "Tidak Dibayar">("Dibayar");
 
+  // ── State override tembakau (jumlah pekerja per jenis pekerjaan) ──────────
+  const [tembakauKowak,   setTembakauKowak]   = useState(""); // jumlah orang kowak
+  const [tembakauMacul,   setTembakauMacul]   = useState(""); // jumlah orang macul
+  const [tembakauMatun,   setTembakauMatun]   = useState(""); // jumlah orang matun
+  const [tembakauPanen,   setTembakauPanen]   = useState(""); // jumlah orang panen
+  const [tembakauNgrajang, setTembakauNgrajang] = useState(""); // jumlah orang ngrajang (kering)
+  const [tembakauMepe,    setTembakauMepe]    = useState(""); // jumlah orang mepe (kering)
+
   // ── Picker ────────────────────────────────────────────────────────────────
   const [pickerVisible, setPickerVisible] = useState(false);
   const [pickerType,    setPickerType]    = useState("");
@@ -127,6 +135,13 @@ export default function HomeScreen() {
           peternakanLaki:      peternakanLaki      ? parseInt(strip(peternakanLaki))      : undefined,
           peternakanPerempuan: peternakanPerempuan ? parseInt(strip(peternakanPerempuan)) : undefined,
           peternakanDibayar:   kategori === "Peternakan" ? peternakanDibayar === "Dibayar" : undefined,
+          // Override tembakau (kosong = auto-fill)
+          tembakauKowak:    tembakauKowak    ? parseInt(strip(tembakauKowak))    : undefined,
+          tembakauMacul:    tembakauMacul    ? parseInt(strip(tembakauMacul))    : undefined,
+          tembakauMatun:    tembakauMatun    ? parseInt(strip(tembakauMatun))    : undefined,
+          tembakauPanen:    tembakauPanen    ? parseInt(strip(tembakauPanen))    : undefined,
+          tembakauNgrajang: tembakauNgrajang ? parseInt(strip(tembakauNgrajang)) : undefined,
+          tembakauMepe:     tembakauMepe     ? parseInt(strip(tembakauMepe))     : undefined,
         });
         if (res) {
           setHasil(res);
@@ -172,6 +187,12 @@ export default function HomeScreen() {
           peternakanLaki:      peternakanLaki      ? parseInt(strip(peternakanLaki))      : undefined,
           peternakanPerempuan: peternakanPerempuan ? parseInt(strip(peternakanPerempuan)) : undefined,
           peternakanDibayar:   kategori === "Peternakan" ? peternakanDibayar === "Dibayar" : undefined,
+          tembakauKowak:    tembakauKowak    ? parseInt(strip(tembakauKowak))    : undefined,
+          tembakauMacul:    tembakauMacul    ? parseInt(strip(tembakauMacul))    : undefined,
+          tembakauMatun:    tembakauMatun    ? parseInt(strip(tembakauMatun))    : undefined,
+          tembakauPanen:    tembakauPanen    ? parseInt(strip(tembakauPanen))    : undefined,
+          tembakauNgrajang: tembakauNgrajang ? parseInt(strip(tembakauNgrajang)) : undefined,
+          tembakauMepe:     tembakauMepe     ? parseInt(strip(tembakauMepe))     : undefined,
         });
         if (res) {
           setHasil(res);
@@ -483,14 +504,28 @@ export default function HomeScreen() {
                           onPress={() => openPicker("Jenis Tembakau", ["Tembakau Basah", "Tembakau Kering"], jenisTembakau, setJenisTembakau)}
                         />
                         {jenisTembakau === "Tembakau Kering" ? (
-                          <InputField
-                            label="Jumlah Daun Basah yang Dirajang (kg)"
-                            value={jumlahPohon}
-                            onChangeText={setJumlahPohon}
-                            placeholder="contoh: 1.000 kg"
-                            keyboardType="decimal-pad"
-                            width={isTablet ? "48%" : "100%"}
-                          />
+                          <>
+                            <InputField
+                              label="Jumlah Daun Basah yang Dirajang (kg)"
+                              value={jumlahPohon}
+                              onChangeText={setJumlahPohon}
+                              placeholder="contoh: 1.000 kg"
+                              keyboardType="decimal-pad"
+                              width={isTablet ? "48%" : "100%"}
+                            />
+                            {/* Input detail pekerja tembakau kering (opsional) */}
+                            <View style={{ width: "100%", marginTop: 8 }}>
+                              <Text style={{ fontSize: 12, fontWeight: "600", color: T.secondary, marginBottom: 6 }}>
+                                Detail Pekerja (kosong = otomatis)
+                              </Text>
+                              <View style={[ui.formGrid, isTablet && { flexDirection: "row", flexWrap: "wrap" }]}>
+                                <InputField label="Ngrajang (orang)" value={tembakauNgrajang} onChangeText={setTembakauNgrajang}
+                                  placeholder="auto" keyboardType="numeric" width={isTablet ? "48%" : "100%"} />
+                                <InputField label="Mepe/Jemur (orang)" value={tembakauMepe} onChangeText={setTembakauMepe}
+                                  placeholder="auto" keyboardType="numeric" width={isTablet ? "48%" : "100%"} />
+                              </View>
+                            </View>
+                          </>
                         ) : (
                           <>
                             <InputField label="Jumlah Pohon" value={jumlahPohon} onChangeText={setJumlahPohon}
@@ -507,6 +542,22 @@ export default function HomeScreen() {
                                   </Text>
                                 </View>
                               )}
+                            </View>
+                            {/* Input detail pekerja tembakau basah (opsional) */}
+                            <View style={{ width: "100%", marginTop: 8 }}>
+                              <Text style={{ fontSize: 12, fontWeight: "600", color: T.secondary, marginBottom: 6 }}>
+                                Detail Pekerja (kosong = otomatis)
+                              </Text>
+                              <View style={[ui.formGrid, isTablet && { flexDirection: "row", flexWrap: "wrap" }]}>
+                                <InputField label="Kowak (orang)" value={tembakauKowak} onChangeText={setTembakauKowak}
+                                  placeholder="auto" keyboardType="numeric" width={isTablet ? "48%" : "100%"} />
+                                <InputField label="Macul (orang)" value={tembakauMacul} onChangeText={setTembakauMacul}
+                                  placeholder="auto" keyboardType="numeric" width={isTablet ? "48%" : "100%"} />
+                                <InputField label="Matun (orang)" value={tembakauMatun} onChangeText={setTembakauMatun}
+                                  placeholder="auto" keyboardType="numeric" width={isTablet ? "48%" : "100%"} />
+                                <InputField label="Panen (orang)" value={tembakauPanen} onChangeText={setTembakauPanen}
+                                  placeholder="auto" keyboardType="numeric" width={isTablet ? "48%" : "100%"} />
+                              </View>
                             </View>
                           </>
                         )}
@@ -634,17 +685,16 @@ export default function HomeScreen() {
                         </View>
 
                         {hasil.isTembakau && hasil.jenis === "Tembakau Basah" && (<>
-                          <DetailRow label="Kowak/Bersih Lahan (borongan)"         qty={`${hasil.tkKowak ?? 0} org`}  amount={rp(hasil.biayaKowak ?? 0)} />
-                          <DetailRow label="Macul/Bedengan (borongan)"           qty={`${hasil.tkMacul ?? 0} org`}  amount={rp(hasil.biayaMacul ?? 0)} />
-                          <DetailRow label="Tanam Bibit (borongan)"              qty={`${hasil.tkTanam ?? 0} org`}  amount={rp(hasil.biayaTanam ?? 0)} />
-                          <DetailRow label="Matun/Rumput (borongan)"             qty={`${hasil.tkMatun ?? 0} org`}  amount={rp(hasil.biayaMatun ?? 0)} />
-                          <DetailRow label="Panen/Petik Daun (borongan)"         qty={`${hasil.tkPanen ?? 0} org`}  amount={rp(hasil.biayaPanen ?? 0)} />
-                          <DetailRow label="Total Upah TK"                       qty="1 kali"                       amount={rp(hasil.gajiTK)} />
+                          <DetailRow label="Kowak/Bersih Lahan (borongan)"         qty={`${hasil.orgKowak ?? hasil.tkKowak ?? 0} org`}  amount={rp(hasil.biayaKowak ?? 0)} />
+                          <DetailRow label="Macul/Bedengan (borongan)"             qty={`${hasil.orgMacul ?? hasil.tkMacul ?? 0} org`}  amount={rp(hasil.biayaMacul ?? 0)} />
+                          <DetailRow label="Matun/Rumput (borongan)"               qty={`${hasil.orgMatun ?? hasil.tkMatun ?? 0} org`}  amount={rp(hasil.biayaMatun ?? 0)} />
+                          <DetailRow label="Panen/Petik Daun (borongan)"           qty={`${hasil.orgPanen ?? hasil.tkPanen ?? 0} org`}  amount={rp(hasil.biayaPanen ?? 0)} />
+                          <DetailRow label="Total Upah TK"                         qty="1 kali"                                         amount={rp(hasil.gajiTK)} />
                         </>)}
                         {hasil.isTembakau && hasil.jenis === "Tembakau Kering" && (<>
-                          <DetailRow label={`Ngrajang (Rp 1.500/kg)`}            qty={`${Math.round(hasil.kgBasah).toLocaleString("id-ID")} kg`} amount={rp(hasil.biayaRajang ?? 0)} />
-                          <DetailRow label={`Mepe/Jemur (Rp 500/kg)`}            qty={`${Math.round(hasil.kgBasah).toLocaleString("id-ID")} kg`} amount={rp(hasil.biayaMepe ?? 0)} />
-                          <DetailRow label="Total Upah TK (26.a)"                qty="1 kali"                                                     amount={rp(hasil.gajiTK)} />
+                          <DetailRow label={`Ngrajang (Rp 1.500/kg)`}            qty={`${hasil.pekerjaRajang ?? 0} org`}                                        amount={rp(hasil.biayaRajang ?? 0)} />
+                          <DetailRow label={`Mepe/Jemur (Rp 500/kg)`}            qty={`${hasil.pekerjaMepe ?? 0} org`}                                          amount={rp(hasil.biayaMepe ?? 0)} />
+                          <DetailRow label="Total Upah TK (26.a)"                qty="1 kali"                                                                    amount={rp(hasil.gajiTK)} />
                         </>)}
                         {hasil.isPeternakan && (() => {
                           const mandiri = hasil.mandiri === true || (hasil.upahHarian ?? 0) <= 0 || hasil.hokDibayar === 0;

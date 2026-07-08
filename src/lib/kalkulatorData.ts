@@ -832,6 +832,13 @@ export type HitungParams = {
   peternakanLaki?:      number;
   peternakanPerempuan?: number;
   peternakanDibayar?:   boolean;
+  // Override tembakau — jumlah pekerja per jenis (opsional, kosong = auto)
+  tembakauKowak?:    number; // orang kowak
+  tembakauMacul?:    number; // orang macul
+  tembakauMatun?:    number; // orang matun
+  tembakauPanen?:    number; // orang panen
+  tembakauNgrajang?: number; // orang ngrajang (kering)
+  tembakauMepe?:     number; // orang mepe (kering)
 };
 
 // ─── Fungsi Hitung Utama ──────────────────────────────────────────────────────
@@ -904,11 +911,13 @@ export function hitungEstimasi(params: HitungParams): any | null {
       const hokTotal        = hokDibayar + hokTidakDibayar;
 
       // ── Pekerja jiwa — hanya ngrajang & mepe ─────────────────────────
-      const pekerjaRajangJml = Math.max(1, Math.ceil(kgBasah / 100));
-      const pekerjaMepeJml   = Math.max(1, Math.ceil(kgBasah / 150));
-      const pekerjaDibayar      = pekerjaRajangJml + pekerjaMepeJml;
-      const pekerjaTidakDibayar = Math.min(2, Math.max(1, Math.ceil(kgBasah / 200)));
-      const totalPekerja        = pekerjaDibayar + pekerjaTidakDibayar;
+      // Gunakan input manual jika ada, atau auto-fill jika kosong
+      // Max 4 orang total (pemilik + pekerja)
+      const pekerjaRajangInput = params.tembakauNgrajang ?? Math.max(1, Math.ceil(kgBasah / 100));
+      const pekerjaMepeInput   = params.tembakauMepe     ?? Math.max(1, Math.ceil(kgBasah / 150));
+      const pekerjaDibayar      = Math.min(3, pekerjaRajangInput + pekerjaMepeInput); // max 3 dibayar
+      const pekerjaTidakDibayar = 1; // pemilik
+      const totalPekerja        = Math.min(4, pekerjaDibayar + pekerjaTidakDibayar); // max 4 total
       const pekerjaPerempuan    = Math.max(1, Math.round(totalPekerja * 0.60)); // mepe dominan perempuan
       const pekerjaLaki         = Math.max(0, totalPekerja - pekerjaPerempuan);
 
@@ -951,8 +960,8 @@ export function hitungEstimasi(params: HitungParams): any | null {
         hokNgrajang, hokMepe, hokSortasi, hokPress, hokPacking,
         pekerjaLaki, pekerjaPerempuan, pekerjaDibayar, pekerjaTidakDibayar, totalPekerja,
         biayaRajang, biayaMepe, biayaSortasi, biayaPress, biayaPacking,
-        pekerjaRajang: pekerjaRajangJml,
-        pekerjaMepe: pekerjaMepeJml,
+        pekerjaRajang: pekerjaRajangInput,
+        pekerjaMepe: pekerjaMepeInput,
         pekerjaSortasi: 0,
         pekerjaPress: 0,
         pekerjaPacking: 0,
@@ -983,19 +992,21 @@ export function hitungEstimasi(params: HitungParams): any | null {
     const kgBasah   = TB.kgPer1000 * ribuan * _faktorTembakau; // estimasi berat (display)
     const kgKering  = kgBasah * TB.susut;
 
-    // HOK breakdown per pekerjaan (basah) — konsisten dengan hokPer1000 = 13
+    // HOK breakdown per pekerjaan (basah) — tanpa Tanam Bibit
     const pb = TB.pekerjaanBasah;
+    // Auto-fill jika tidak diisi: HOK proporsional per 1.000 pohon
+    // (hanya untuk proporsi biaya, bukan dasar total gaji)
     const tkKowak  = Math.max(1, Math.round(2 * ribuan));
     const tkMacul  = Math.max(1, Math.round(3 * ribuan));
-    const tkTanam  = Math.max(1, Math.round(2 * ribuan));
     const tkMatun  = Math.max(1, Math.round(3 * ribuan));
     const tkPanen  = Math.max(1, Math.round(3 * ribuan));
+    const tkTanam  = 0; // Tanam Bibit tidak dihitung (tidak dibayar/pemilik sendiri)
 
-    // HOK basah total = jumlah dari semua jenis pekerjaan
-    const totalHOKBase = tkKowak + tkMacul + tkTanam + tkMatun + tkPanen;
+    // HOK basah total = kowak + macul + matun + panen (tanpa tanam)
+    const totalHOKBase = tkKowak + tkMacul + tkMatun + tkPanen;
     const hokLaki      = Math.round(totalHOKBase * TB.hokRasioLaki);
     const hokPerempuan = totalHOKBase - hokLaki;
-    const hokTidakDibayar = 2;
+    const hokTidakDibayar = 1; // pemilik saja
     const hokDibayar   = Math.max(1, totalHOKBase - hokTidakDibayar);
     const hokTotal     = hokDibayar + hokTidakDibayar;
 
@@ -1005,18 +1016,27 @@ export function hitungEstimasi(params: HitungParams): any | null {
     const gajiTK = TB.gajiBasahPer1000 * ribuan;
 
     // Biaya per pekerjaan — proporsional dari gajiTK flat untuk display
-    // Meskipun tkKowak, tkMacul adalah HOK, tapi ini hanya untuk proporsi pembagian gajiTK flat
-    // Jadi biayaKowak, biayaMacul, dll adalah BUKAN per hari — melainkan total borongan
+    // Proporsi: kowak:macul:matun:panen = 2:3:3:3
     const biayaKowak  = Math.round(gajiTK * (tkKowak  / totalHOKBase));
     const biayaMacul  = Math.round(gajiTK * (tkMacul  / totalHOKBase));
-    const biayaTanam  = Math.round(gajiTK * (tkTanam  / totalHOKBase));
+    const biayaTanam  = 0; // tidak dihitung
     const biayaMatun  = Math.round(gajiTK * (tkMatun  / totalHOKBase));
-    const biayaPanen  = gajiTK - biayaKowak - biayaMacul - biayaTanam - biayaMatun;
+    const biayaPanen  = gajiTK - biayaKowak - biayaMacul - biayaMatun;
 
-    // Pekerja (Jiwa) — berdasarkan HOK per jenis pekerjaan
-    const pekerjaTidakDibayar = 2; // pemilik + keluarga
-    const pekerjaDibayar = Math.max(1, Math.round(ribuan * 4));
-    const totalPekerja = pekerjaDibayar + pekerjaTidakDibayar;
+    // Pekerja (Jiwa) — gunakan input manual jika ada, atau auto-fill jika kosong
+    // Max total 4 orang
+    const autoKowak  = 1;
+    const autoMacul  = 1;
+    const autoMatun  = Math.min(1, Math.round(ribuan));
+    const autoPanen  = Math.min(1, Math.round(ribuan));
+    const orgKowak = params.tembakauKowak  ?? autoKowak;
+    const orgMacul = params.tembakauMacul  ?? autoMacul;
+    const orgMatun = params.tembakauMatun  ?? autoMatun;
+    const orgPanen = params.tembakauPanen  ?? autoPanen;
+    const pekerjaTidakDibayar = 1; // pemilik
+    const pekerjaDibayarRaw   = orgKowak + orgMacul + orgMatun + orgPanen;
+    const pekerjaDibayar      = Math.min(3, pekerjaDibayarRaw); // max 3 dibayar
+    const totalPekerja        = Math.min(4, pekerjaDibayar + pekerjaTidakDibayar); // max 4
     const pekerjaLaki = Math.max(1, Math.min(totalPekerja - 1, Math.round(totalPekerja * 0.50)));
     const pekerjaPerempuan = totalPekerja - pekerjaLaki;
 
@@ -1058,6 +1078,8 @@ export function hitungEstimasi(params: HitungParams): any | null {
       pekerjaLaki, pekerjaPerempuan, pekerjaDibayar, pekerjaTidakDibayar, totalPekerja,
       tkKowak, tkMacul, tkTanam, tkMatun, tkPanen,
       biayaKowak, biayaMacul, biayaTanam, biayaMatun, biayaPanen,
+      // Jumlah orang per jenis pekerjaan (input user atau auto)
+      orgKowak, orgMacul, orgMatun, orgPanen,
       musim: musimTanam[0] ?? "—",
       kondisiPanen: kondisiPanen ?? "Sedang",
       faktorKondisi: _faktorTembakau,
