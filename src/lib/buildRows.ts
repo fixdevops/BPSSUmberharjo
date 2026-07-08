@@ -85,11 +85,12 @@ export function buildRows(params: {
         label: "26.a. Upah Tenaga Kerja",
         value: rp(h.gajiTK),
         explain: isKering
-          ? `Upah TK tembakau kering — dibayar 1 kali (borongan):\n\n` +
-            `  • Ngrajang : ${h.pekerjaRajang ?? 0} orang = ${rp(h.biayaRajang ?? 0)}\n` +
-            `  • Mepe     : ${h.pekerjaMepe ?? 0} orang = ${rp(h.biayaMepe ?? 0)}\n\n` +
+          ? `Upah TK tembakau kering — dibayar 1 kali (Rp 77.000/orang):\n\n` +
+            `  • Makani   : ${h.orgMakani ?? 0} orang × Rp 77.000 = ${rp(h.biayaMakani ?? 0)}\n` +
+            `  • Ngrajang : ${h.orgNgrajang ?? 0} orang × Rp 77.000 = ${rp(h.biayaRajang ?? 0)}\n` +
+            `  • Mepe     : ${h.orgMepe ?? 0} orang × Rp 77.000 = ${rp(h.biayaMepe ?? 0)}\n\n` +
             `  Total 26.a = ${rp(h.gajiTK)}\n\n` +
-            `  (Max 4 orang total)`
+            `  Default ~2.000 kg: makani=2, ngrajang=2, mepe=3 → 7 × Rp 77.000 = Rp 539.000`
           : `Upah TK tembakau basah — dibayar 1 kali (Rp 77.000/orang):\n\n` +
             `  • Kowak  : ${h.orgKowak ?? 0} orang × Rp 77.000 = ${rp(h.biayaKowak ?? 0)}\n` +
             `  • Macul  : ${h.orgMacul ?? 0} orang × Rp 77.000 = ${rp(h.biayaMacul ?? 0)}\n` +
@@ -102,12 +103,10 @@ export function buildRows(params: {
         label: "26.b. Biaya Produksi",
         value: rp(h.biayaProd),
         explain: isKering
-          ? `Biaya Produksi (26.b) — Usaha Rajangan Tembakau:\n` +
-            `Hanya komponen proses rajangan (pascapanen), tidak termasuk biaya budidaya:\n\n` +
-            `  • Tembakau matang (bahan baku): ${Math.round(h.kgBasah).toLocaleString("id-ID")} kg × Rp 12.000 = ${rp(h.biayaTembakauMatang ?? 0)}\n` +
-            `  • Widek (bambu rajang)         : ${h.jumlahWidek ?? 1} unit × Rp 200.000 = ${rp(h.biayaWidek ?? 0)}\n\n` +
+          ? `Biaya Produksi (26.b) — Bahan Baku Tembakau Kering:\n\n` +
+            `  • Tembakau basah (bahan baku): ${Math.round(h.kgBasah).toLocaleString("id-ID")} kg × Rp 12.000 = ${rp(h.biayaTembakauMatang ?? 0)}\n\n` +
             `  Total 26.b = ${rp(h.biayaProd)}\n\n` +
-            `  ⚠ Tidak termasuk: pupuk kandang, Urea, NPK, fungisida, insektisida, atau biaya budidaya lainnya.`
+            `  ⚠ Peralatan (mesin, widek, timbangan, rak jemur) dicatat sebagai Aset Usaha.`
           : `Saprotan tembakau basah:\n` +
             `  Rp ${TB.saprotanBasahPer1000.toLocaleString("id-ID")} per 1.000 pohon × ${h.ribuan.toLocaleString("id-ID", { minimumFractionDigits: 3, maximumFractionDigits: 3 })} ribuan\n` +
             `  = ${rp(h.biayaProd)}`,
@@ -116,7 +115,10 @@ export function buildRows(params: {
         label: "26.d. Biaya Operasional",
         value: rp(h.ops),
         explain: isKering
-          ? `Operasional tembakau kering: 15% dari biaya TK.\n${rp(h.gajiTK ?? 0)} × 15% = ${rp(h.ops)}`
+          ? `Operasional tembakau kering:\n` +
+            `  Rp 150.000 per 1.000 kg basah\n` +
+            `  ${Math.round(h.kgBasah).toLocaleString("id-ID")} kg ÷ 1.000 × Rp 150.000 = ${rp(h.ops)}\n` +
+            `  (bahan bakar, karung, dll)`
           : `Operasional tembakau basah:\n` +
             `  Rp ${TB.operBasahPer1000.toLocaleString("id-ID")} per 1.000 pohon × ${h.ribuan.toLocaleString("id-ID", { minimumFractionDigits: 3, maximumFractionDigits: 3 })} ribuan\n` +
             `  = ${rp(h.ops)}`,
@@ -135,6 +137,13 @@ export function buildRows(params: {
       },
       // ── PENDAPATAN ──────────────────────────────────────────────────────
       { section: "27 — Pendapatan Usaha Tembakau" },
+      // Info luas tempat (hanya tembakau kering, hanya jika diisi)
+      ...(isKering && h.luasTempatInfo > 0 ? [{
+        label: "Luas Tempat Produksi",
+        value: `${(h.luasTempatInfo ?? 0).toLocaleString("id-ID")} m²`,
+        explain: `Luas tempat/lokasi produksi rajangan: ${(h.luasTempatInfo ?? 0).toLocaleString("id-ID")} m².\n` +
+          `ℹ️ Hanya dicatat sebagai informasi — tidak dihitung sebagai biaya atau pajak.`,
+      }] : []),
       {
         label: "27.a. Nilai Produksi / Penjualan",
         value: rp(h.nilaiProd),

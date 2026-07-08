@@ -97,8 +97,10 @@ export default function HomeScreen() {
   const [tembakauMacul,   setTembakauMacul]   = useState(""); // jumlah orang macul
   const [tembakauMatun,   setTembakauMatun]   = useState(""); // jumlah orang matun
   const [tembakauPanen,   setTembakauPanen]   = useState(""); // jumlah orang panen
+  const [tembakauMakani,  setTembakauMakani]  = useState(""); // jumlah orang makani (kering)
   const [tembakauNgrajang, setTembakauNgrajang] = useState(""); // jumlah orang ngrajang (kering)
   const [tembakauMepe,    setTembakauMepe]    = useState(""); // jumlah orang mepe (kering)
+  const [luasTembakauKering, setLuasTembakauKering] = useState(""); // luas tempat produksi kering (m²)
 
   // ── Picker ────────────────────────────────────────────────────────────────
   const [pickerVisible, setPickerVisible] = useState(false);
@@ -140,8 +142,10 @@ export default function HomeScreen() {
           tembakauMacul:    tembakauMacul    ? parseInt(strip(tembakauMacul))    : undefined,
           tembakauMatun:    tembakauMatun    ? parseInt(strip(tembakauMatun))    : undefined,
           tembakauPanen:    tembakauPanen    ? parseInt(strip(tembakauPanen))    : undefined,
+          tembakauMakani:   tembakauMakani   ? parseInt(strip(tembakauMakani))   : undefined,
           tembakauNgrajang: tembakauNgrajang ? parseInt(strip(tembakauNgrajang)) : undefined,
           tembakauMepe:     tembakauMepe     ? parseInt(strip(tembakauMepe))     : undefined,
+          luasTembakauKering: luasTembakauKering ? parseFloat(strip(luasTembakauKering)) : undefined,
         });
         if (res) {
           setHasil(res);
@@ -191,8 +195,10 @@ export default function HomeScreen() {
           tembakauMacul:    tembakauMacul    ? parseInt(strip(tembakauMacul))    : undefined,
           tembakauMatun:    tembakauMatun    ? parseInt(strip(tembakauMatun))    : undefined,
           tembakauPanen:    tembakauPanen    ? parseInt(strip(tembakauPanen))    : undefined,
+          tembakauMakani:   tembakauMakani   ? parseInt(strip(tembakauMakani))   : undefined,
           tembakauNgrajang: tembakauNgrajang ? parseInt(strip(tembakauNgrajang)) : undefined,
           tembakauMepe:     tembakauMepe     ? parseInt(strip(tembakauMepe))     : undefined,
+          luasTembakauKering: luasTembakauKering ? parseFloat(strip(luasTembakauKering)) : undefined,
         });
         if (res) {
           setHasil(res);
@@ -513,12 +519,22 @@ export default function HomeScreen() {
                               keyboardType="decimal-pad"
                               width={isTablet ? "48%" : "100%"}
                             />
+                            <InputField
+                              label="Luas Tempat Produksi (m²)"
+                              value={luasTembakauKering}
+                              onChangeText={setLuasTembakauKering}
+                              placeholder="info saja, tidak dihitung biaya"
+                              keyboardType="decimal-pad"
+                              width={isTablet ? "48%" : "100%"}
+                            />
                             {/* Input detail pekerja tembakau kering (opsional) */}
                             <View style={{ width: "100%", marginTop: 8 }}>
                               <Text style={{ fontSize: 12, fontWeight: "600", color: T.secondary, marginBottom: 6 }}>
                                 Detail Pekerja (kosong = otomatis)
                               </Text>
                               <View style={[ui.formGrid, isTablet && { flexDirection: "row", flexWrap: "wrap" }]}>
+                                <InputField label="Makani (orang)" value={tembakauMakani} onChangeText={setTembakauMakani}
+                                  placeholder="auto" keyboardType="numeric" width={isTablet ? "48%" : "100%"} />
                                 <InputField label="Ngrajang (orang)" value={tembakauNgrajang} onChangeText={setTembakauNgrajang}
                                   placeholder="auto" keyboardType="numeric" width={isTablet ? "48%" : "100%"} />
                                 <InputField label="Mepe/Jemur (orang)" value={tembakauMepe} onChangeText={setTembakauMepe}
@@ -689,9 +705,10 @@ export default function HomeScreen() {
                           <DetailRow label="Total Upah TK"                         qty="1 kali"                         amount={rp(hasil.gajiTK)} />
                         </>)}
                         {hasil.isTembakau && hasil.jenis === "Tembakau Kering" && (<>
-                          <DetailRow label={`Ngrajang (Rp 1.500/kg)`}            qty={`${hasil.pekerjaRajang ?? 0} org`}                                        amount={rp(hasil.biayaRajang ?? 0)} />
-                          <DetailRow label={`Mepe/Jemur (Rp 500/kg)`}            qty={`${hasil.pekerjaMepe ?? 0} org`}                                          amount={rp(hasil.biayaMepe ?? 0)} />
-                          <DetailRow label="Total Upah TK (26.a)"                qty="1 kali"                                                                    amount={rp(hasil.gajiTK)} />
+                          <DetailRow label="Makani/Siapkan (Rp 77rb/org)"  qty={`${hasil.orgMakani ?? hasil.pekerjaMakani ?? 0} org`}  amount={rp(hasil.biayaMakani ?? 0)} />
+                          <DetailRow label="Ngrajang (Rp 77rb/org)"        qty={`${hasil.orgNgrajang ?? hasil.pekerjaRajang ?? 0} org`} amount={rp(hasil.biayaRajang ?? 0)} />
+                          <DetailRow label="Mepe/Jemur (Rp 77rb/org)"      qty={`${hasil.orgMepe ?? hasil.pekerjaMepe ?? 0} org`}      amount={rp(hasil.biayaMepe ?? 0)} />
+                          <DetailRow label="Total Upah TK (26.a)"           qty="1 kali"                                               amount={rp(hasil.gajiTK)} />
                         </>)}
                         {hasil.isPeternakan && (() => {
                           const mandiri = hasil.mandiri === true || (hasil.upahHarian ?? 0) <= 0 || hasil.hokDibayar === 0;
