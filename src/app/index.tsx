@@ -12,7 +12,7 @@ import { T } from "../constants/theme";
 import { useBreakpoints } from "../hooks/useBreakpoints";
 import { useDatabase } from "../hooks/useDatabase";
 import { buildRows, buildRowsPeternakan } from "../lib/buildRows";
-import { parseFormatted, rp } from "../lib/helpers";
+import { rp } from "../lib/helpers";
 import { daftarKategori, daftarKondisiPanen, hitungEstimasi, kategoriMap, kondisiPanenLabel, UPAH_HOK, type KondisiPanen } from "../lib/kalkulatorData";
 import { ui } from "../styles/ui";
 
@@ -87,9 +87,6 @@ export default function HomeScreen() {
   const [loading,    setLoading]    = useState(false);
   const [step,       setStep]       = useState(0);
 
-  // ── State input tenaga kerja (HOK-based) ─────────────────────────────────
-  const [upahHarian, setUpahHarian] = useState(String(UPAH_HOK).replace(/\B(?=(\d{3})+(?!\d))/g, ".")); // Rp/HOK terformat
-
   // ── State override peternakan ─────────────────────────────────────────────
   const [peternakanLaki,      setPeternakanLaki]      = useState(""); // pekerja laki-laki (jiwa)
   const [peternakanPerempuan, setPeternakanPerempuan] = useState(""); // pekerja perempuan (jiwa)
@@ -126,7 +123,7 @@ export default function HomeScreen() {
           luasTembakau: strip(luasTembakau),
           status,
           kondisiPanen,
-          upahHarian: parseFormatted(upahHarian) || UPAH_HOK,
+          upahHarian: UPAH_HOK,
           peternakanLaki:      peternakanLaki      ? parseInt(strip(peternakanLaki))      : undefined,
           peternakanPerempuan: peternakanPerempuan ? parseInt(strip(peternakanPerempuan)) : undefined,
           peternakanDibayar:   kategori === "Peternakan" ? peternakanDibayar === "Dibayar" : undefined,
@@ -151,7 +148,7 @@ export default function HomeScreen() {
     satPanen?:  string;
     mode?:      string;
   } = {}) {
-    const upahBaru    = overrides.upahHarian ?? (parseFormatted(upahHarian) || UPAH_HOK);
+    const upahBaru    = overrides.upahHarian ?? UPAH_HOK;
     const panenBaru   = strip(overrides.panen    ?? panen);
     const satPanenBaru= overrides.satPanen ?? satPanen;
     const modeBaru    = overrides.mode     ?? mode;
@@ -555,8 +552,6 @@ export default function HomeScreen() {
                       <SelectField label="Status Usaha" value={status} width={isTablet ? "48%" : "100%"}
                         onPress={() => openPicker("Status Usaha", ["Milik Sendiri", "Bagi Hasil"], status, (v) => setStatus(v))} />
                       <SelectField label="Desa" value="Sumberharjo" width={isTablet ? "48%" : "100%"} onPress={() => {}} />
-                      <InputField label="Upah per Hari Kerja (Rp)" value={upahHarian} onChangeText={setUpahHarian}
-                        placeholder={`contoh: ${UPAH_HOK.toLocaleString("id-ID")}`} keyboardType="numeric" width={isTablet ? "48%" : "100%"} />
                       <InputField label="Tahun Mulai Usaha" value={tahun} onChangeText={setTahun}
                         placeholder="YYYY" keyboardType="numeric" width={isTablet ? "48%" : "100%"} />
                     </View>
@@ -568,8 +563,6 @@ export default function HomeScreen() {
                       <SelectField label="Status Lahan" value={status} width={isTablet ? "48%" : "100%"}
                         onPress={() => openPicker("Status Lahan", ["Milik Sendiri", "Sewa", "Bagi Hasil"], status, setStatus)} />
                       <SelectField label="Desa" value="Sumberharjo" width={isTablet ? "48%" : "100%"} onPress={() => {}} />
-                      <InputField label="Upah per Hari Kerja (Rp)" value={upahHarian} onChangeText={setUpahHarian}
-                        placeholder={`contoh: ${UPAH_HOK.toLocaleString("id-ID")}`} keyboardType="numeric" width={isTablet ? "48%" : "100%"} />
                       <InputField label="Tahun Mulai Usaha" value={tahun} onChangeText={setTahun}
                         placeholder="YYYY" keyboardType="numeric" width={isTablet ? "48%" : "100%"} />
                     </View>
