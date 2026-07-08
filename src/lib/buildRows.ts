@@ -1,6 +1,6 @@
 // ─── buildRows: Susun baris hasil estimasi untuk ditampilkan di ResultCard ────
 // Versi BPS Realistis — semua explain berbasis ha, HOK, kg/ha
-import { rp } from "./helpers";
+import { fmt, rp } from "./helpers";
 import { db, dbTernak, explainSaprotan, kondisiPanenLabel, TEMBAKAU } from "./kalkulatorData";
 
 export type ResultRowItem = {

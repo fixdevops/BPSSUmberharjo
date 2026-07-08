@@ -967,9 +967,17 @@ export function hitungEstimasi(params: HitungParams): any | null {
     // ══════════════════════════════════════════════════════════════════════
     // TEMBAKAU BASAH — per 1.000 pohon
     // ══════════════════════════════════════════════════════════════════════
-    const pohon    = Math.max(100, parseFloat(jumlahPohon) || 1000);
-    const luasM2_t = Math.max(5,   parseFloat(luasTembakau) || 15);
-    const ribuan   = pohon / 1000;
+    const pohon = Math.max(100, parseFloat(jumlahPohon) || 1000);
+    const ribuan = pohon / 1000;
+
+    // Luas otomatis jika tidak diisi: patokan Bojonegoro 1.000 pohon = 15 m²
+    // Jarak tanam standar tembakau: 0,5 m × 0,3 m per pohon ≈ 0,15 m²/pohon
+    const luasInputRaw = parseFloat(luasTembakau);
+    const luasM2_t = Math.max(5,
+      (!luasTembakau || luasTembakau.trim() === "" || isNaN(luasInputRaw) || luasInputRaw <= 0)
+        ? Math.round(pohon * 0.015) // auto: 0,015 m²/pohon → 1.000 pohon = 15 m²
+        : luasInputRaw
+    );
 
     // ── Nilai produksi FLAT per 1.000 pohon sesuai spec ──────────────────
     const nilaiProd = TB.nilaiBasahPer1000 * ribuan * _faktorTembakau;

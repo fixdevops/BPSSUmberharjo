@@ -498,8 +498,19 @@ export default function HomeScreen() {
                           <>
                             <InputField label="Jumlah Pohon" value={jumlahPohon} onChangeText={setJumlahPohon}
                               placeholder="contoh: 1000" keyboardType="numeric" width={isTablet ? "48%" : "100%"} />
-                            <InputField label="Luas Lahan Tanam (m²)" value={luasTembakau} onChangeText={setLuasTembakau}
-                              placeholder="contoh: 15" keyboardType="numeric" width={isTablet ? "48%" : "100%"} />
+                            <View style={{ width: isTablet ? "48%" : "100%" }}>
+                              <InputField label="Luas Lahan Tanam (m²)" value={luasTembakau} onChangeText={setLuasTembakau}
+                                placeholder="kosong = otomatis dari jumlah pohon" keyboardType="numeric" width="100%" />
+                              {(!luasTembakau || luasTembakau.trim() === "") && (
+                                <View style={{ flexDirection: "row", alignItems: "center", gap: 5, marginTop: -8, paddingHorizontal: 2 }}>
+                                  <Icon name="info" size={11} color={T.secondary} />
+                                  <Text style={{ fontSize: 10, color: T.secondary }}>
+                                    Otomatis: {Math.round((parseFloat(strip(jumlahPohon)) || 1000) * 0.015)} m²
+                                    {" "}({parseFloat(strip(jumlahPohon)) || 1000} pohon × 0,015 m²)
+                                  </Text>
+                                </View>
+                              )}
+                            </View>
                           </>
                         )}
                       </>
