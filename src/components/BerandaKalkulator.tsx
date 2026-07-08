@@ -10,6 +10,18 @@ import { SectionCard } from "./ui/SectionCard";
 
 type SumberPendapatan = { id: string; jumlah: string };
 
+/** Format angka ribuan saat mengetik: "1000000" → "1.000.000" */
+function formatInputRibuan(raw: string): string {
+  const digits = raw.replace(/\D/g, "");
+  if (!digits) return "";
+  return parseInt(digits, 10).toLocaleString("id-ID");
+}
+
+/** Bersihkan format ribuan kembali ke digits: "1.000.000" → "1000000" */
+function stripFormat(val: string): string {
+  return val.replace(/\./g, "");
+}
+
 export function BerandaKalkulator() {
   const { isMobile } = useBreakpoints();
 
@@ -38,15 +50,15 @@ export function BerandaKalkulator() {
   }
 
   function hitung() {
-    const utama = parseRupiah(pendapatanUtama);
-    if (utama <= 0 && sumberTambahan.every((s) => parseRupiah(s.jumlah) <= 0)) {
+    const utama = parseRupiah(stripFormat(pendapatanUtama));
+    if (utama <= 0 && sumberTambahan.every((s) => parseRupiah(stripFormat(s.jumlah)) <= 0)) {
       Alert.alert("Perhatian", "Masukkan minimal satu pendapatan terlebih dahulu.");
       return;
     }
     const utamaPerBulan = utama / 12;
     const tambahanPerBulan = sumberTambahan.map((s, idx) => ({
       nama: `Sumber Lain #${idx + 1}`,
-      perBulan: parseRupiah(s.jumlah) / 12,
+      perBulan: parseRupiah(stripFormat(s.jumlah)) / 12,
     }));
     const totalPerBulan = utamaPerBulan + tambahanPerBulan.reduce((sum, t) => sum + t.perBulan, 0);
     setHasilHitung({ utamaPerBulan, tambahanPerBulan, totalPerBulan });
@@ -61,7 +73,7 @@ export function BerandaKalkulator() {
   }
 
   const totalSetahun = hasilHitung
-    ? parseRupiah(pendapatanUtama) + sumberTambahan.reduce((sum, s) => sum + parseRupiah(s.jumlah), 0)
+    ? parseRupiah(stripFormat(pendapatanUtama)) + sumberTambahan.reduce((sum, s) => sum + parseRupiah(stripFormat(s.jumlah)), 0)
     : 0;
 
   return (
@@ -85,19 +97,19 @@ export function BerandaKalkulator() {
             <TextInput
               style={ui.input}
               value={pendapatanUtama}
-              onChangeText={(v) => { setPendapatanUtama(v); setSudahHitung(false); }}
-              placeholder="contoh: 12000000"
+              onChangeText={(v) => { setPendapatanUtama(formatInputRibuan(v)); setSudahHitung(false); }}
+              placeholder="contoh: 12.000.000"
               placeholderTextColor={T.outline}
               keyboardType="numeric"
             />
           </View>
-          {pendapatanUtama !== "" && parseRupiah(pendapatanUtama) > 0 && (
+          {pendapatanUtama !== "" && parseRupiah(stripFormat(pendapatanUtama)) > 0 && (
             <View style={st.previewRow}>
               <Icon name="chevron-down" size={13} color={T.secondary} />
               <Text style={st.previewText}>
-                {rp(parseRupiah(pendapatanUtama))} ÷ 12 ={" "}
+                {rp(parseRupiah(stripFormat(pendapatanUtama)))} ÷ 12 ={" "}
                 <Text style={{ fontWeight: "700", color: T.secondary }}>
-                  {rp(parseRupiah(pendapatanUtama) / 12)} / bulan
+                  {rp(parseRupiah(stripFormat(pendapatanUtama)) / 12)} / bulan
                 </Text>
               </Text>
             </View>
@@ -130,19 +142,19 @@ export function BerandaKalkulator() {
                 <TextInput
                   style={ui.input}
                   value={s.jumlah}
-                  onChangeText={(v) => updateSumber(s.id, v)}
-                  placeholder="contoh: 5000000"
+                  onChangeText={(v) => updateSumber(s.id, formatInputRibuan(v))}
+                  placeholder="contoh: 5.000.000"
                   placeholderTextColor={T.outline}
                   keyboardType="numeric"
                 />
               </View>
-              {s.jumlah !== "" && parseRupiah(s.jumlah) > 0 && (
+              {s.jumlah !== "" && parseRupiah(stripFormat(s.jumlah)) > 0 && (
                 <View style={[st.previewRow, { marginTop: 8 }]}>
                   <Icon name="chevron-down" size={13} color={T.secondary} />
                   <Text style={st.previewText}>
-                    {rp(parseRupiah(s.jumlah))} ÷ 12 ={" "}
+                    {rp(parseRupiah(stripFormat(s.jumlah)))} ÷ 12 ={" "}
                     <Text style={{ fontWeight: "700", color: T.secondary }}>
-                      {rp(parseRupiah(s.jumlah) / 12)} / bulan
+                      {rp(parseRupiah(stripFormat(s.jumlah)) / 12)} / bulan
                     </Text>
                   </Text>
                 </View>
@@ -189,7 +201,7 @@ export function BerandaKalkulator() {
             <View style={st.hasilBaris}>
               <View style={{ flex: 1 }}>
                 <Text style={st.hasilBarisNama}>Pendapatan Utama</Text>
-                <Text style={st.hasilBarisSetahun}>{rp(parseRupiah(pendapatanUtama))} ÷ 12</Text>
+                <Text style={st.hasilBarisSetahun}>{rp(parseRupiah(stripFormat(pendapatanUtama)))} ÷ 12</Text>
               </View>
               <Text style={st.hasilBarisNilai}>{rp(hasilHitung.utamaPerBulan)}</Text>
             </View>
@@ -198,7 +210,7 @@ export function BerandaKalkulator() {
               <View key={idx} style={[st.hasilBaris, { backgroundColor: "#f0fdf4" }]}>
                 <View style={{ flex: 1 }}>
                   <Text style={st.hasilBarisNama}>{t.nama}</Text>
-                  <Text style={st.hasilBarisSetahun}>{rp(parseRupiah(sumberTambahan[idx]?.jumlah ?? "0"))} ÷ 12</Text>
+                  <Text style={st.hasilBarisSetahun}>{rp(parseRupiah(stripFormat(sumberTambahan[idx]?.jumlah ?? "0")))} ÷ 12</Text>
                 </View>
                 <Text style={[st.hasilBarisNilai, { color: T.secondary }]}>{rp(t.perBulan)}</Text>
               </View>
