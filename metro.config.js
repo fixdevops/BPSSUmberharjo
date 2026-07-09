@@ -12,20 +12,25 @@ const config = getDefaultConfig(__dirname);
 
 const { resolver } = config;
 
-// ── 1. Prioritaskan ekstensi .web.* saat build web ───────────────────────────
-// Metro memilih file pertama yang cocok dari kiri ke kanan.
-// Ini memastikan database.web.ts dipilih sebelum database.ts/.native.ts
+// ── Prioritaskan ekstensi .web.* saat build web ───────────────────────────────
+// PENTING: prepend saja, jangan timpa seluruh array!
+// getDefaultConfig sudah include: tsx, ts, jsx, js, json, cjs, scss, sass, css
+// Kita hanya perlu memastikan .web.* ada di DEPAN agar database.web.ts
+// diprioritaskan sebelum database.ts / database.native.ts
+const webExts = ["web.tsx", "web.ts", "web.jsx", "web.js"];
+const existingExts = resolver.sourceExts ?? [];
+
+// Gabung: web-spesifik dulu, lalu semua default (hindari duplikat)
 resolver.sourceExts = [
-  "web.tsx", "web.ts", "web.jsx", "web.js",
-  "tsx", "ts", "jsx", "js",
-  "json", "cjs", "mjs",
+  ...webExts,
+  ...existingExts.filter((ext) => !webExts.includes(ext)),
 ];
 
-// ── 2. Paksa resolusi browser-first untuk semua paket ────────────────────────
-// Ini mencegah @upstash/redis dan paket Node-only masuk bundle web
+// ── Paksa resolusi browser-first untuk semua paket ────────────────────────────
+// Mencegah paket Node-only masuk bundle web
 resolver.resolverMainFields = ["browser", "module", "main"];
 
-// ── 3. Performance: inlineRequires untuk lazy loading ────────────────────────
+// ── Performance: inlineRequires untuk lazy loading ────────────────────────────
 config.transformer.getTransformOptions = async () => ({
   transform: {
     experimentalImportSupport: false,

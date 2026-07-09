@@ -31,7 +31,7 @@ import { SectionCard } from "../components/ui/SectionCard";
 import { Stepper } from "../components/ui/Stepper";
 
 // ── Screen lapangan ───────────────────────────────────────────────────────────
-import { isAccessGranted } from "../lib/keyAuth";
+import { isAccessGranted, revalidateKey } from "../lib/keyAuth";
 import { DataLapanganScreen } from "../screens/DataLapanganScreen";
 import { DetailBangunanScreen } from "../screens/DetailBangunanScreen";
 import { FormBangunanScreen } from "../screens/FormBangunanScreen";
