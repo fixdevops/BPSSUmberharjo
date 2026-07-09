@@ -83,8 +83,8 @@ export default function HomeScreen() {
   const [satPanen, setSatPanen]   = useState("KUINTAL");
   const [musimTanam, setMusimTanam] = useState<string[]>(["Rendengan"]);
   const [jenisTembakau, setJenisTembakau] = useState("Tembakau Basah");
-  const [jumlahPohon,   setJumlahPohon]   = useState("1.000");
-  const [luasTembakau,  setLuasTembakau]  = useState("15");
+  const [jumlahPohon,   setJumlahPohon]   = useState("1500");
+  const [luasTembakau,  setLuasTembakau]  = useState("1500");
   const [kondisiPanen,  setKondisiPanen]  = useState<KondisiPanen>("Sedang");
   const [status, setStatus]   = useState("Milik Sendiri");
   const [tahun,  setTahun]    = useState("2002");
@@ -528,21 +528,22 @@ export default function HomeScreen() {
                         {jenisTembakau === "Tembakau Kering" ? (
                           <>
                             <InputField
-                              label="Jumlah Daun Basah yang Dirajang (kg)"
-                              value={jumlahPohon}
-                              onChangeText={setJumlahPohon}
-                              placeholder="contoh: 1.000 kg"
-                              keyboardType="decimal-pad"
-                              width={isTablet ? "48%" : "100%"}
-                            />
-                            <InputField
-                              label="Luas Tempat Produksi (m²)"
+                              label="Luas Lahan (m²)"
                               value={luasTembakauKering}
                               onChangeText={setLuasTembakauKering}
-                              placeholder="info saja, tidak dihitung biaya"
+                              placeholder="contoh: 1500"
                               keyboardType="decimal-pad"
                               width={isTablet ? "48%" : "100%"}
                             />
+                            {luasTembakauKering ? (
+                              <View style={{ flexDirection: "row", alignItems: "center", gap: 5, paddingHorizontal: 2, marginTop: 4, width: isTablet ? "48%" : "100%" }}>
+                                <Icon name="info" size={11} color={T.secondary} />
+                                <Text style={{ fontSize: 10, color: T.secondary }}>
+                                  Estimasi: {((parseFloat(strip(luasTembakauKering)) || 0) * 0.16).toLocaleString("id-ID")} kg kering
+                                  {" (Rp"}{(((parseFloat(strip(luasTembakauKering)) || 0) * 0.16) * 60000).toLocaleString("id-ID")}{")"}
+                                </Text>
+                              </View>
+                            ) : null}
                             <InputField
                               label="Harga Widek per Unit (Rp)"
                               value={hargaWidek}
@@ -568,20 +569,24 @@ export default function HomeScreen() {
                           </>
                         ) : (
                           <>
-                            <InputField label="Jumlah Pohon" value={jumlahPohon} onChangeText={setJumlahPohon}
-                              placeholder="contoh: 1000" keyboardType="numeric" width={isTablet ? "48%" : "100%"} />
+                            <InputField
+                              label="Luas Lahan Tanam (m²)"
+                              value={luasTembakau}
+                              onChangeText={setLuasTembakau}
+                              placeholder="contoh: 1500"
+                              keyboardType="decimal-pad"
+                              width={isTablet ? "48%" : "100%"}
+                            />
                             <View style={{ width: isTablet ? "48%" : "100%" }}>
-                              <InputField label="Luas Lahan Tanam (m²)" value={luasTembakau} onChangeText={setLuasTembakau}
-                                placeholder="kosong = otomatis dari jumlah pohon" keyboardType="numeric" width="100%" />
-                              {(!luasTembakau || luasTembakau.trim() === "") && (
-                                <View style={{ flexDirection: "row", alignItems: "center", gap: 5, marginTop: -8, paddingHorizontal: 2 }}>
+                              {luasTembakau ? (
+                                <View style={{ flexDirection: "row", alignItems: "center", gap: 5, paddingHorizontal: 2, marginTop: 4 }}>
                                   <Icon name="info" size={11} color={T.secondary} />
                                   <Text style={{ fontSize: 10, color: T.secondary }}>
-                                    Otomatis: {Math.round((parseFloat(strip(jumlahPohon)) || 1000) * 0.015)} m²
-                                    {" "}({parseFloat(strip(jumlahPohon)) || 1000} pohon × 0,015 m²)
+                                    Estimasi: {((parseFloat(strip(luasTembakau)) || 0) * 1.00).toLocaleString("id-ID")} kg basah
+                                    {" → "}{((parseFloat(strip(luasTembakau)) || 0) * 0.16).toLocaleString("id-ID")} kg kering
                                   </Text>
                                 </View>
-                              )}
+                              ) : null}
                             </View>
                             {/* Input detail pekerja tembakau basah (opsional) */}
                             <View style={{ width: "100%", marginTop: 8 }}>

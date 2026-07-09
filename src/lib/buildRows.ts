@@ -35,9 +35,11 @@ export function buildRows(params: {
         value: kondisiPanenLabel[h.kondisiPanen as keyof typeof kondisiPanenLabel] ?? h.kondisiPanen ?? "Sedang (normal)",
         explain:
           `Faktor pengali produktivitas:\n` +
-          `  • Sedang      → ×1,00 (baseline BPS)\n` +
-          `  • Baik        → ×1,15 (+15%)\n` +
-          `  • Sangat Baik → ×1,30 (+30%)\n\n` +
+          `  • Sangat Buruk → ×0,70 (−30%)\n` +
+          `  • Buruk        → ×0,85 (−15%)\n` +
+          `  • Sedang       → ×1,00 (baseline BPS)\n` +
+          `  • Baik         → ×1,10 (+10%)\n` +
+          `  • Sangat Baik  → ×1,20 (+20%)\n\n` +
           `Kondisi dipilih: ${h.kondisiPanen ?? "Sedang"} (×${(h.faktorKondisi ?? 1).toFixed(2)})\n` +
           `Mempengaruhi jumlah kg produksi dan nilai jual.`,
       },
@@ -90,39 +92,44 @@ export function buildRows(params: {
             `  • Ngrajang : ${h.orgNgrajang ?? 0} orang × Rp 77.000 = ${rp(h.biayaRajang ?? 0)}\n` +
             `  • Mepe     : ${h.orgMepe ?? 0} orang × Rp 77.000 = ${rp(h.biayaMepe ?? 0)}\n\n` +
             `  Total 26.a = ${rp(h.gajiTK)}\n\n` +
-            `  Default ~5.000 kg: makani=2, ngrajang=2, mepe=3 → 7 × Rp 77.000 = Rp 539.000`
+            `  Default referensi 1.500 m²: makani=2, ngrajang=2, mepe=3 → 7 × Rp 77.000 = Rp 539.000`
           : `Upah TK tembakau basah — dibayar 1 kali (Rp 77.000/orang):\n\n` +
             `  • Kowak  : ${h.orgKowak ?? 0} orang × Rp 77.000 = ${rp(h.biayaKowak ?? 0)}\n` +
             `  • Macul  : ${h.orgMacul ?? 0} orang × Rp 77.000 = ${rp(h.biayaMacul ?? 0)}\n` +
             `  • Matun  : 0 orang (tidak ada penyiangan) = Rp 0\n` +
             `  • Panen  : ${h.orgPanen ?? 0} orang × Rp 77.000 = ${rp(h.biayaPanen ?? 0)}\n\n` +
             `  Total 26.a = ${rp(h.gajiTK)}\n\n` +
-            `  Default 3.000 pohon: kowak=2, macul=2, matun=0, panen=1 → 5 × Rp 77.000 = Rp 385.000`,
+            `  Default 1.500 m²: kowak=2, macul=2, matun=0, panen=1 → 5 × Rp 77.000 = Rp 385.000`,
       },
       {
         label: "26.b. Biaya Produksi",
         value: rp(h.biayaProd),
         explain: isKering
-          ? `Biaya Produksi (26.b) — Bahan Baku Tembakau Kering:\n\n` +
-            `  • Tembakau basah (bahan baku): ${Math.round(h.kgBasah).toLocaleString("id-ID")} kg × Rp 4.000 = ${rp(h.biayaTembakauMatang ?? 0)}\n\n` +
-            `  Total 26.b = ${rp(h.biayaProd)}\n\n` +
-            `  ⚠ Peralatan (mesin, widek, timbangan, rak jemur) dicatat sebagai Aset Usaha.`
-          : `Saprotan tembakau basah:\n` +
-            `  Rp ${TB.saprotanBasahPer1000.toLocaleString("id-ID")} per 1.000 pohon × ${h.ribuan.toLocaleString("id-ID", { minimumFractionDigits: 3, maximumFractionDigits: 3 })} ribuan\n` +
-            `  = ${rp(h.biayaProd)}`,
+          ? `Biaya Produksi (26.b) — Tembakau Kering:\n\n` +
+            `  Biaya produksi Rp 2.300/m² × ${(h.luasM2_t ?? 0).toLocaleString("id-ID")} m² = ${rp(h.biayaProd)}\n\n` +
+            `  Komponen: saprotan (pupuk/pestisida budidaya) + bahan baku proses rajangan.`
+          : `Biaya Produksi (26.b) — Tembakau Basah:\n\n` +
+            `  Biaya produksi Rp ${TB.biayaProdBasahPerM2.toLocaleString("id-ID")}/m² × ${(h.luasM2_t ?? 0).toLocaleString("id-ID")} m² = ${rp(h.biayaProd)}\n\n` +
+            `  Komponen: pupuk kandang, pupuk urea, ZA/KCl, pestisida.`,
       },
       {
         label: "26.d. Biaya Operasional",
         value: rp(h.ops),
         explain: isKering
           ? `Operasional tembakau kering:\n` +
-            `  Rp 150.000 per 1.000 kg basah\n` +
-            `  ${Math.round(h.kgBasah).toLocaleString("id-ID")} kg ÷ 1.000 × Rp 150.000 = ${rp(h.ops)}\n` +
-            `  (bahan bakar, karung, dll)`
+            `  Rp ${TB.biayaOpsKeringPerM2}/m² × ${(h.luasM2_t ?? 0).toLocaleString("id-ID")} m² = ${rp(h.ops)}\n` +
+            `  (bahan bakar, karung, alat kebersihan, dll)`
           : `Operasional tembakau basah:\n` +
-            `  Rp ${TB.operBasahPer1000.toLocaleString("id-ID")} per 1.000 pohon × ${h.ribuan.toLocaleString("id-ID", { minimumFractionDigits: 3, maximumFractionDigits: 3 })} ribuan\n` +
-            `  = ${rp(h.ops)}`,
+            `  Rp ${TB.biayaOpsBasahPerM2}/m² × ${(h.luasM2_t ?? 0).toLocaleString("id-ID")} m² = ${rp(h.ops)}\n` +
+            `  (pengangkutan, sortir, pengemasan)`,
       },
+      ...(isKering && h.biayaPengeringan > 0 ? [{
+        label: "26.d2. Biaya Pengeringan/Fermentasi",
+        value: rp(h.biayaPengeringan),
+        explain: `Biaya proses pengeringan dan fermentasi tembakau:\n` +
+          `  Rp ${TB.biayaPengeringanPerM2}/m² × ${(h.luasM2_t ?? 0).toLocaleString("id-ID")} m² = ${rp(h.biayaPengeringan)}\n\n` +
+          `  Komponen: bahan bakar pengeringan, tempat/oven pengering, perawatan saat fermentasi.`,
+      }] : []),
       {
         label: "26.e. Biaya Non-Operasional (PBB)",
         value: "Rp 0",
@@ -131,9 +138,15 @@ export function buildRows(params: {
       {
         label: "26.f. Total Pengeluaran",
         value: rp(h.totalPeng),
-        explain:
-          `Gaji TK    : ${rp(h.gajiTK)}\nSaprotan   : ${rp(h.biayaProd)}\n` +
-          `Operasional: ${rp(h.ops)}\nNon-Tunai  : Rp 0\nTotal = ${rp(h.totalPeng)}`,
+        explain: isKering
+          ? `Gaji TK           : ${rp(h.gajiTK)}\n` +
+            `Biaya Produksi    : ${rp(h.biayaProd)}\n` +
+            `Operasional       : ${rp(h.ops)}\n` +
+            `Pengeringan       : ${rp(h.biayaPengeringan ?? 0)}\n` +
+            (h.bagiHasilPot > 0 ? `Bagi Hasil        : ${rp(h.bagiHasilPot)}\n` : ``) +
+            `Total = ${rp(h.totalPeng)}`
+          : `Gaji TK    : ${rp(h.gajiTK)}\nBiaya Prod : ${rp(h.biayaProd)}\n` +
+            `Operasional: ${rp(h.ops)}\nNon-Tunai  : Rp 0\nTotal = ${rp(h.totalPeng)}`,
       },
       // ── PENDAPATAN ──────────────────────────────────────────────────────
       { section: "27 — Pendapatan Usaha Tembakau" },
@@ -148,12 +161,14 @@ export function buildRows(params: {
         label: "27.a. Nilai Produksi / Penjualan",
         value: rp(h.nilaiProd),
         explain: isKering
-          ? `Konversi hasil rajangan:\n` +
-            `  ${Math.round(h.kgBasah).toLocaleString("id-ID")} kg basah × susut ${TB.susut} = ${Math.round(h.kgKering).toLocaleString("id-ID")} kg kering rajang\n` +
+          ? `Produksi tembakau kering:\n` +
+            `  ${(h.luasM2_t ?? 0).toLocaleString("id-ID")} m² × 0,16 kg/m² × ×${(h.faktorKondisi ?? 1).toFixed(2)} = ${Math.round(h.kgKering).toLocaleString("id-ID")} kg kering\n` +
             `  ${Math.round(h.kgKering).toLocaleString("id-ID")} kg × Rp ${TB.hargaKering.toLocaleString("id-ID")}/kg = ${rp(h.nilaiProd)}\n\n` +
-            `  ⚠ Nilai dihitung dari input aktual (${Math.round(h.kgBasah).toLocaleString("id-ID")} kg basah), bukan estimasi siklus.`
-          : `${fmt(h.kgBasah)} kg basah × Rp ${TB.hargaBasah.toLocaleString("id-ID")}/kg = ${rp(h.nilaiProd)}\n` +
-            `(180 kg per 1.000 pohon × ${h.ribuan.toLocaleString("id-ID", { minimumFractionDigits: 3, maximumFractionDigits: 3 })} ribuan pohon)`,
+            `  (setara basah: ${Math.round(h.kgBasah).toLocaleString("id-ID")} kg → susut 84% → ${Math.round(h.kgKering).toLocaleString("id-ID")} kg kering)`
+          : `Produksi tembakau basah:\n` +
+            `  ${(h.luasM2_t ?? 0).toLocaleString("id-ID")} m² × 1,00 kg/m² × ×${(h.faktorKondisi ?? 1).toFixed(2)} = ${Math.round(h.kgBasah).toLocaleString("id-ID")} kg\n` +
+            `  ${Math.round(h.kgBasah).toLocaleString("id-ID")} kg × Rp ${TB.hargaBasah.toLocaleString("id-ID")}/kg = ${rp(h.nilaiProd)}\n\n` +
+            `  (setara kering: ${Math.round(h.kgKering).toLocaleString("id-ID")} kg @ Rp ${TB.hargaKering.toLocaleString("id-ID")}/kg = ${rp(Math.round(h.kgKering) * TB.hargaKering)})`,
       },
       {
         label: "27.c. Total Nilai Produksi",
@@ -224,12 +239,13 @@ export function buildRows(params: {
           ? `Nilai Produksi − Total Pengeluaran:\n` +
             `  ${rp(h.nilaiProd)} − ${rp(h.totalPeng)} = ${rp(h.pendBersih)}\n\n` +
             `  Rincian pengeluaran:\n` +
-            `    Upah TK rajangan : ${rp(h.gajiTK)}\n` +
-            `    Bahan baku        : ${rp(h.biayaProd)}\n` +
-            `    Operasional      : ${rp(h.ops)}\n` +
-            (h.bagiHasilPot > 0 ? `    Bagi hasil       : ${rp(h.bagiHasilPot)}\n` : ``) +
-            `    Total Pengeluaran: ${rp(h.totalPeng)}\n\n` +
-            (h.pendBersih < 0 ? `  ⚠ Merugi — periksa input kg atau harga jual.` : `  ✓ Usaha menguntungkan.`)
+            `    Upah TK           : ${rp(h.gajiTK)}\n` +
+            `    Biaya produksi    : ${rp(h.biayaProd)}\n` +
+            `    Operasional       : ${rp(h.ops)}\n` +
+            `    Pengeringan       : ${rp(h.biayaPengeringan ?? 0)}\n` +
+            (h.bagiHasilPot > 0 ? `    Bagi hasil        : ${rp(h.bagiHasilPot)}\n` : ``) +
+            `    Total Pengeluaran : ${rp(h.totalPeng)}\n\n` +
+            (h.pendBersih < 0 ? `  ⚠ Merugi — periksa input luas atau harga jual.` : `  ✓ Usaha menguntungkan.`)
           : `Nilai Produksi − Total Pengeluaran:\n` +
             `  ${rp(h.nilaiProd)} − ${rp(h.totalPeng)} = ${rp(h.pendBersih)}\n\n` +
             (h.pendBersih < 0 ? `  ⚠ Merugi — periksa input data.` : `  ✓ Usaha menguntungkan.`),
@@ -271,9 +287,11 @@ export function buildRows(params: {
       value: kondisiPanenLabel[h.kondisiPanen as keyof typeof kondisiPanenLabel] ?? h.kondisiPanen ?? "Sedang (normal)",
       explain:
         `Faktor pengali produktivitas:\n` +
-        `  • Sedang      → ×1,00 (baseline BPS)\n` +
-        `  • Baik        → ×1,15 (+15%)\n` +
-        `  • Sangat Baik → ×1,30 (+30%)\n\n` +
+        `  • Sangat Buruk → ×0,70 (−30%)\n` +
+        `  • Buruk        → ×0,85 (−15%)\n` +
+        `  • Sedang       → ×1,00 (baseline BPS)\n` +
+        `  • Baik         → ×1,10 (+10%)\n` +
+        `  • Sangat Baik  → ×1,20 (+20%)\n\n` +
         `Kondisi dipilih: ${h.kondisiPanen ?? "Sedang"} (×${(h.faktorKondisi ?? 1).toFixed(2)})\n` +
         `Mempengaruhi jumlah kg produksi dan nilai jual.`,
     });

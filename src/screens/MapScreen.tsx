@@ -81,29 +81,49 @@ function buildMapHTML(buildings: Bangunan[], centerLat: number, centerLng: numbe
   const markers = buildings
     .filter((b) => b.lat != null && b.lng != null)
     .map((b) => {
-      const color = colorOf(b.jenis);
+      const color  = colorOf(b.jenis);
       const nama   = b.catatan ? b.catatan.replace(/'/g, "\\'") : "—";
       const alamat = (b.alamat ?? "").replace(/'/g, "\\'");
-      const kkInfo = b.jumlah_kk != null ? `${b.jumlah_kk} KK` : "";
+      const kkInfo = b.jumlah_kk != null ? `${b.jumlah_kk} KK` : "—";
+      // Custom marker: lingkaran dengan nomor + pin tail + shadow
       return `
         var icon_${b.id} = L.divIcon({
           className: '',
-          html: '<div style="min-width:28px;height:28px;border-radius:14px;background:${color};border:3px solid white;box-shadow:0 2px 6px rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;font-size:10px;color:white;font-weight:700;padding:0 6px;">${b.nomor_urut}</div>',
-          iconSize: [28,28], iconAnchor: [14,14]
+          html: \`<div style="position:relative;display:flex;flex-direction:column;align-items:center;">
+            <div style="min-width:32px;height:32px;border-radius:16px;background:${color};border:3px solid white;
+              box-shadow:0 3px 10px rgba(0,0,0,0.45);display:flex;align-items:center;justify-content:center;
+              font-size:11px;color:white;font-weight:800;padding:0 6px;letter-spacing:-0.5px;">${b.nomor_urut}</div>
+            <div style="width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;
+              border-top:8px solid ${color};margin-top:-1px;filter:drop-shadow(0 2px 3px rgba(0,0,0,0.3));"></div>
+          </div>\`,
+          iconSize: [32, 44], iconAnchor: [16, 44]
         });
-        var popupContent_${b.id} = '<div style="min-width:180px;font-family:sans-serif;">'
-          + '<div style="font-weight:700;font-size:13px;color:#004ec7;margin-bottom:4px;">🏠 No. ${b.nomor_urut} — ${b.jenis}</div>'
-          + '<div style="font-size:12px;margin-bottom:2px;">👤 <b>' + '${nama}' + '</b></div>'
-          + '<div style="font-size:11px;color:#555;margin-bottom:2px;">📋 No. KK: ${kkInfo}</div>'
-          + '<div style="font-size:11px;color:#555;margin-bottom:6px;">📍 ${alamat}</div>'
-          + '<div style="font-size:10px;color:#888;margin-bottom:8px;">🌐 Lat: ${b.lat?.toFixed(6)}, Lng: ${b.lng?.toFixed(6)}</div>'
-          + '<div style="display:flex;gap:6px;">'
-          + '<button onclick="postMsg({type:\\'detail\\',id:${b.id}})" style="flex:1;padding:5px 8px;background:#004ec7;color:white;border:none;border-radius:6px;cursor:pointer;font-size:11px;">Detail</button>'
-          + '<button onclick="postMsg({type:\\'rute\\',lat:${b.lat},lng:${b.lng}})" style="flex:1;padding:5px 8px;background:#22c55e;color:white;border:none;border-radius:6px;cursor:pointer;font-size:11px;">Rute</button>'
-          + '</div></div>';
+        var popup_${b.id} = L.popup({
+          maxWidth: 260,
+          className: 'custom-popup',
+          closeButton: true,
+          offset: [0, -44]
+        }).setContent(
+          '<div class="callout">'
+          + '<div class="callout-header" style="background:${color};">'
+          + '<span class="callout-badge">${b.jenis}</span>'
+          + '<span class="callout-no">No. ${b.nomor_urut}</span>'
+          + '</div>'
+          + '<div class="callout-body">'
+          + '<div class="callout-row"><span class="callout-icon">👤</span><span class="callout-val"><b>${nama}</b></span></div>'
+          + '<div class="callout-row"><span class="callout-icon">📋</span><span class="callout-val">${kkInfo}</span></div>'
+          + '<div class="callout-row"><span class="callout-icon">📍</span><span class="callout-val">${alamat}</span></div>'
+          + '<div class="callout-row"><span class="callout-icon">🌐</span><span class="callout-val" style="font-size:10px;color:#9ca3af;">${b.lat?.toFixed(6)}, ${b.lng?.toFixed(6)}</span></div>'
+          + '</div>'
+          + '<div class="callout-actions">'
+          + '<button class="btn-detail" onclick="postMsg({type:\\'detail\\',id:${b.id}})">🔍 Detail</button>'
+          + '<button class="btn-rute" onclick="postMsg({type:\\'rute\\',lat:${b.lat},lng:${b.lng}})">🧭 Rute</button>'
+          + '</div>'
+          + '</div>'
+        );
         var marker_${b.id} = L.marker([${b.lat}, ${b.lng}], {icon: icon_${b.id}})
           .addTo(map)
-          .bindPopup(popupContent_${b.id}, {maxWidth: 240});
+          .bindPopup(popup_${b.id});
       `;
     })
     .join("\n");
@@ -111,114 +131,260 @@ function buildMapHTML(buildings: Bangunan[], centerLat: number, centerLng: numbe
   return `<!DOCTYPE html>
 <html>
 <head>
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <style>
   * { margin:0; padding:0; box-sizing:border-box; }
-  body { background:#0a0a0a; }
+  html, body { background:#0a0a0a; width:100%; height:100%; overflow:hidden; }
   #map { width:100vw; height:100vh; }
-  #toggle-btn {
-    position: absolute;
-    top: 12px;
-    right: 12px;
-    z-index: 1000;
-    padding: 7px 14px;
-    background: rgba(0,0,0,0.75);
-    color: white;
-    border: 1.5px solid rgba(255,255,255,0.35);
-    border-radius: 20px;
-    cursor: pointer;
-    font-size: 12px;
-    font-weight: 600;
-    font-family: sans-serif;
-    backdrop-filter: blur(4px);
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.5);
-    transition: background 0.2s;
+
+  /* ── Loading overlay ── */
+  #loading-overlay {
+    position: fixed; inset: 0; z-index: 9999;
+    background: rgba(10,10,10,0.92);
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 14px;
   }
-  #toggle-btn:hover { background: rgba(0,0,0,0.9); }
+  #loading-overlay.hidden { display: none; }
+  .loader-ring {
+    width: 44px; height: 44px;
+    border: 4px solid rgba(255,255,255,0.12);
+    border-top-color: #004ec7;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .loader-text { color: rgba(255,255,255,0.7); font-family: sans-serif; font-size: 13px; }
+
+  /* ── Toggle layer button ── */
+  #toggle-btn {
+    position: absolute; top: 14px; right: 14px; z-index: 1000;
+    padding: 8px 16px;
+    background: rgba(10,10,20,0.82);
+    color: white;
+    border: 1.5px solid rgba(255,255,255,0.22);
+    border-radius: 22px;
+    cursor: pointer; font-size: 12px; font-weight: 600;
+    font-family: sans-serif;
+    backdrop-filter: blur(8px);
+    box-shadow: 0 4px 14px rgba(0,0,0,0.5);
+    transition: all 0.2s;
+    letter-spacing: 0.3px;
+  }
+  #toggle-btn:hover { background: rgba(10,10,40,0.95); border-color: rgba(255,255,255,0.4); }
+  #toggle-btn:active { transform: scale(0.97); }
+
+  /* ── FAB Lokasi Saya ── */
+  #fab-locate {
+    position: absolute; bottom: 90px; right: 14px; z-index: 1000;
+    width: 50px; height: 50px;
+    background: #004ec7;
+    border: none; border-radius: 50%;
+    cursor: pointer;
+    font-size: 22px;
+    box-shadow: 0 4px 16px rgba(0,78,199,0.55);
+    display: flex; align-items: center; justify-content: center;
+    transition: all 0.2s;
+  }
+  #fab-locate:hover { background: #0040a8; transform: scale(1.08); }
+  #fab-locate:active { transform: scale(0.95); }
+  #fab-locate.locating { animation: pulse 1s ease-in-out infinite; }
+  @keyframes pulse {
+    0%,100% { box-shadow: 0 4px 16px rgba(0,78,199,0.55); }
+    50%      { box-shadow: 0 4px 28px rgba(0,78,199,0.9); }
+  }
+
+  /* ── Jumlah marker info chip ── */
+  #info-chip {
+    position: absolute; bottom: 90px; left: 14px; z-index: 1000;
+    padding: 7px 13px;
+    background: rgba(10,10,20,0.82);
+    color: rgba(255,255,255,0.85);
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 20px;
+    font-size: 11px; font-family: sans-serif;
+    backdrop-filter: blur(8px);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+    pointer-events: none;
+  }
+
+  /* ── Custom Callout / Popup ── */
+  .custom-popup .leaflet-popup-content-wrapper {
+    background: transparent !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    border: none !important;
+  }
+  .custom-popup .leaflet-popup-tip-container { display: none; }
+  .custom-popup .leaflet-popup-content { margin: 0 !important; width: auto !important; }
+  .callout {
+    min-width: 220px; max-width: 260px;
+    background: #fff;
+    border-radius: 14px;
+    overflow: hidden;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.38), 0 2px 8px rgba(0,0,0,0.2);
+    font-family: sans-serif;
+  }
+  .callout-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 10px 14px 8px;
+  }
+  .callout-badge {
+    font-size: 11px; font-weight: 700; color: white;
+    background: rgba(255,255,255,0.22);
+    padding: 2px 8px; border-radius: 10px;
+    letter-spacing: 0.4px;
+  }
+  .callout-no {
+    font-size: 13px; font-weight: 800; color: white;
+    letter-spacing: -0.3px;
+  }
+  .callout-body { padding: 10px 14px 8px; display: flex; flex-direction: column; gap: 5px; }
+  .callout-row { display: flex; align-items: flex-start; gap: 7px; }
+  .callout-icon { font-size: 12px; flex-shrink: 0; margin-top: 1px; }
+  .callout-val { font-size: 12px; color: #374151; line-height: 1.45; }
+  .callout-actions { display: flex; gap: 8px; padding: 8px 14px 12px; }
+  .btn-detail, .btn-rute {
+    flex: 1; padding: 7px 10px;
+    border: none; border-radius: 8px;
+    cursor: pointer; font-size: 12px; font-weight: 600;
+    transition: opacity 0.15s, transform 0.1s;
+    letter-spacing: 0.2px;
+  }
+  .btn-detail:active, .btn-rute:active { transform: scale(0.96); opacity: 0.85; }
+  .btn-detail { background: #004ec7; color: white; }
+  .btn-rute   { background: #16a34a; color: white; }
+
+  /* ── Lokasi user ── */
+  .user-location-dot {
+    width: 16px; height: 16px; border-radius: 50%;
+    background: #ef4444;
+    border: 3px solid white;
+    box-shadow: 0 0 0 4px rgba(239,68,68,0.3);
+  }
+
+  /* ── Leaflet override ── */
+  .leaflet-control-zoom a {
+    background: rgba(10,10,20,0.82) !important;
+    color: white !important;
+    border-color: rgba(255,255,255,0.15) !important;
+    backdrop-filter: blur(8px);
+  }
+  .leaflet-control-zoom a:hover { background: rgba(0,78,199,0.7) !important; }
+  .leaflet-control-attribution { display: none; }
 </style>
 </head>
 <body>
+<!-- Loading overlay -->
+<div id="loading-overlay">
+  <div class="loader-ring"></div>
+  <span class="loader-text">Memuat peta satelit…</span>
+</div>
+
 <div id="map"></div>
 <button id="toggle-btn" onclick="toggleLayer()">🗺️ Peta Normal</button>
+<button id="fab-locate" title="Lokasi Saya" onclick="jumpToLocation()">📍</button>
+<div id="info-chip">📌 ${buildings.filter(b => b.lat != null && b.lng != null).length} bangunan berpin</div>
+
 <script>
   ${postFn}
-  var map = L.map('map', {zoomControl: true}).setView([${centerLat}, ${centerLng}], 16);
 
-  // Layer satelit Esri (gratis, tanpa API key)
+  // ── Inisialisasi peta ──────────────────────────────────────────────────────
+  var map = L.map('map', {
+    zoomControl: true,
+    zoomSnap: 0.5,
+    zoomDelta: 0.5
+  }).setView([${centerLat}, ${centerLng}], 16);
+
+  // ── Layer Satelit HD (Esri World Imagery) ──────────────────────────────────
   var satelliteLayer = L.tileLayer(
     'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-    {
-      attribution: 'Tiles © Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community',
-      maxZoom: 19
-    }
+    { attribution: '© Esri', maxZoom: 20, maxNativeZoom: 19 }
   );
 
-  // Label jalan di atas satelit (opsional, dari OpenStreetMap)
+  // ── Label jalan di atas satelit (hybrid mode) ─────────────────────────────
   var labelLayer = L.tileLayer(
+    'https://stamen-tiles-{s}.a.ssl.fastly.net/toner-hybrid/{z}/{x}/{y}{r}.png',
+    { attribution: '© Stamen', maxZoom: 20, maxNativeZoom: 18, opacity: 0.6 }
+  );
+  // Fallback label OSM jika Stamen tidak tersedia
+  var labelLayerOSM = L.tileLayer(
     'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-    {
-      attribution: '© OpenStreetMap',
-      maxZoom: 19,
-      opacity: 0.45
-    }
+    { attribution: '© OpenStreetMap', maxZoom: 19, opacity: 0.38 }
   );
 
-  // Layer peta normal
+  // ── Layer peta normal (CartoDB Dark — premium look) ────────────────────────
   var streetLayer = L.tileLayer(
-    'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-    {
-      attribution: '© OpenStreetMap',
-      maxZoom: 19
-    }
+    'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+    { attribution: '© CARTO', maxZoom: 20, maxNativeZoom: 19 }
   );
 
-  // Mulai dengan satelit
+  // Mulai dengan mode hybrid (satelit + label)
   satelliteLayer.addTo(map);
-  labelLayer.addTo(map);
-
+  labelLayerOSM.addTo(map);
   var isSatellite = true;
 
+  // Sembunyikan loading overlay setelah tile pertama selesai
+  satelliteLayer.on('load', function() {
+    var overlay = document.getElementById('loading-overlay');
+    if (overlay) overlay.classList.add('hidden');
+  });
+  // Fallback: sembunyikan loading setelah 4 detik
+  setTimeout(function() {
+    var overlay = document.getElementById('loading-overlay');
+    if (overlay) overlay.classList.add('hidden');
+  }, 4000);
+
+  // ── Toggle layer ───────────────────────────────────────────────────────────
   function toggleLayer() {
     var btn = document.getElementById('toggle-btn');
     if (isSatellite) {
       map.removeLayer(satelliteLayer);
-      map.removeLayer(labelLayer);
+      map.removeLayer(labelLayerOSM);
       streetLayer.addTo(map);
-      btn.textContent = '🛰️ Satelit';
+      btn.textContent = '🛰️ Hybrid Satelit';
       isSatellite = false;
     } else {
       map.removeLayer(streetLayer);
       satelliteLayer.addTo(map);
-      labelLayer.addTo(map);
+      labelLayerOSM.addTo(map);
       btn.textContent = '🗺️ Peta Normal';
       isSatellite = true;
     }
   }
 
+  // ── Pasang marker ──────────────────────────────────────────────────────────
   ${markers}
 
-  // Tombol lokasi saya
-  var locBtn = L.control({position:'bottomright'});
-  locBtn.onAdd = function() {
-    var div = L.DomUtil.create('button','locate-btn');
-    div.innerHTML = '📍';
-    div.title = 'Lokasi Saya';
-    div.style.cssText = 'padding:8px 12px;font-size:20px;border:none;background:rgba(0,0,0,0.75);color:white;border:1.5px solid rgba(255,255,255,0.3);border-radius:8px;box-shadow:0 2px 6px rgba(0,0,0,.4);cursor:pointer;backdrop-filter:blur(4px);';
-    div.onclick = function(){ map.locate({setView:true, maxZoom:17}); };
-    return div;
-  };
-  locBtn.addTo(map);
+  // ── FAB: Jump to current location ─────────────────────────────────────────
+  var userMarker = null;
+  function jumpToLocation() {
+    var fab = document.getElementById('fab-locate');
+    fab.classList.add('locating');
+    map.locate({ enableHighAccuracy: true, timeout: 8000 });
+  }
 
   map.on('locationfound', function(e) {
-    L.circleMarker(e.latlng, {radius:8, color:'#ef4444', fillColor:'#ef4444', fillOpacity:0.8})
-      .addTo(map).bindPopup('📍 Lokasi Anda').openPopup();
+    var fab = document.getElementById('fab-locate');
+    fab.classList.remove('locating');
+
+    if (userMarker) { map.removeLayer(userMarker); }
+    userMarker = L.marker(e.latlng, {
+      icon: L.divIcon({
+        className: '',
+        html: '<div class="user-location-dot"></div>',
+        iconSize: [16, 16], iconAnchor: [8, 8]
+      })
+    }).addTo(map).bindPopup('<b style="font-family:sans-serif;font-size:12px;">📍 Lokasi Anda</b>').openPopup();
+
+    // animateToRegion — smooth flyTo (setara animateToRegion di react-native-maps)
+    map.flyTo(e.latlng, 17, { animate: true, duration: 1.0 });
   });
+
   map.on('locationerror', function(e) {
+    var fab = document.getElementById('fab-locate');
+    fab.classList.remove('locating');
     alert('Tidak dapat mengakses lokasi: ' + e.message);
   });
 </script>
