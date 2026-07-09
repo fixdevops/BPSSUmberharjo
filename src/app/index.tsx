@@ -5,7 +5,7 @@
 //   lapangan → tambah_bangunan
 //   lapangan → detail_bangunan/:id
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Alert, Pressable, ScrollView, Text, View } from "react-native";
 
 import { T } from "../constants/theme";
@@ -53,6 +53,19 @@ export default function HomeScreen() {
 
   // ── Autentikasi kunci akses ───────────────────────────────────────────────
   const [accessGranted, setAccessGranted] = useState<boolean>(() => isAccessGranted());
+
+  // Revalidasi kunci ke server saat app pertama dibuka
+  // (cek apakah kunci belum dicabut admin)
+  useEffect(() => {
+    if (!accessGranted) return; // belum login, tidak perlu cek
+    revalidateKey().then((valid) => {
+      if (!valid) {
+        // Kunci dicabut admin → paksa login ulang
+        setAccessGranted(false);
+      }
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // ── Tab aktif ────────────────────────────────────────────────────────────
   const [activePage, setActivePage] = useState<string>("estimasi");

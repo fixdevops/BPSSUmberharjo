@@ -116,19 +116,90 @@ function buildMapHTML(buildings: Bangunan[], centerLat: number, centerLng: numbe
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <style>
   * { margin:0; padding:0; box-sizing:border-box; }
-  body { background:#f0f4ff; }
+  body { background:#0a0a0a; }
   #map { width:100vw; height:100vh; }
+  #toggle-btn {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    z-index: 1000;
+    padding: 7px 14px;
+    background: rgba(0,0,0,0.75);
+    color: white;
+    border: 1.5px solid rgba(255,255,255,0.35);
+    border-radius: 20px;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 600;
+    font-family: sans-serif;
+    backdrop-filter: blur(4px);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.5);
+    transition: background 0.2s;
+  }
+  #toggle-btn:hover { background: rgba(0,0,0,0.9); }
 </style>
 </head>
 <body>
 <div id="map"></div>
+<button id="toggle-btn" onclick="toggleLayer()">🗺️ Peta Normal</button>
 <script>
   ${postFn}
-  var map = L.map('map', {zoomControl: true}).setView([${centerLat}, ${centerLng}], 15);
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    attribution: '© OpenStreetMap',
-    maxZoom: 19
-  }).addTo(map);
+  var map = L.map('map', {zoomControl: true}).setView([${centerLat}, ${centerLng}], 16);
+
+  // Layer satelit Esri (gratis, tanpa API key)
+  var satelliteLayer = L.tileLayer(
+    'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+    {
+      attribution: 'Tiles © Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community',
+      maxZoom: 19
+    }
+  );
+
+  // Label jalan di atas satelit (opsional, dari OpenStreetMap)
+  var labelLayer = L.tileLayer(
+    'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+    {
+      attribution: '© OpenStreetMap',
+      maxZoom: 19,
+      opacity: 0.45
+    }
+  );
+
+  // Layer peta normal
+  var streetLayer = L.tileLayer(
+    'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+    {
+      attribution: '© OpenStreetMap',
+      maxZoom: 19
+    }
+  );
+
+  // Mulai dengan satelit
+  satelliteLayer.addTo(map);
+  labelLayer.addTo(map);
+
+  var isSatellite = true;
+
+  function toggleLayer() {
+    var btn = document.getElementById('toggle-btn');
+    if (isSatellite) {
+      map.removeLayer(satelliteLayer);
+      map.removeLayer(labelLayer);
+      streetLayer.addTo(map);
+      btn.textContent = '🛰️ Satelit';
+      isSatellite = false;
+    } else {
+      map.removeLayer(streetLayer);
+      satelliteLayer.addTo(map);
+      labelLayer.addTo(map);
+      btn.textContent = '🗺️ Peta Normal';
+      isSatellite = true;
+    }
+  }
+
   ${markers}
 
   // Tombol lokasi saya
@@ -137,7 +208,7 @@ function buildMapHTML(buildings: Bangunan[], centerLat: number, centerLng: numbe
     var div = L.DomUtil.create('button','locate-btn');
     div.innerHTML = '📍';
     div.title = 'Lokasi Saya';
-    div.style.cssText = 'padding:8px 12px;font-size:20px;border:none;background:white;border-radius:8px;box-shadow:0 2px 6px rgba(0,0,0,.3);cursor:pointer;';
+    div.style.cssText = 'padding:8px 12px;font-size:20px;border:none;background:rgba(0,0,0,0.75);color:white;border:1.5px solid rgba(255,255,255,0.3);border-radius:8px;box-shadow:0 2px 6px rgba(0,0,0,.4);cursor:pointer;backdrop-filter:blur(4px);';
     div.onclick = function(){ map.locate({setView:true, maxZoom:17}); };
     return div;
   };

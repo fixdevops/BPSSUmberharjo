@@ -8,7 +8,8 @@ import { Platform } from "react-native";
 // URL deployment Vercel Anda (tanpa trailing slash)
 export const API_BASE_URL = "https://bps-sumberharjo.vercel.app";
 
-const STORAGE_KEY = "bps_access_granted";
+const STORAGE_KEY     = "bps_access_granted";
+const STORAGE_KEY_UUID = "bps_access_key_uuid"; // UUID kunci yang dipakai
 
 // ── Helper storage lintas platform ───────────────────────────────────────────
 function storageSet(key: string, value: string) {
@@ -37,14 +38,20 @@ export function isAccessGranted(): boolean {
   return storageGet(STORAGE_KEY) === "true";
 }
 
+/** Ambil UUID kunci yang sedang aktif (null jika belum ada) */
+export function getActiveKeyUUID(): string | null {
+  return storageGet(STORAGE_KEY_UUID);
+}
+
 /** Hapus status akses (logout / reset) */
 export function revokeAccess(): void {
   storageRemove(STORAGE_KEY);
+  storageRemove(STORAGE_KEY_UUID);
 }
 
 /**
  * Kirim kunci ke server untuk diverifikasi.
- * - Jika valid   → simpan status ke storage, return { success: true }
+ * - Jika valid   → simpan status + UUID ke storage, return { success: true }
  * - Jika invalid → return { success: false, message: "..." }
  * - Jika error   → return { success: false, message: "Server tidak merespon" }
  */
@@ -66,6 +73,9 @@ export async function verifyKey(inputKey: string): Promise<{ success: boolean; m
 
     if (response.status === 200) {
       storageSet(STORAGE_KEY, "true");
+      // Simpan UUID kunci agar bisa di-revalidasi nanti
+      const savedKey = result.key ?? key;
+      storageSet(STORAGE_KEY_UUID, savedKey);
       return { success: true, message: result.message ?? "Akses Diberikan" };
     } else {
       return { success: false, message: result.message ?? "Kunci salah atau sudah terpakai." };
@@ -73,5 +83,42 @@ export async function verifyKey(inputKey: string): Promise<{ success: boolean; m
   } catch (error) {
     console.warn("[keyAuth] verifyKey error:", error);
     return { success: false, message: "Server tidak merespon. Periksa koneksi internet Anda." };
+  }
+}
+
+/**
+ * Cek ke server apakah kunci yang tersimpan masih berlaku.
+ * Dipanggil saat app dibuka (setelah localStorage mengatakan sudah granted).
+ *
+ * - true  → kunci masih valid, biarkan masuk
+ * - false → kunci dicabut admin, paksa login ulang (revokeAccess sudah dipanggil)
+ */
+export async function revalidateKey(): Promise<boolean> {
+  const uuid = getActiveKeyUUID();
+
+  // Jika tidak ada UUID tersimpan (pengguna lama sebelum fitur ini),
+  // beri akses supaya tidak mengganggu pengguna yang sudah ada.
+  if (!uuid) return true;
+
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/check-key`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ key: uuid }),
+    });
+
+    const result = await response.json();
+
+    if (response.status === 200 && result.valid === true) {
+      return true;
+    }
+
+    // Kunci tidak valid lagi (dihapus admin) → bersihkan storage
+    revokeAccess();
+    return false;
+  } catch (error) {
+    // Jika server tidak merespon (offline), jangan paksa logout
+    console.warn("[keyAuth] revalidateKey error (offline?):", error);
+    return true;
   }
 }
