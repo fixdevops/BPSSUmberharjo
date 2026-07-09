@@ -3,8 +3,14 @@
   "outputDirectory": "dist",
   "framework": null,
   "rewrites": [
-    { "source": "/api/verify",   "destination": "/api/verify" },
-    { "source": "/api/mint-key", "destination": "/api/mint-key" },
-    { "source": "/((?!gambargue\\.jpeg|logoiconenew\\.jpeg|api/).*)", "destination": "/index.html" }
+    { "source": "/api/verify",    "destination": "/api/verify" },
+    { "source": "/api/mint-key",  "destination": "/api/mint-key" },
+    { "source": "/api/check-key", "destination": "/api/check-key" },
+    { "source": "/api/admin",     "destination": "/api/admin" },
+    { "source": "/api/delete-key","destination": "/api/delete-key" },
+    {
+      "source": "/((?!_next/|static/|favicon\\.ico|gambargue\\.jpeg|logoiconenew\\.jpeg|.*\\.js|.*\\.css|.*\\.png|.*\\.jpg|.*\\.jpeg|.*\\.svg|.*\\.woff2?|.*\\.ttf|api/).*)",
+      "destination": "/index.html"
+    }
   ]
 }
