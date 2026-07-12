@@ -90,6 +90,11 @@ export default async function handler(req, res) {
   }
 
   console.log(`[verify] ✅ OK: ${trimmedKey}`);
-  // Kembalikan juga key UUID agar klien bisa menyimpannya untuk re-validasi
-  return res.status(200).json({ status: "success", message: "Akses Diberikan", key: trimmedKey });
+  // Kembalikan juga key UUID dan type agar klien bisa menyimpannya
+  return res.status(200).json({
+    status:  "success",
+    message: "Akses Diberikan",
+    key:     trimmedKey,
+    type:    keyData.type || "app",
+  });
 }

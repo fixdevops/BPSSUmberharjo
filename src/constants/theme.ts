@@ -30,3 +30,30 @@ export const T = {
   white:            "#ffffff",
   bg:               "#f7f9fb",
 };
+
+// ─── Stub exports untuk kompatibilitas komponen template Expo ────────────────
+// (komponen app-tabs, themed-text, dll memerlukan ini agar tidak TS error)
+export const Colors = {
+  light: { text: T.onSurface, background: T.bg, tint: T.primary, icon: T.onSurfaceVariant, tabIconDefault: T.outline, tabIconSelected: T.primary },
+  dark:  { text: "#ecedee",   background: "#151718", tint: "#fff", icon: "#9BA1A6", tabIconDefault: "#9BA1A6", tabIconSelected: "#fff" },
+};
+
+export const Fonts = {
+  regular:   { fontFamily: "System", fontWeight: "400" as const },
+  medium:    { fontFamily: "System", fontWeight: "500" as const },
+  bold:      { fontFamily: "System", fontWeight: "700" as const },
+  heavy:     { fontFamily: "System", fontWeight: "900" as const },
+};
+
+export const Spacing = {
+  xs:  4,
+  sm:  8,
+  md:  16,
+  lg:  24,
+  xl:  32,
+  xxl: 48,
+};
+
+export type ThemeColor = keyof typeof Colors.light;
+
+export const MaxContentWidth = 768;

@@ -31,7 +31,7 @@ import { SectionCard } from "../components/ui/SectionCard";
 import { Stepper } from "../components/ui/Stepper";
 
 // ── Screen lapangan ───────────────────────────────────────────────────────────
-import { isAccessGranted, revalidateKey } from "../lib/keyAuth";
+import { isAccessGranted, isLapanganGranted, revalidateKey } from "../lib/keyAuth";
 import { DataLapanganScreen } from "../screens/DataLapanganScreen";
 import { DetailBangunanScreen } from "../screens/DetailBangunanScreen";
 import { FormBangunanScreen } from "../screens/FormBangunanScreen";
@@ -47,12 +47,44 @@ type Screen =
   | "kelola_sls"
   | { type: "detail_bangunan"; id: number };
 
+// ─── Layar terkunci untuk fitur lapangan ─────────────────────────────────────
+function LapanganLockedScreen({ onBack }: { onBack: () => void }) {
+  return (
+    <View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: T.bg, padding: 32, gap: 16 }}>
+      <View style={{ width: 72, height: 72, borderRadius: 20, backgroundColor: T.primaryFixed, alignItems: "center", justifyContent: "center" }}>
+        <Icon name="key" size={36} color={T.primary} />
+      </View>
+      <Text style={{ fontSize: 20, fontWeight: "800", color: T.onSurface, textAlign: "center" }}>
+        Fitur Terkunci
+      </Text>
+      <Text style={{ fontSize: 14, color: T.onSurfaceVariant, textAlign: "center", lineHeight: 22, maxWidth: 320 }}>
+        Fitur Data Lapangan & Peta memerlukan kunci akses khusus bertipe <Text style={{ fontWeight: "700", color: T.primary }}>Lapangan</Text>.{"\n\n"}
+        Hubungi Admin untuk mendapatkan kunci dengan akses lapangan.
+      </Text>
+      <View style={{ backgroundColor: "#f0f4ff", borderRadius: 14, borderWidth: 1, borderColor: "#c7d7f9", padding: 16, width: "100%", maxWidth: 360, gap: 6 }}>
+        <Text style={{ fontSize: 12, fontWeight: "700", color: T.primary }}>ℹ️ Cara mendapatkan kunci Lapangan</Text>
+        <Text style={{ fontSize: 12, color: "#1e3a8a", lineHeight: 18 }}>1. Hubungi Admin BPS SE2026</Text>
+        <Text style={{ fontSize: 12, color: "#1e3a8a", lineHeight: 18 }}>2. Minta kunci bertipe "Lapangan"</Text>
+        <Text style={{ fontSize: 12, color: "#1e3a8a", lineHeight: 18 }}>3. Logout lalu masukkan kunci baru</Text>
+      </View>
+      <Pressable
+        style={{ backgroundColor: T.primary, paddingHorizontal: 24, paddingVertical: 12, borderRadius: 12, flexDirection: "row", alignItems: "center", gap: 8 }}
+        onPress={onBack}
+      >
+        <Icon name="arrow-right" size={16} color={T.onPrimary} />
+        <Text style={{ fontSize: 14, fontWeight: "700", color: T.onPrimary }}>Kembali ke Beranda</Text>
+      </Pressable>
+    </View>
+  );
+}
+
 export default function HomeScreen() {
   const { isMobile, isTablet, showSidebar } = useBreakpoints();
   const { ready: dbReady, error: dbError }  = useDatabase();
 
   // ── Autentikasi kunci akses ───────────────────────────────────────────────
-  const [accessGranted, setAccessGranted] = useState<boolean>(() => isAccessGranted());
+  const [accessGranted,   setAccessGranted]   = useState<boolean>(() => isAccessGranted());
+  const [lapanganGranted, setLapanganGranted] = useState<boolean>(() => isLapanganGranted());
 
   // Revalidasi kunci ke server saat app pertama dibuka
   // (cek apakah kunci belum dicabut admin)
@@ -62,6 +94,10 @@ export default function HomeScreen() {
       if (!valid) {
         // Kunci dicabut admin → paksa login ulang
         setAccessGranted(false);
+        setLapanganGranted(false);
+      } else {
+        // Refresh tipe kunci (mungkin berubah di server)
+        setLapanganGranted(isLapanganGranted());
       }
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -243,7 +279,10 @@ export default function HomeScreen() {
 
   // ─── Autentikasi — tampilkan KeyAuthScreen jika belum punya akses ───────────
   if (!accessGranted) {
-    return <KeyAuthScreen onAccessGranted={() => setAccessGranted(true)} />;
+    return <KeyAuthScreen onAccessGranted={() => {
+      setAccessGranted(true);
+      setLapanganGranted(isLapanganGranted());
+    }} />;
   }
 
   // ─── DB belum siap ────────────────────────────────────────────────────────
@@ -279,7 +318,7 @@ export default function HomeScreen() {
     return (
       <View style={{ flex: 1, backgroundColor: T.bg }}>
         <SLSScreen
-          onPilihRT={() => {
+          onBack={() => {
             setScreen("root");
             setActivePage("lapangan");
           }}
@@ -324,18 +363,26 @@ export default function HomeScreen() {
 
         {/* ── TAB: MAP ────────────────────────────────────────────────────── */}
         <View style={{ flex: 1, display: activePage === "map" ? "flex" : "none" }}>
-          <MapScreen
-            onDetailBangunan={(id) => setScreen({ type: "detail_bangunan", id })}
-          />
+          {lapanganGranted ? (
+            <MapScreen
+              onDetailBangunan={(id) => setScreen({ type: "detail_bangunan", id })}
+            />
+          ) : (
+            <LapanganLockedScreen onBack={() => setActivePage("estimasi")} />
+          )}
         </View>
 
         {/* ── TAB: DATA LAPANGAN ──────────────────────────────────────────── */}
         <View style={{ flex: 1, display: activePage === "lapangan" ? "flex" : "none" }}>
-          <DataLapanganScreen
-            onTambahBangunan={() => setScreen("tambah_bangunan")}
-            onDetailBangunan={(id) => setScreen({ type: "detail_bangunan", id })}
-            onKelolaSLS={() => setScreen("kelola_sls")}
-          />
+          {lapanganGranted ? (
+            <DataLapanganScreen
+              onTambahBangunan={() => setScreen("tambah_bangunan")}
+              onDetailBangunan={(id) => setScreen({ type: "detail_bangunan", id })}
+              onKelolaSLS={() => setScreen("kelola_sls")}
+            />
+          ) : (
+            <LapanganLockedScreen onBack={() => setActivePage("estimasi")} />
+          )}
         </View>
 
         {/* ── TAB: BERANDA + ESTIMASI + SETTINGS ──────────────────────────── */}
@@ -354,7 +401,7 @@ export default function HomeScreen() {
             <BerandaKalkulator />
           </View>
           <View style={{ display: activePage === "settings" ? "flex" : "none" }}>
-            <SettingsScreen />
+            <SettingsScreen onLapanganUnlocked={() => setLapanganGranted(isLapanganGranted())} />
           </View>
 
           {/* Tab estimasi — selalu mounted agar state tidak hilang saat pindah tab */}

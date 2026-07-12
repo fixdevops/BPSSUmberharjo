@@ -10,9 +10,10 @@ import { T } from "../constants/theme";
 import {
     RT, SLS,
     getRTBySLS, getSLSList,
-    insertBangunan, insertFoto, insertKK, nextNomorBangunan,
+    insertBangunan, insertFoto, insertKK, nextNomorBangunan, updateBangunan,
 } from "../lib/database";
 import {
+    getOrCreateBangunanFolder,
     googleSignIn, isConfigured, isSignedIn,
     uploadFotoBase64ToDrive, uploadToDrive,
 } from "../lib/googleDriveSync";
@@ -148,29 +149,42 @@ export function FormBangunanScreen({ defaultRtId, onSave, onCancel }: {
   const [loadingGPS,   setLoadingGPS]   = useState(false);
   const [fotoDepan,    setFotoDepan]    = useState<string | null>(null);
   const [fotoDalam,    setFotoDalam]    = useState<string | null>(null);
+  const [fotoMeteran,  setFotoMeteran]  = useState<string | null>(null);
   const [saving,       setSaving]       = useState(false);
   const [saveMsg,      setSaveMsg]      = useState<string | null>(null);
+
+  // No KK hanya relevan untuk jenis Rumah
+  const isRumah = jenis === "Rumah";
 
   const gpsValid = lat.trim() !== "" && lng.trim() !== "" &&
     !isNaN(parseFloat(lat)) && !isNaN(parseFloat(lng));
 
+  // Load semua SLS + semua RT sekaligus (flat list)
   useEffect(() => {
-    getSLSList().then((data) => {
-      setSlsList(data);
-      if (data.length === 1) handleSelectSLS(data[0]);
-    });
+    (async () => {
+      const allSLS = await getSLSList();
+      setSlsList(allSLS);
+      // Kumpulkan semua RT dari semua SLS
+      const allRT: RT[] = [];
+      for (const sls of allSLS) {
+        const rts = await getRTBySLS(sls.id);
+        allRT.push(...rts);
+      }
+      setRTList(allRT);
+      // Auto-pilih jika hanya 1 RT total
+      if (allRT.length === 1) handleSelectRT(allRT[0], allSLS);
+    })();
   }, []);
 
-  async function handleSelectSLS(sls: SLS) {
-    setSelectedSLS(sls);
-    setSelectedRT(null);
-    const rts = await getRTBySLS(sls.id);
-    setRTList(rts);
-    if (rts.length === 1) handleSelectRT(rts[0]);
+  function getSLSForRT(rt: RT): SLS | null {
+    return slsList.find((s) => s.id === rt.sls_id) ?? null;
   }
 
-  async function handleSelectRT(rt: RT) {
+  async function handleSelectRT(rt: RT, overrideSLSList?: SLS[]) {
+    const list = overrideSLSList ?? slsList;
+    const sls  = list.find((s) => s.id === rt.sls_id) ?? null;
     setSelectedRT(rt);
+    setSelectedSLS(sls);
     const next = await nextNomorBangunan(rt.id);
     setNomorHint(next);
     setNomorUrut("");
@@ -190,9 +204,10 @@ export function FormBangunanScreen({ defaultRtId, onSave, onCancel }: {
     setSaving(true);
     try {
       setSaveMsg("Menyimpan data bangunan…");
+      const nomorFinal = nomorUrut.trim() || await nextNomorBangunan(selectedRT.id);
       const bangunanId = await insertBangunan({
         rt_id:      selectedRT.id,
-        nomor_urut: nomorUrut.trim() || undefined,
+        nomor_urut: nomorFinal,
         jenis,
         alamat:     alamat.trim() || undefined,
         lat:        gpsValid ? parseFloat(lat) : undefined,
@@ -201,31 +216,62 @@ export function FormBangunanScreen({ defaultRtId, onSave, onCancel }: {
       });
 
       setSaveMsg("Menyimpan KK…");
-      await insertKK({ bangunan_id: bangunanId, nomor_urut: noKK.trim() || undefined, nama_kk: namaPenghuni.trim() });
-
-      const fotoSlots = [
-        { uri: fotoDepan, ket: "Foto Depan" },
-        { uri: fotoDalam, ket: "Foto Dalam" },
-      ].filter((f) => f.uri !== null) as { uri: string; ket: string }[];
-
-      for (const { uri, ket } of fotoSlots) {
-        setSaveMsg(`Menyimpan ${ket}…`);
-        if (Platform.OS === "web" && isConfigured() && uri.startsWith("data:")) {
-          setSaveMsg(`Upload ${ket} ke Drive…`);
-          if (!isSignedIn()) await googleSignIn();
-          const nama = `${ket.replace(" ", "_")}_B${bangunanId}_${Date.now()}.jpg`;
-          const cloudUrl = await uploadFotoBase64ToDrive(uri, nama);
-          if (cloudUrl) console.log(`${ket} → ${cloudUrl}`);
-        }
-        await insertFoto({ bangunan_id: bangunanId, uri, keterangan: ket });
+      const noKKFinal = noKK.trim() || "001";
+      // KK hanya disimpan untuk jenis Rumah
+      if (isRumah) {
+        await insertKK({
+          bangunan_id: bangunanId,
+          nomor_urut:  noKKFinal,
+          nama_kk:     namaPenghuni.trim(),
+        });
       }
 
+      // ── Slot foto: Depan, Dalam, Meteran ─────────────────────────────────
+      const fotoSlots = [
+        { uri: fotoDepan,   ket: "Foto_Depan"   },
+        { uri: fotoDalam,   ket: "Foto_Dalam"   },
+        { uri: fotoMeteran, ket: "Foto_Meteran" },
+      ].filter((f) => f.uri !== null) as { uri: string; ket: string }[];
+
+      if (Platform.OS === "web" && isConfigured() && fotoSlots.length > 0) {
+        // Nama KK di folder: pakai KK jika Rumah, pakai nama penghuni jika bukan
+        const namaKKList = isRumah
+          ? [`KK_${noKKFinal}_${namaPenghuni.trim()}`]
+          : [namaPenghuni.trim()];
+        setSaveMsg("Membuat folder di Google Drive…");
+        if (!isSignedIn()) await googleSignIn();
+        const sls = getSLSForRT(selectedRT!);
+        const bangunanFolderId = await getOrCreateBangunanFolder({
+          nomorUrut:  nomorFinal.padStart(3, "0"),
+          jenis,
+          namaKKList,
+          slsKode:    sls?.kode ?? selectedSLS?.kode ?? "SLS",
+          namaRT:     selectedRT!.nama_rt,
+          namaRW:     selectedRT!.nama_rw ?? "RW_000",
+        });
+
+        // Simpan folder ID ke database lokal agar bisa dipakai saat tambah KK
+        await updateBangunan(bangunanId, { drive_folder_id: bangunanFolderId });
+
+        for (const { uri, ket } of fotoSlots) {
+          setSaveMsg(`Upload ${ket.replace(/_/g, " ")} ke Drive…`);
+          const ext = uri.startsWith("data:image/png") ? "png" : "jpg";
+          const cloudUrl = await uploadFotoBase64ToDrive(uri, `${ket}.${ext}`, bangunanFolderId);
+          await insertFoto({ bangunan_id: bangunanId, uri: cloudUrl ?? uri, keterangan: ket });
+        }
+      } else {
+        for (const { uri, ket } of fotoSlots) {
+          await insertFoto({ bangunan_id: bangunanId, uri, keterangan: ket });
+        }
+      }
+
+      // ── Sync JSON backup ke Drive ─────────────────────────────────────
       if (Platform.OS === "web" && isConfigured()) {
-        setSaveMsg("Menyimpan ke Google Drive…");
+        setSaveMsg("Memperbarui backup JSON di Drive…");
         try {
           if (!isSignedIn()) await googleSignIn();
           await uploadToDrive();
-        } catch (e: any) { console.warn("Drive sync gagal:", e.message); }
+        } catch (e: any) { console.warn("Drive JSON sync gagal:", e.message); }
       }
 
       onSave();
@@ -247,54 +293,51 @@ export function FormBangunanScreen({ defaultRtId, onSave, onCancel }: {
 
       <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 100 }} keyboardShouldPersistTaps="handled">
 
-        {/* SLS */}
-        <SectionCard icon="database" title="Wilayah Kerja (SLS) *">
-          {slsList.length === 0 ? (
+        {/* Pilih RT (SLS) — langsung flat list semua SLS, karena SLS = RT */}
+        <SectionCard icon="map-pin" title="Pilih Wilayah Kerja *">
+          {rtList.length === 0 ? (
             <View style={{ flexDirection: "row", gap: 8, alignItems: "center", backgroundColor: T.surfaceContainerLow, borderRadius: 10, padding: 12 }}>
               <Icon name="info" size={14} color={T.error} />
-              <Text style={{ fontSize: 13, color: T.error, flex: 1 }}>Belum ada SLS. Buat di tab Data Lapangan → Wilayah Kerja.</Text>
+              <Text style={{ fontSize: 13, color: T.error, flex: 1 }}>Belum ada wilayah. Tambah di tab Data Lapangan → Wilayah Kerja (SLS).</Text>
             </View>
-          ) : slsList.map((sls) => {
-            const active = selectedSLS?.id === sls.id;
-            return (
-              <Pressable key={sls.id}
-                style={({ pressed }) => [{ padding: 12, borderRadius: 10, borderWidth: 1.5, borderColor: active ? T.primary : T.outlineVariant, backgroundColor: active ? T.primaryFixed : T.white, opacity: pressed ? 0.8 : 1, flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 6 }]}
-                onPress={() => handleSelectSLS(sls)}
-              >
-                <Icon name="database" size={16} color={active ? T.primary : T.onSurfaceVariant} />
-                <View style={{ flex: 1 }}>
-                  <Text style={{ fontSize: 14, fontWeight: active ? "700" : "500", color: active ? T.primary : T.onSurface }}>{sls.nama}</Text>
-                  <Text style={{ fontSize: 11, color: T.onSurfaceVariant }}>{sls.kode} · {sls.kecamatan}</Text>
-                </View>
-                {active && <Icon name="check" size={16} color={T.primary} />}
-              </Pressable>
-            );
-          })}
+          ) : (
+            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+              {rtList.map((rt) => {
+                const active = selectedRT?.id === rt.id;
+                const sls    = getSLSForRT(rt);
+                return (
+                  <Pressable key={rt.id}
+                    style={({ pressed }) => [{
+                      paddingHorizontal: 14, paddingVertical: 10, borderRadius: 10,
+                      borderWidth: 1.5,
+                      borderColor: active ? T.primary : T.outlineVariant,
+                      backgroundColor: active ? T.primaryFixed : T.white,
+                      opacity: pressed ? 0.8 : 1,
+                    }]}
+                    onPress={() => handleSelectRT(rt)}
+                  >
+                    {/* Tampilkan nama SLS (= nama RT) bukan nama RT internal */}
+                    <Text style={{ fontSize: 13, fontWeight: active ? "700" : "500", color: active ? T.primary : T.onSurface }}>
+                      {sls?.nama ?? rt.nama_rt}
+                    </Text>
+                    {sls
+                      ? <Text style={{ fontSize: 10, color: T.onSurfaceVariant }}>{sls.kode}</Text>
+                      : null}
+                  </Pressable>
+                );
+              })}
+            </View>
+          )}
+          {selectedRT && (
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: T.primaryFixed, borderRadius: 8, padding: 8, marginTop: 8 }}>
+              <Icon name="check" size={12} color={T.primary} />
+              <Text style={{ fontSize: 11, color: T.primary }}>
+                Dipilih: <Text style={{ fontWeight: "700" }}>{selectedSLS?.nama ?? selectedRT.nama_rt}</Text>
+                {selectedSLS ? ` · ${selectedSLS.kode}` : ""}
+              </Text>
+            </View>
+          )}
         </SectionCard>
-
-        {/* RT */}
-        {selectedSLS && (
-          <SectionCard icon="map-pin" title={`RT dalam ${selectedSLS.nama} *`}>
-            {rtList.length === 0 ? (
-              <Text style={{ fontSize: 13, color: T.onSurfaceVariant }}>Belum ada RT. Tambah dari menu Wilayah Kerja.</Text>
-            ) : (
-              <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
-                {rtList.map((rt) => {
-                  const active = selectedRT?.id === rt.id;
-                  return (
-                    <Pressable key={rt.id}
-                      style={({ pressed }) => [{ paddingHorizontal: 14, paddingVertical: 10, borderRadius: 10, borderWidth: 1.5, borderColor: active ? T.secondary : T.outlineVariant, backgroundColor: active ? T.secondaryContainer : T.white, opacity: pressed ? 0.8 : 1 }]}
-                      onPress={() => handleSelectRT(rt)}
-                    >
-                      <Text style={{ fontSize: 13, fontWeight: active ? "700" : "500", color: active ? T.secondary : T.onSurface }}>{rt.nama_rt}</Text>
-                      {rt.nama_rw ? <Text style={{ fontSize: 10, color: T.onSurfaceVariant }}>{rt.nama_rw}</Text> : null}
-                    </Pressable>
-                  );
-                })}
-              </View>
-            )}
-          </SectionCard>
-        )}
 
         {/* Identitas */}
         <SectionCard icon="home" title="Identitas Penghuni *">
@@ -304,11 +347,14 @@ export function FormBangunanScreen({ defaultRtId, onSave, onCancel }: {
               placeholder="contoh: Budi Santoso" placeholderTextColor={T.outline} />
           </View>
           <View style={{ flexDirection: "row", gap: 10 }}>
-            <View style={[ui.fieldWrap, { flex: 1 }]}>
-              <Text style={ui.fieldLabel}>No. KK</Text>
-              <TextInput style={ui.input} value={noKK} onChangeText={setNoKK}
-                placeholder="001" placeholderTextColor={T.outline} keyboardType="numeric" />
-            </View>
+            {/* No KK hanya untuk Rumah */}
+            {isRumah && (
+              <View style={[ui.fieldWrap, { flex: 1 }]}>
+                <Text style={ui.fieldLabel}>No. KK</Text>
+                <TextInput style={ui.input} value={noKK} onChangeText={setNoKK}
+                  placeholder="001" placeholderTextColor={T.outline} keyboardType="numeric" />
+              </View>
+            )}
             <View style={[ui.fieldWrap, { flex: 1 }]}>
               <Text style={ui.fieldLabel}>No. Bangunan <Text style={{ fontWeight: "400", color: T.onSurfaceVariant }}>(auto: {nomorHint})</Text></Text>
               <TextInput style={ui.input} value={nomorUrut} onChangeText={setNomorUrut}
@@ -395,10 +441,17 @@ export function FormBangunanScreen({ defaultRtId, onSave, onCancel }: {
               onPick={() => pickImage().then((u) => u && setFotoDalam(u))}
               onClear={() => setFotoDalam(null)} />
           </View>
+          <View style={{ marginTop: 12 }}>
+            <FotoInput label="🔌 Foto Meteran" uri={fotoMeteran}
+              onPick={() => pickImage().then((u) => u && setFotoMeteran(u))}
+              onClear={() => setFotoMeteran(null)} />
+          </View>
           {Platform.OS === "web" && isConfigured() && (
             <View style={{ flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: "#f0f4ff", borderRadius: 8, padding: 8, marginTop: 10 }}>
               <Icon name="database" size={12} color={T.primary} />
-              <Text style={{ fontSize: 10, color: T.primary }}>Foto & data otomatis tersimpan ke Google Drive</Text>
+              <Text style={{ fontSize: 10, color: T.primary }}>
+                Foto disimpan ke folder Drive: Foto / SLS-RT-RW / Bangunan / Foto_Depan.jpg
+              </Text>
             </View>
           )}
         </SectionCard>

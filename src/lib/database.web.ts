@@ -20,6 +20,7 @@ export type Bangunan = {
   id: number; rt_id: number; nomor_urut: string; jenis: string;
   alamat: string | null; lat: number | null; lng: number | null;
   catatan: string | null; synced: number; created_at: string;
+  drive_folder_id: string | null;   // ID folder Google Drive bangunan ini
   jumlah_kk?: number; nama_rt?: string; nama_sls?: string;
 };
 export type KK = {
@@ -51,17 +52,9 @@ function now(): string {
 }
 
 // ─── Init + Seed ──────────────────────────────────────────────────────────────
+// Mulai kosong — user menambah SLS (RT) sendiri via SLSScreen
 export async function initDB(): Promise<void> {
-  if (lsGet<SLS>("sls").length === 0) {
-    const slsId = lsNextId("sls");
-    lsSet("sls", [{ id: slsId, nama: "Desa Sumberharjo", kode: "SLS-001", kecamatan: "Sumberharjo", kabupaten: "Bojonegoro", catatan: null, created_at: now() }]);
-    const rt1 = lsNextId("rt"), rt2 = lsNextId("rt"), rt3 = lsNextId("rt");
-    lsSet("rt", [
-      { id: rt1, sls_id: slsId, nama_rt: "RT 01", nama_rw: "RW 01", ketua_rt: null, catatan: null, created_at: now() },
-      { id: rt2, sls_id: slsId, nama_rt: "RT 02", nama_rw: "RW 01", ketua_rt: null, catatan: null, created_at: now() },
-      { id: rt3, sls_id: slsId, nama_rt: "RT 03", nama_rw: "RW 02", ketua_rt: null, catatan: null, created_at: now() },
-    ]);
-  }
+  // Tidak ada seed otomatis; biarkan user tambah SLS sesuai kondisi lapangan
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -78,11 +71,29 @@ export async function insertSLS(data: { nama: string; kode: string; kecamatan?: 
   const id   = lsNextId("sls");
   list.push({ id, nama: data.nama, kode: data.kode, kecamatan: data.kecamatan ?? null, kabupaten: data.kabupaten ?? null, catatan: data.catatan ?? null, created_at: now() });
   lsSet("sls", list);
+  // Otomatis buat 1 RT internal dengan nama sama (SLS = RT)
+  const rtList = lsGet<RT>("rt");
+  const rtId   = lsNextId("rt");
+  rtList.push({ id: rtId, sls_id: id, nama_rt: data.nama, nama_rw: data.kode, ketua_rt: null, catatan: null, created_at: now() });
+  lsSet("rt", rtList);
   scheduleDriveSync();
   return id;
 }
 export async function updateSLS(id: number, data: Partial<Pick<SLS, "nama"|"kode"|"kecamatan"|"kabupaten"|"catatan">>): Promise<void> {
   lsSet("sls", lsGet<SLS>("sls").map((s) => s.id === id ? { ...s, ...data } : s));
+  // Sync nama RT internal jika nama/kode SLS berubah
+  if (data.nama !== undefined || data.kode !== undefined) {
+    const rts = lsGet<RT>("rt");
+    const updated = rts.map((r) => {
+      if (r.sls_id !== id) return r;
+      return {
+        ...r,
+        nama_rt: data.nama ?? r.nama_rt,
+        nama_rw: data.kode ?? r.nama_rw,
+      };
+    });
+    lsSet("rt", updated);
+  }
   scheduleDriveSync();
 }
 export async function deleteSLS(id: number): Promise<void> {
@@ -176,16 +187,27 @@ export async function nextNomorBangunan(rtId: number): Promise<string> {
   const max  = list.reduce((acc, b) => Math.max(acc, parseInt(b.nomor_urut) || 0), 0);
   return String(max + 1).padStart(3, "0");
 }
-export async function insertBangunan(data: { rt_id: number; nomor_urut?: string; jenis: string; alamat?: string; lat?: number; lng?: number; catatan?: string }): Promise<number> {
+export async function insertBangunan(data: {
+  rt_id: number; nomor_urut?: string; jenis: string;
+  alamat?: string; lat?: number; lng?: number; catatan?: string;
+  drive_folder_id?: string;
+}): Promise<number> {
   const list  = lsGet<Bangunan>("bangunan");
   const id    = lsNextId("bangunan");
   const nomor = data.nomor_urut?.trim() || await nextNomorBangunan(data.rt_id);
-  list.push({ id, rt_id: data.rt_id, nomor_urut: nomor, jenis: data.jenis, alamat: data.alamat ?? null, lat: data.lat ?? null, lng: data.lng ?? null, catatan: data.catatan ?? null, synced: 0, created_at: now() });
+  list.push({
+    id, rt_id: data.rt_id, nomor_urut: nomor, jenis: data.jenis,
+    alamat: data.alamat ?? null, lat: data.lat ?? null, lng: data.lng ?? null,
+    catatan: data.catatan ?? null, synced: 0, created_at: now(),
+    drive_folder_id: data.drive_folder_id ?? null,
+  });
   lsSet("bangunan", list);
   scheduleDriveSync();
   return id;
 }
-export async function updateBangunan(id: number, data: Partial<Pick<Bangunan, "nomor_urut"|"jenis"|"alamat"|"lat"|"lng"|"catatan">>): Promise<void> {
+export async function updateBangunan(id: number, data: Partial<Pick<Bangunan,
+  "nomor_urut"|"jenis"|"alamat"|"lat"|"lng"|"catatan"|"drive_folder_id"
+>>): Promise<void> {
   lsSet("bangunan", lsGet<Bangunan>("bangunan").map((b) => b.id === id ? { ...b, ...data, synced: 0 } : b));
   scheduleDriveSync();
 }

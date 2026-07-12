@@ -20,9 +20,13 @@
 
 // ⚠️  GANTI dengan Client ID dari Google Cloud Console Anda
 // Format yang benar: "123456789-abc.apps.googleusercontent.com"
-export const GOOGLE_CLIENT_ID: string = "GANTI_DENGAN_CLIENT_ID_ANDA.apps.googleusercontent.com";
+export const GOOGLE_CLIENT_ID: string = "176184827054-4l30l0g8fc7fbmo1pj5ji4vdmra06khf.apps.googleusercontent.com";
 
-const SCOPES = "https://www.googleapis.com/auth/drive.file";
+const SCOPES = [
+  "https://www.googleapis.com/auth/drive.file",
+  "https://www.googleapis.com/auth/userinfo.profile",
+  "https://www.googleapis.com/auth/userinfo.email",
+].join(" ");
 const FILE_NAME = "se2026-sumberharjo-data.json";
 const FOLDER_NAME = "SE2026 BPS Sumberharjo";
 
@@ -35,12 +39,24 @@ export function isConfigured(): boolean {
   );
 }
 
-// ─── State token ──────────────────────────────────────────────────────────────
+// ─── State token & profil akun ────────────────────────────────────────────────
 let _accessToken: string | null = null;
 let _tokenExpiry: number = 0;
 
+export type GoogleUser = {
+  name:  string;
+  email: string;
+  photo: string | null;
+};
+let _currentUser: GoogleUser | null = null;
+
 export function isSignedIn(): boolean {
   return !!_accessToken && Date.now() < _tokenExpiry;
+}
+
+/** Kembalikan info akun yang sedang login, null jika belum login */
+export function getSignedInUser(): GoogleUser | null {
+  return isSignedIn() ? _currentUser : null;
 }
 
 // ─── Muat script Google Identity Services ────────────────────────────────────
@@ -83,22 +99,98 @@ export async function googleSignIn(): Promise<string> {
       const tokenClient = (window as any).google.accounts.oauth2.initTokenClient({
         client_id: GOOGLE_CLIENT_ID,
         scope: SCOPES,
-        callback: (response: any) => {
+        callback: async (response: any) => {
           if (response.error) {
             reject(new Error(`Login Google gagal: ${response.error_description ?? response.error}`));
             return;
           }
           _accessToken = response.access_token;
           _tokenExpiry = Date.now() + ((response.expires_in ?? 3600) - 60) * 1000;
-          // Expose token ke window agar bisa dipakai upload foto
           (window as any).__se2026_gtoken = _accessToken;
+          // Ambil profil akun (nama & email) via People API
+          try {
+            const userRes = await fetch(
+              "https://www.googleapis.com/oauth2/v2/userinfo",
+              { headers: { Authorization: `Bearer ${_accessToken}` } }
+            );
+            if (userRes.ok) {
+              const u = await userRes.json();
+              _currentUser = {
+                name:  u.name  ?? u.given_name ?? "Pengguna",
+                email: u.email ?? "",
+                photo: u.picture ?? null,
+              };
+            }
+          } catch (_) { /* profil opsional, tidak gagalkan login */ }
+          resolve(_accessToken!);
+        },
+        error_callback: (err: any) => {
+          if (err?.type === "popup_closed") {
+            reject(new Error(
+              "Popup login Google ditutup.\n\n" +
+              "Jika popup tidak muncul sama sekali, pastikan:\n" +
+              "• URL ini sudah terdaftar di Google Cloud Console\n" +
+              "• Authorized JavaScript Origins: " + window.location.origin
+            ));
+          } else {
+            reject(new Error(`Login dibatalkan: ${err?.type ?? "unknown"}`));
+          }
+        },
+      });
+      tokenClient.requestAccessToken({ prompt: "" });
+    } catch (e: any) {
+      reject(new Error("Gagal inisialisasi Google OAuth: " + e.message));
+    }
+  });
+}
+
+/** Ganti akun — paksa tampilkan picker akun Google (prompt: "select_account") */
+export async function switchAccount(): Promise<string> {
+  if (!isConfigured()) throw new Error("Client ID belum dikonfigurasi.");
+  await loadGSIScript();
+  // Revoke token lama dulu
+  if (_accessToken && (window as any).google?.accounts?.oauth2) {
+    (window as any).google.accounts.oauth2.revoke(_accessToken, () => {});
+  }
+  _accessToken = null;
+  _tokenExpiry = 0;
+  _currentUser = null;
+
+  return new Promise((resolve, reject) => {
+    try {
+      const tokenClient = (window as any).google.accounts.oauth2.initTokenClient({
+        client_id: GOOGLE_CLIENT_ID,
+        scope: SCOPES,
+        callback: async (response: any) => {
+          if (response.error) {
+            reject(new Error(`Login gagal: ${response.error_description ?? response.error}`));
+            return;
+          }
+          _accessToken = response.access_token;
+          _tokenExpiry = Date.now() + ((response.expires_in ?? 3600) - 60) * 1000;
+          (window as any).__se2026_gtoken = _accessToken;
+          try {
+            const userRes = await fetch(
+              "https://www.googleapis.com/oauth2/v2/userinfo",
+              { headers: { Authorization: `Bearer ${_accessToken}` } }
+            );
+            if (userRes.ok) {
+              const u = await userRes.json();
+              _currentUser = {
+                name:  u.name  ?? u.given_name ?? "Pengguna",
+                email: u.email ?? "",
+                photo: u.picture ?? null,
+              };
+            }
+          } catch (_) {}
           resolve(_accessToken!);
         },
         error_callback: (err: any) => {
           reject(new Error(`Login dibatalkan: ${err?.type ?? "unknown"}`));
         },
       });
-      tokenClient.requestAccessToken({ prompt: "" });
+      // prompt: "select_account" → paksa tampilkan picker meskipun sudah pernah login
+      tokenClient.requestAccessToken({ prompt: "select_account" });
     } catch (e: any) {
       reject(new Error("Gagal inisialisasi Google OAuth: " + e.message));
     }
@@ -111,6 +203,7 @@ export function googleSignOut(): void {
   }
   _accessToken = null;
   _tokenExpiry = 0;
+  _currentUser = null;
 }
 
 // ─── Helper: fetch ke Drive API ───────────────────────────────────────────────
@@ -145,25 +238,101 @@ async function driveApi(
   return res.json().catch(() => ({}));
 }
 
-// ─── Cari atau buat folder SE2026 ─────────────────────────────────────────────
-async function getOrCreateFolder(): Promise<string> {
+// ─── Cari atau buat 1 folder (dalam parent tertentu) ─────────────────────────
+async function getOrCreateSingleFolder(name: string, parentId?: string): Promise<string> {
+  const parentClause = parentId
+    ? ` and '${parentId}' in parents`
+    : ` and 'root' in parents`;
   const q = encodeURIComponent(
-    `name='${FOLDER_NAME}' and mimeType='application/vnd.google-apps.folder' and trashed=false`
+    `name='${name}' and mimeType='application/vnd.google-apps.folder' and trashed=false${parentClause}`
   );
-  const list = await driveApi(`/drive/v3/files?q=${q}&fields=files(id,name)`);
+  const list = await driveApi(`/drive/v3/files?q=${q}&fields=files(id,name)&pageSize=1`);
   if (list.files?.length > 0) return list.files[0].id as string;
 
-  // Buat folder baru
-  const folder = await driveApi(
-    "/drive/v3/files",
-    "POST",
-    { name: FOLDER_NAME, mimeType: "application/vnd.google-apps.folder" },
-    "application/json"
-  );
+  const body: Record<string, any> = { name, mimeType: "application/vnd.google-apps.folder" };
+  if (parentId) body.parents = [parentId];
+  const folder = await driveApi("/drive/v3/files", "POST", body, "application/json");
   return folder.id as string;
 }
 
-// ─── Kumpulkan semua data dari localStorage ───────────────────────────────────
+// ─── Cari atau buat folder root SE2026 ────────────────────────────────────────
+async function getOrCreateFolder(): Promise<string> {
+  return getOrCreateSingleFolder(FOLDER_NAME);
+}
+
+// ─── Buat folder bertingkat untuk 1 bangunan ──────────────────────────────────
+//
+// Struktur:
+//   SE2026 BPS Sumberharjo/
+//    Foto/
+//     SLS-001_RT_001_RW_002/           ← SLS kode + RT + RW digabung 1 level
+//      B001_KK_1_Rumah_Budi-Santoso & KK_2_Solikun/   ← semua KK digabung
+//       Foto_Depan.jpg
+//       Foto_Dalam.jpg
+//       Foto_Meteran.jpg
+//
+// params.namaKKList : array nama semua KK di bangunan ini, sudah dengan nomor urut
+//                     misal: ["KK_1_Budi Santoso", "KK_2_Solikun"]
+//
+export async function getOrCreateBangunanFolder(params: {
+  nomorUrut:  string;     // "001"
+  jenis:      string;     // "Rumah"
+  namaKKList: string[];   // ["KK_1_Budi Santoso"] atau ["Mushola Al-Ikhlas"]
+  slsKode:    string;     // "SLS-001"
+  namaRT:     string;     // "RT 01"  → label RT, dipakai di nama folder level-1
+  namaRW:     string;     // "RW 02"  → akan jadi "RW_002"
+}): Promise<string> {
+  const san = (s: string) =>
+    s.replace(/[/\\:*?"<>|&]/g, "").replace(/\s+/g, "_").replace(/_+/g, "_").trim();
+
+  // Normalisasi angka dalam nama RT/RW → zero-padded 3 digit
+  const normNum = (s: string) =>
+    san(s.replace(/(\D*)(\d+)/, (_, prefix, n) => `${prefix}_${n.padStart(3, "0")}`));
+
+  // Level-1: "SLS-001_RT_001_RW_002"
+  // SLS = RT, jadi gabungkan kode SLS + RT + RW dalam satu folder
+  const rtPart    = normNum(params.namaRT);   // "RT_001"
+  const rwPart    = normNum(params.namaRW);   // "RW_002"
+  const slsLabel  = `${params.slsKode}_${rtPart}_${rwPart}`.slice(0, 60);
+
+  // Level-2: "B001_KK_001_Budi-Santoso_Rumah" atau "B003_Mushola_Al-Ikhlas"
+  const kkPart       = params.namaKKList.map((k) => san(k)).join("_&_").slice(0, 80);
+  const bangunanLabel = `B${params.nomorUrut}_${kkPart}_${san(params.jenis)}`.slice(0, 100);
+
+  const rootId  = await getOrCreateFolder();
+  const fotoId  = await getOrCreateSingleFolder("Foto", rootId);
+  const slsRtId = await getOrCreateSingleFolder(slsLabel, fotoId);
+  const bId     = await getOrCreateSingleFolder(bangunanLabel, slsRtId);
+  return bId;
+}
+
+// ─── Rename folder bangunan di Drive (saat KK baru ditambahkan) ───────────────
+// Ambil folder ID bangunan lama berdasarkan prefix "B{nomorUrut}_" lalu rename
+// dengan nama KK terbaru. Dipakai oleh DetailBangunanScreen setelah insertKK.
+export async function renameBangunanFolder(params: {
+  bangunanFolderId: string;  // ID folder bangunan yang sudah ada
+  nomorUrut:        string;  // "001"
+  jenis:            string;  // "Rumah"
+  namaKKList:       string[]; // semua KK terkini: ["KK_001_Budi", "KK_002_Solikun"]
+}): Promise<void> {
+  try {
+    if (!isSignedIn()) await googleSignIn();
+    const san = (s: string) =>
+      s.replace(/[/\\:*?"<>|&]/g, "").replace(/\s+/g, "_").replace(/_+/g, "_").trim();
+    const kkPart = params.namaKKList.map((k) => san(k)).join(" & ").slice(0, 80);
+    const newName = `B${params.nomorUrut}_${kkPart}_${san(params.jenis)}`.slice(0, 100);
+    await driveApi(
+      `/drive/v3/files/${params.bangunanFolderId}`,
+      "PATCH",
+      { name: newName },
+      "application/json"
+    );
+  } catch (e: any) {
+    console.warn("[Drive] Rename folder bangunan gagal:", e.message);
+  }
+}
+
+
 function collectAllData(): object {
   const keys = ["sls", "rt", "bangunan", "kk", "foto"];
   const data: Record<string, any> = {

@@ -39,6 +39,7 @@ export type Bangunan = {
   catatan:     string | null;
   synced:      number;
   created_at:  string;
+  drive_folder_id: string | null;  // ID folder Google Drive
   // virtual
   jumlah_kk?:  number;
   nama_rt?:    string;
@@ -150,28 +151,35 @@ export async function initDB(): Promise<void> {
     CREATE INDEX IF NOT EXISTS idx_foto_bangunan ON foto(bangunan_id);
   `);
 
-  // Migrasi: jika tabel bangunan lama (tanpa rt_id) masih ada, tambah kolom
+  // Migrasi: tambah kolom jika belum ada
+  try { await db.execAsync(`ALTER TABLE bangunan ADD COLUMN rt_id INTEGER`); } catch (_) {}
+  try { await db.execAsync(`ALTER TABLE bangunan ADD COLUMN drive_folder_id TEXT`); } catch (_) {}
+
+  // Migrasi: hapus data seed lama "Desa Sumberharjo" jika tidak ada bangunan
+  // (seed ini dibuat otomatis oleh versi lama app, tidak relevan lagi)
   try {
-    await db.execAsync(`ALTER TABLE bangunan ADD COLUMN rt_id INTEGER`);
-  } catch (_) { /* kolom sudah ada atau tabel baru */ }
+    const seedSLS = await db.getFirstAsync<{ id: number }>(
+      `SELECT id FROM sls WHERE kode = 'SLS-001' AND nama = 'Desa Sumberharjo' LIMIT 1`
+    );
+    if (seedSLS) {
+      // Cek apakah ada bangunan yang terkait — jika tidak ada, hapus seed
+      const rtIds = await db.getAllAsync<{ id: number }>(
+        `SELECT id FROM rt WHERE sls_id = ?`, [seedSLS.id]
+      );
+      let hasBangunan = false;
+      for (const rt of rtIds) {
+        const b = await db.getFirstAsync<{ id: number }>(
+          `SELECT id FROM bangunan WHERE rt_id = ? LIMIT 1`, [rt.id]
+        );
+        if (b) { hasBangunan = true; break; }
+      }
+      if (!hasBangunan) {
+        await db.runAsync(`DELETE FROM sls WHERE id = ?`, [seedSLS.id]);
+      }
+    }
+  } catch (_) {}
 
-  // Seed: buat SLS & RT default jika belum ada
-  const existing = await db.getFirstAsync<{ id: number }>(`SELECT id FROM sls LIMIT 1`);
-  if (!existing) {
-    await db.execAsync(`
-      INSERT INTO sls (nama, kode, kecamatan, kabupaten)
-      VALUES ('Desa Sumberharjo', 'SLS-001', 'Sumberharjo', 'Bojonegoro');
-
-      INSERT INTO rt (sls_id, nama_rt, nama_rw)
-      SELECT id, 'RT 01', 'RW 01' FROM sls WHERE kode = 'SLS-001';
-
-      INSERT INTO rt (sls_id, nama_rt, nama_rw)
-      SELECT id, 'RT 02', 'RW 01' FROM sls WHERE kode = 'SLS-001';
-
-      INSERT INTO rt (sls_id, nama_rt, nama_rw)
-      SELECT id, 'RT 03', 'RW 02' FROM sls WHERE kode = 'SLS-001';
-    `);
-  }
+  // Tidak ada seed otomatis — user tambah wilayah sendiri via SLSScreen
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -199,18 +207,49 @@ export async function insertSLS(data: {
     `INSERT INTO sls (nama, kode, kecamatan, kabupaten, catatan) VALUES (?,?,?,?,?)`,
     [data.nama, data.kode, data.kecamatan ?? null, data.kabupaten ?? null, data.catatan ?? null]
   );
-  return result.lastInsertRowId;
+  const slsId = result.lastInsertRowId;
+  // Otomatis buat 1 RT internal dengan nama = nama SLS (SLS = RT)
+  await db.runAsync(
+    `INSERT INTO rt (sls_id, nama_rt, nama_rw) VALUES (?,?,?)`,
+    [slsId, data.nama, data.kode]
+  );
+  return slsId;
 }
 
 export async function updateSLS(id: number, data: Partial<Pick<SLS, "nama" | "kode" | "kecamatan" | "kabupaten" | "catatan">>): Promise<void> {
   const db     = await getDB();
   const fields = Object.keys(data).map((k) => `${k} = ?`).join(", ");
   await db.runAsync(`UPDATE sls SET ${fields} WHERE id = ?`, [...Object.values(data), id]);
+  // Sync nama RT internal jika nama/kode berubah
+  if (data.nama !== undefined || data.kode !== undefined) {
+    await db.runAsync(
+      `UPDATE rt SET
+         nama_rt = CASE WHEN ? IS NOT NULL THEN ? ELSE nama_rt END,
+         nama_rw = CASE WHEN ? IS NOT NULL THEN ? ELSE nama_rw END
+       WHERE sls_id = ?`,
+      [data.nama ?? null, data.nama ?? null, data.kode ?? null, data.kode ?? null, id]
+    );
+  }
 }
 
 export async function deleteSLS(id: number): Promise<void> {
   const db = await getDB();
-  await db.runAsync(`DELETE FROM sls WHERE id = ?`, [id]);
+  // Hapus semua data terkait secara eksplisit (backup jika CASCADE tidak aktif)
+  const rtIds = await db.getAllAsync<{ id: number }>(
+    `SELECT id FROM rt WHERE sls_id = ?`, [id]
+  );
+  for (const rt of rtIds) {
+    const bIds = await db.getAllAsync<{ id: number }>(
+      `SELECT id FROM bangunan WHERE rt_id = ?`, [rt.id]
+    );
+    for (const b of bIds) {
+      await db.runAsync(`DELETE FROM kk    WHERE bangunan_id = ?`, [b.id]);
+      await db.runAsync(`DELETE FROM foto  WHERE bangunan_id = ?`, [b.id]);
+    }
+    await db.runAsync(`DELETE FROM bangunan WHERE rt_id = ?`, [rt.id]);
+  }
+  await db.runAsync(`DELETE FROM rt  WHERE sls_id = ?`, [id]);
+  await db.runAsync(`DELETE FROM sls WHERE id = ?`,     [id]);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -327,27 +366,29 @@ export async function nextNomorBangunan(rtId: number): Promise<string> {
 }
 
 export async function insertBangunan(data: {
-  rt_id:       number;
-  nomor_urut?: string;    // jika kosong → auto
-  jenis:       string;
-  alamat?:     string;
-  lat?:        number;
-  lng?:        number;
-  catatan?:    string;
+  rt_id:          number;
+  nomor_urut?:    string;    // jika kosong → auto
+  jenis:          string;
+  alamat?:        string;
+  lat?:           number;
+  lng?:           number;
+  catatan?:       string;
+  drive_folder_id?: string;
 }): Promise<number> {
   const db     = await getDB();
   const nomor  = data.nomor_urut?.trim() || await nextNomorBangunan(data.rt_id);
   const result = await db.runAsync(
-    `INSERT INTO bangunan (rt_id, nomor_urut, jenis, alamat, lat, lng, catatan)
-     VALUES (?,?,?,?,?,?,?)`,
-    [data.rt_id, nomor, data.jenis, data.alamat ?? null, data.lat ?? null, data.lng ?? null, data.catatan ?? null]
+    `INSERT INTO bangunan (rt_id, nomor_urut, jenis, alamat, lat, lng, catatan, drive_folder_id)
+     VALUES (?,?,?,?,?,?,?,?)`,
+    [data.rt_id, nomor, data.jenis, data.alamat ?? null, data.lat ?? null, data.lng ?? null,
+     data.catatan ?? null, data.drive_folder_id ?? null]
   );
   return result.lastInsertRowId;
 }
 
 export async function updateBangunan(
   id: number,
-  data: Partial<Pick<Bangunan, "nomor_urut" | "jenis" | "alamat" | "lat" | "lng" | "catatan">>
+  data: Partial<Pick<Bangunan, "nomor_urut" | "jenis" | "alamat" | "lat" | "lng" | "catatan" | "drive_folder_id">>
 ): Promise<void> {
   const db     = await getDB();
   const fields = Object.keys(data).map((k) => `${k} = ?`).join(", ");

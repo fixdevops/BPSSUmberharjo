@@ -10,6 +10,7 @@ export const API_BASE_URL = "https://bps-sumberharjo.vercel.app";
 
 const STORAGE_KEY     = "bps_access_granted";
 const STORAGE_KEY_UUID = "bps_access_key_uuid"; // UUID kunci yang dipakai
+const STORAGE_KEY_TYPE = "bps_access_key_type"; // tipe kunci: "app" | "lapangan"
 
 // ── Helper storage lintas platform ───────────────────────────────────────────
 function storageSet(key: string, value: string) {
@@ -47,6 +48,25 @@ export function getActiveKeyUUID(): string | null {
 export function revokeAccess(): void {
   storageRemove(STORAGE_KEY);
   storageRemove(STORAGE_KEY_UUID);
+  storageRemove(STORAGE_KEY_TYPE);
+}
+
+/** Ambil tipe kunci yang aktif: "app" | "lapangan" | null */
+export function getKeyType(): "app" | "lapangan" | null {
+  const t = storageGet(STORAGE_KEY_TYPE);
+  if (t === "lapangan") return "lapangan";
+  if (t === "app") return "app";
+  // Kunci lama (sebelum fitur type) tidak punya type → dianggap "app" saja
+  // User harus minta kunci "lapangan" baru dari admin untuk akses Data Lapangan
+  return "app";
+}
+
+/**
+ * Cek apakah kunci yang aktif punya akses ke fitur Data Lapangan + Google Drive.
+ * Hanya kunci bertipe "lapangan" yang boleh.
+ */
+export function isLapanganGranted(): boolean {
+  return isAccessGranted() && getKeyType() === "lapangan";
 }
 
 /**
@@ -76,6 +96,9 @@ export async function verifyKey(inputKey: string): Promise<{ success: boolean; m
       // Simpan UUID kunci agar bisa di-revalidasi nanti
       const savedKey = result.key ?? key;
       storageSet(STORAGE_KEY_UUID, savedKey);
+      // Simpan tipe kunci
+      const keyType = result.type ?? "app";
+      storageSet(STORAGE_KEY_TYPE, keyType);
       return { success: true, message: result.message ?? "Akses Diberikan" };
     } else {
       return { success: false, message: result.message ?? "Kunci salah atau sudah terpakai." };
@@ -110,6 +133,8 @@ export async function revalidateKey(): Promise<boolean> {
     const result = await response.json();
 
     if (response.status === 200 && result.valid === true) {
+      // Sync type dari server jika ada (menangani kunci lama sebelum fitur type)
+      if (result.type) storageSet(STORAGE_KEY_TYPE, result.type);
       return true;
     }
 

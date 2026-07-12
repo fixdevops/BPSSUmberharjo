@@ -25,11 +25,22 @@ import {
     getBangunanById,
     getFotoByBangunan,
     getKKByBangunan,
+    getRTById,
+    getSLSById,
     insertFoto,
     insertKK,
     nextNomorKK,
+    updateBangunan,
 } from "../lib/database";
-import { googleSignIn, isConfigured, isSignedIn, uploadToDrive } from "../lib/googleDriveSync";
+import {
+    getOrCreateBangunanFolder,
+    googleSignIn,
+    isConfigured,
+    isSignedIn,
+    renameBangunanFolder,
+    uploadFotoBase64ToDrive,
+    uploadToDrive,
+} from "../lib/googleDriveSync";
 import { ui } from "../styles/ui";
 
 // Lazy-import ImagePicker hanya di native
@@ -42,8 +53,9 @@ if (Platform.OS !== "web") {
 }
 
 // ─── Form Tambah KK ───────────────────────────────────────────────────────────
-function FormKK({ bangunanId, onSaved, onCancel }: {
+function FormKK({ bangunanId, bangunan, onSaved, onCancel }: {
   bangunanId: number;
+  bangunan:   Bangunan | null;
   onSaved:    () => void;
   onCancel:   () => void;
 }) {
@@ -63,14 +75,55 @@ function FormKK({ bangunanId, onSaved, onCancel }: {
     if (!namaKK.trim()) { Alert.alert("Validasi", "Nama KK wajib diisi."); return; }
     setSaving(true);
     try {
+      const noFinal = nomorUrut.trim() || nomorHint;
       await insertKK({
         bangunan_id:    bangunanId,
-        nomor_urut:     nomorUrut.trim() || undefined,
+        nomor_urut:     noFinal,
         nama_kk:        namaKK.trim(),
         nama_kepala:    namaKepala.trim() || undefined,
         jumlah_anggota: parseInt(jumlah) || 1,
         catatan:        catatan.trim() || undefined,
       });
+
+      // ── Rename folder Drive dengan semua KK terkini ───────────────────
+      if (Platform.OS === "web" && isConfigured() && bangunan) {
+        try {
+          if (!isSignedIn()) await googleSignIn();
+          // Ambil semua KK setelah insert (termasuk yang baru)
+          const allKK = await getKKByBangunan(bangunanId);
+          const namaKKList = allKK.map((k) => `KK_${k.nomor_urut}_${k.nama_kk}`);
+
+          if (bangunan.drive_folder_id) {
+            // Folder sudah ada — rename saja
+            await renameBangunanFolder({
+              bangunanFolderId: bangunan.drive_folder_id,
+              nomorUrut:        bangunan.nomor_urut.padStart(3, "0"),
+              jenis:            bangunan.jenis,
+              namaKKList,
+            });
+          } else {
+            // Folder belum ada (bangunan lama) — buat sekarang
+            const rt  = await getRTById(bangunan.rt_id);
+            const sls = rt ? await getSLSById(rt.sls_id) : null;
+            if (rt && sls) {
+              const folderId = await getOrCreateBangunanFolder({
+                nomorUrut:  bangunan.nomor_urut.padStart(3, "0"),
+                jenis:      bangunan.jenis,
+                namaKKList,
+                slsKode:    sls.kode,
+                namaRT:     rt.nama_rt,
+                namaRW:     rt.nama_rw ?? "RW_000",
+              });
+              await updateBangunan(bangunanId, { drive_folder_id: folderId });
+            }
+          }
+          // Sync JSON backup
+          await uploadToDrive();
+        } catch (e: any) {
+          console.warn("[Drive] Rename/create folder KK gagal:", e.message);
+        }
+      }
+
       onSaved();
     } catch { Alert.alert("Error", "Gagal menyimpan KK."); }
     finally { setSaving(false); }
@@ -160,11 +213,15 @@ function KKCard({ item, onDelete }: { item: KK; onDelete: () => void }) {
       </View>
       <Pressable
         style={{ padding: 8, backgroundColor: "#ffeaea", borderRadius: 8 }}
-        onPress={() => Alert.alert(
-          "Hapus KK",
-          `Hapus KK "${item.nama_kk}"?`,
-          [{ text: "Batal", style: "cancel" }, { text: "Hapus", style: "destructive", onPress: onDelete }]
-        )}
+        onPress={() => {
+          if (Platform.OS === "web") {
+            if ((window as any).confirm(`Hapus KK "${item.nama_kk}"?`)) onDelete();
+          } else {
+            Alert.alert("Hapus KK", `Hapus KK "${item.nama_kk}"?`,
+              [{ text: "Batal", style: "cancel" }, { text: "Hapus", style: "destructive", onPress: onDelete }]
+            );
+          }
+        }}
         accessibilityLabel={`Hapus KK ${item.nama_kk}`}
       >
         <Icon name="x" size={14} color={T.error} />
@@ -187,11 +244,15 @@ function FotoCard({ item, onDelete }: { item: Foto; onDelete: () => void }) {
           position: "absolute", top: 4, right: 4,
           backgroundColor: "rgba(0,0,0,0.55)", borderRadius: 10, padding: 4,
         }}
-        onPress={() => Alert.alert(
-          "Hapus Foto",
-          "Hapus foto ini?",
-          [{ text: "Batal", style: "cancel" }, { text: "Hapus", style: "destructive", onPress: onDelete }]
-        )}
+        onPress={() => {
+          if (Platform.OS === "web") {
+            if ((window as any).confirm("Hapus foto ini?")) onDelete();
+          } else {
+            Alert.alert("Hapus Foto", "Hapus foto ini?",
+              [{ text: "Batal", style: "cancel" }, { text: "Hapus", style: "destructive", onPress: onDelete }]
+            );
+          }
+        }}
         accessibilityLabel="Hapus foto"
       >
         <Icon name="x" size={12} color={T.white} />
@@ -260,8 +321,21 @@ export function DetailBangunanScreen({
       if (!uri) return;
       setAddingFoto(true);
       try {
-        await insertFoto({ bangunan_id: bangunanId, uri });
-        // Sync ke Drive
+        let finalUri = uri;
+        // Upload ke folder Drive bangunan jika tersedia
+        if (isConfigured() && bangunan?.drive_folder_id && uri.startsWith("data:")) {
+          try {
+            if (!isSignedIn()) await googleSignIn();
+            const ext = uri.startsWith("data:image/png") ? "png" : "jpg";
+            const ts  = Date.now();
+            const cloudUrl = await uploadFotoBase64ToDrive(
+              uri, `Foto_${ts}.${ext}`, bangunan.drive_folder_id
+            );
+            if (cloudUrl) finalUri = cloudUrl;
+          } catch (_) {}
+        }
+        await insertFoto({ bangunan_id: bangunanId, uri: finalUri });
+        // Sync JSON backup ke Drive
         if (isConfigured()) {
           try {
             if (!isSignedIn()) await googleSignIn();
@@ -429,6 +503,7 @@ export function DetailBangunanScreen({
           {showFormKK ? (
             <FormKK
               bangunanId={bangunanId}
+              bangunan={bangunan}
               onSaved={() => { setShowFormKK(false); reload(); }}
               onCancel={() => setShowFormKK(false)}
             />

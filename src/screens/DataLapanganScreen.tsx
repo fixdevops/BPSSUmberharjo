@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useState } from "react";
 import {
     ActivityIndicator, Alert, FlatList,
-    Pressable, RefreshControl, Text, TextInput, View,
+    Platform, Pressable, RefreshControl, Text, TextInput, View
 } from "react-native";
 import { Icon } from "../components/Icon";
 import { T } from "../constants/theme";
@@ -45,22 +45,31 @@ function BangunanCard({ item, onPress, onDelete }: {
   const icon   = JENIS_ICON[item.jenis]  ?? "home";
   const hasGPS = item.lat != null;
 
-  return (
-    <Pressable
-      style={({ pressed }) => [{
-        backgroundColor: T.white, borderRadius: 14,
-        borderWidth: 1, borderColor: T.outlineVariant,
-        marginBottom: 10, overflow: "hidden",
-        opacity: pressed ? 0.9 : 1,
-      }]}
-      onPress={onPress}
-      onLongPress={() => Alert.alert(
+  function handleDelete() {
+    if (Platform.OS === "web") {
+      if ((window as any).confirm(`Hapus [${item.nomor_urut}] ${item.jenis}?\nSemua KK & foto terkait akan ikut terhapus.`)) {
+        onDelete();
+      }
+    } else {
+      Alert.alert(
         "Hapus Bangunan",
         `Hapus [${item.nomor_urut}] ${item.jenis}?\nSemua KK & foto terkait akan ikut terhapus.`,
         [{ text: "Batal", style: "cancel" }, { text: "Hapus", style: "destructive", onPress: onDelete }]
-      )}
-    >
-      <View style={{ flexDirection: "row" }}>
+      );
+    }
+  }
+
+  return (
+    <View style={{
+      backgroundColor: T.white, borderRadius: 14,
+      borderWidth: 1, borderColor: T.outlineVariant,
+      marginBottom: 10, overflow: "hidden",
+    }}>
+      {/* Area utama — tap untuk detail */}
+      <Pressable
+        style={({ pressed }) => [{ flexDirection: "row", opacity: pressed ? 0.9 : 1 }]}
+        onPress={onPress}
+      >
         {/* stripe kiri warna jenis */}
         <View style={{ width: 5, backgroundColor: color }} />
         <View style={{ flex: 1, padding: 12 }}>
@@ -86,7 +95,7 @@ function BangunanCard({ item, onPress, onDelete }: {
                       <Text style={{ fontSize: 10, color: T.primary, fontWeight: "600" }}>{item.nama_sls}</Text>
                     </View>
                   )}
-                  {item.nama_rt && (
+                  {item.nama_rt && item.nama_rt !== item.nama_sls && (
                     <View style={{ backgroundColor: T.secondaryContainer, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 5 }}>
                       <Text style={{ fontSize: 10, color: T.secondary, fontWeight: "600" }}>{item.nama_rt}</Text>
                     </View>
@@ -117,8 +126,23 @@ function BangunanCard({ item, onPress, onDelete }: {
             </Text>
           ) : null}
         </View>
+      </Pressable>
+
+      {/* Baris aksi bawah — tombol Hapus langsung terlihat */}
+      <View style={{ borderTopWidth: 1, borderTopColor: T.outlineVariant, backgroundColor: T.surfaceContainerLow }}>
+        <Pressable
+          style={({ pressed }) => [{
+            flexDirection: "row", alignItems: "center", justifyContent: "center",
+            gap: 6, paddingVertical: 8, opacity: pressed ? 0.7 : 1,
+          }]}
+          onPress={handleDelete}
+          accessibilityLabel={`Hapus bangunan ${item.nomor_urut}`}
+        >
+          <Icon name="x" size={12} color={T.error} />
+          <Text style={{ fontSize: 12, fontWeight: "600", color: T.error }}>Hapus Bangunan</Text>
+        </Pressable>
       </View>
-    </Pressable>
+    </View>
   );
 }
 
