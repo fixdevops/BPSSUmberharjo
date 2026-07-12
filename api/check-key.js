@@ -43,7 +43,7 @@ export default async function handler(req, res) {
     }
 
     // Kunci ada (entah used=true atau false), akses masih sah
-    return res.status(200).json({ valid: true, type: keyData.type || "app" });
+    return res.status(200).json({ valid: true, type: keyData.type || "lapangan" });
   } catch (err) {
     console.error("[check-key] Redis get error:", err.message);
     // Toleransi — jangan paksa logout jika server error

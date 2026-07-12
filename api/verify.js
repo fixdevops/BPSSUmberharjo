@@ -95,6 +95,6 @@ export default async function handler(req, res) {
     status:  "success",
     message: "Akses Diberikan",
     key:     trimmedKey,
-    type:    keyData.type || "app",
+    type:    keyData.type || "lapangan",
   });
 }

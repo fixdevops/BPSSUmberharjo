@@ -10,7 +10,7 @@ export const API_BASE_URL = "https://bps-sumberharjo.vercel.app";
 
 const STORAGE_KEY     = "bps_access_granted";
 const STORAGE_KEY_UUID = "bps_access_key_uuid"; // UUID kunci yang dipakai
-const STORAGE_KEY_TYPE = "bps_access_key_type"; // tipe kunci: "app" | "lapangan"
+const STORAGE_KEY_TYPE = "bps_access_key_type"; // tipe kunci: "lapangan" | "kalkulator"
 
 // ── Helper storage lintas platform ───────────────────────────────────────────
 function storageSet(key: string, value: string) {
@@ -51,18 +51,18 @@ export function revokeAccess(): void {
   storageRemove(STORAGE_KEY_TYPE);
 }
 
-/** Ambil tipe kunci yang aktif: "app" | "lapangan" | null */
-export function getKeyType(): "app" | "lapangan" | null {
+/** Ambil tipe kunci yang aktif: "lapangan" | "kalkulator" | null */
+export function getKeyType(): "lapangan" | "kalkulator" | null {
   const t = storageGet(STORAGE_KEY_TYPE);
   if (t === "lapangan") return "lapangan";
-  if (t === "app") return "app";
-  // Kunci lama (sebelum fitur type) tidak punya type → dianggap "app" saja
-  // User harus minta kunci "lapangan" baru dari admin untuk akses Data Lapangan
-  return "app";
+  if (t === "kalkulator") return "kalkulator";
+  // Kunci lama (tipe "app") → anggap kalkulator
+  if (t === "app") return "kalkulator";
+  return null;
 }
 
 /**
- * Cek apakah kunci yang aktif punya akses ke fitur Data Lapangan + Google Drive.
+ * Cek apakah kunci yang aktif punya akses ke fitur Data Lapangan.
  * Hanya kunci bertipe "lapangan" yang boleh.
  */
 export function isLapanganGranted(): boolean {
@@ -97,7 +97,7 @@ export async function verifyKey(inputKey: string): Promise<{ success: boolean; m
       const savedKey = result.key ?? key;
       storageSet(STORAGE_KEY_UUID, savedKey);
       // Simpan tipe kunci
-      const keyType = result.type ?? "app";
+      const keyType = result.type ?? "lapangan";
       storageSet(STORAGE_KEY_TYPE, keyType);
       return { success: true, message: result.message ?? "Akses Diberikan" };
     } else {
