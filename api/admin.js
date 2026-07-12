@@ -29,7 +29,7 @@ export default async function handler(req, res) {
     const { v4: uuidv4 } = await import("uuid");
     const newKey  = uuidv4();
     const note    = req.body?.note || "via-admin-web";
-    const keyType = req.body?.type || "petugas";
+    const keyType = req.body?.type || "lapangan";
     await redis.set("key:" + newKey, { key: newKey, used: false, createdAt: new Date().toISOString(), createdBy: note, type: keyType });
     await redis.lpush("keys:list", newKey);
     if (WEBHOOK_URL) {
@@ -99,7 +99,7 @@ function buildTableRows(recentKeys) {
       '<p class="font-body-md">Belum ada kunci yang diterbitkan.</p></td></tr>';
   }
   return recentKeys.map(function(k) {
-    var t = (k.type || "petugas").toLowerCase();
+    var t = (k.type || "lapangan").toLowerCase();
     var typeBadge =
       t === "lapangan"   ? '<span class="bg-primary/10 text-primary px-3 py-1 rounded-full text-[11px] font-bold uppercase">Lapangan</span>' :
       t === "kalkulator" ? '<span class="bg-secondary/10 text-secondary px-3 py-1 rounded-full text-[11px] font-bold uppercase">Kalkulator</span>' :
@@ -173,18 +173,25 @@ function buildHtml(totalKeys, activeKeys, usedKeys, lapanganKeys, kalkulatorKeys
   H += '#sidebar{transition:transform .25s ease}';
   H += '#sidebar-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:35}';
   H += '@media(max-width:767px){';
-  H += '  main{padding-left:16px!important;padding-right:16px!important}';
-  H += '  .stat-val{font-size:1.5rem!important}';
-  H += '  .table-col-key{display:none}';
-  H += '  .table-col-by{display:none}';
-  H += '  .toast-wrap{right:12px!important;bottom:12px!important;min-width:240px}';
+  H += '  main{padding-left:16px!important;padding-right:16px!important;padding-top:72px!important}';
+  H += '  header{padding-left:12px!important;padding-right:12px!important}';
+  H += '  header h1{font-size:1rem!important;line-height:1.4!important}';
+  H += '  .stat-val{font-size:1.4rem!important}';
+  H += '  .table-col-key{display:none!important}';
+  H += '  .toast-wrap{right:12px!important;bottom:12px!important;left:12px!important;min-width:unset!important}';
+  H += '  select,input[type=text]{font-size:16px!important}';
+  H += '  .form-section{position:static!important}';
+  H += '}';
+  H += '@media(max-width:480px){';
+  H += '  .page-title{font-size:1.5rem!important}';
+  H += '  .grid-cols-2{grid-template-columns:repeat(2,minmax(0,1fr))!important}';
   H += '}';
   H += '</style>';
   H += '</head>';
   H += '<body class="font-sans text-on-surface antialiased">';
 
   // HEADER
-  H += '<header class="fixed top-0 left-0 w-full h-16 flex justify-between items-center px-margin-desktop z-50 bg-surface border-b border-outline-variant">';
+  H += '<header class="fixed top-0 left-0 w-full h-16 flex justify-between items-center px-4 md:px-margin-desktop z-50 bg-surface border-b border-outline-variant">';
   H += '<div class="flex items-center gap-4">';
   H += '<button class="md:hidden p-2 rounded-lg hover:bg-surface-container transition-colors" onclick="toggleSidebar()">';
   H += '<span class="material-symbols-outlined text-on-surface-variant">menu</span>';
@@ -241,7 +248,7 @@ function buildHtml(totalKeys, activeKeys, usedKeys, lapanganKeys, kalkulatorKeys
   H += '</aside>';
 
   // MAIN
-  H += '<main class="md:ml-[260px] pt-24 px-margin-desktop pb-12 min-h-screen">';
+  H += '<main class="md:ml-[260px] pt-20 md:pt-24 px-4 md:px-margin-desktop pb-12 min-h-screen">';
   H += '<div class="max-w-container-max-width mx-auto">';
 
   // Breadcrumb
@@ -254,7 +261,7 @@ function buildHtml(totalKeys, activeKeys, usedKeys, lapanganKeys, kalkulatorKeys
   // Page title
   H += '<div class="flex items-start justify-between mb-8 flex-wrap gap-4">';
   H += '<div>';
-  H += '<h2 class="text-3xl font-black text-on-surface mb-1">Manajemen Kunci Akses</h2>';
+  H += '<h2 class="page-title text-3xl font-black text-on-surface mb-1">Manajemen Kunci Akses</h2>';
   H += '<p class="text-on-surface-variant text-sm">Kelola otentikasi petugas lapangan untuk Sensus Ekonomi 2026.</p>';
   H += '</div>';
   H += '<div class="flex gap-3">';
@@ -307,7 +314,7 @@ function buildHtml(totalKeys, activeKeys, usedKeys, lapanganKeys, kalkulatorKeys
 
   // LEFT: Form
   H += '<div class="md:col-span-1">';
-  H += '<div class="glass-card rounded-2xl p-6">';
+  H += '<div class="form-section glass-card rounded-2xl p-6 md:sticky md:top-24">';
   H += '<h3 class="font-bold text-on-surface text-base mb-5 flex items-center gap-2">';
   H += '<span class="material-symbols-outlined text-primary text-[20px]">add_circle</span>';
   H += 'Buat Kunci Baru</h3>';
@@ -405,7 +412,7 @@ function buildHtml(totalKeys, activeKeys, usedKeys, lapanganKeys, kalkulatorKeys
   H += '</main>';
 
   // FOOTER
-  H += '<footer class="w-full py-6 px-margin-desktop flex flex-col md:flex-row justify-between items-center bg-surface-container-lowest md:ml-[260px] md:max-w-[calc(100%-260px)] border-t border-outline-variant gap-4">';
+  H += '<footer class="w-full py-6 px-4 md:px-margin-desktop flex flex-col md:flex-row justify-between items-center bg-surface-container-lowest md:ml-[260px] md:max-w-[calc(100%-260px)] border-t border-outline-variant gap-4">';
   H += '<p class="text-xs text-on-surface-variant">&copy; 2024 Badan Pusat Statistik &mdash; SE2026 Sumberharjo</p>';
   H += '<div class="flex items-center gap-4 text-xs text-on-surface-variant">';
   H += '<a href="#" class="hover:text-primary transition-colors">Panduan Pengguna</a>';
