@@ -119,9 +119,11 @@ export async function verifyKey(inputKey: string): Promise<{ success: boolean; m
 export async function revalidateKey(): Promise<boolean> {
   const uuid = getActiveKeyUUID();
 
-  // Jika tidak ada UUID tersimpan (pengguna lama sebelum fitur ini),
-  // beri akses supaya tidak mengganggu pengguna yang sudah ada.
-  if (!uuid) return true;
+  // Jika tidak ada UUID tersimpan → paksa logout, user harus input kunci baru
+  if (!uuid) {
+    revokeAccess();
+    return false;
+  }
 
   try {
     const response = await fetch(`${API_BASE_URL}/api/check-key`, {
