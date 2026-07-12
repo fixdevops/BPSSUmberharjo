@@ -1,4 +1,3 @@
-// api/admin.js — BPS SE2026 Admin Panel (Material Design 3)
 import { Redis } from "@upstash/redis";
 
 const ADMIN_SECRET = process.env.ADMIN_SECRET || "";
@@ -6,6 +5,7 @@ const WEBHOOK_URL  = process.env.WEBHOOK_URL  || "";
 
 export default async function handler(req, res) {
   const { secret, action } = req.query;
+
   if (!ADMIN_SECRET || secret !== ADMIN_SECRET) {
     return res.status(401).send(
       "<!DOCTYPE html><html><head><meta charset='utf-8'/><title>Unauthorized</title>" +
@@ -70,7 +70,7 @@ export default async function handler(req, res) {
     return res.status(200).json({ success: true, message: "Kunci berhasil dihapus." });
   }
 
-  // GET: Render HTML admin panel
+  // GET: render HTML
   let recentKeys = [];
   try {
     const keyIds = await redis.lrange("keys:list", 0, 49);
@@ -85,484 +85,474 @@ export default async function handler(req, res) {
   const usedKeys     = recentKeys.filter(k => k.used).length;
   const lapanganKeys = recentKeys.filter(k => k.type === "lapangan").length;
 
-  // Build table rows
-  var tableRows = recentKeys.map(function(k) {
-    var typeBadge;
-    if (k.type === "petugas") {
-      typeBadge = '<span class="bg-primary/10 text-primary px-3 py-1 rounded-full text-[11px] font-bold uppercase">Petugas</span>';
-    } else if (k.type === "pengawas") {
-      typeBadge = '<span class="bg-secondary/10 text-secondary px-3 py-1 rounded-full text-[11px] font-bold uppercase">Pengawas</span>';
-    } else {
-      typeBadge = '<span class="bg-inverse-surface text-inverse-on-surface px-3 py-1 rounded-full text-[11px] font-bold uppercase">Admin</span>';
-    }
-    var safeKey  = k.key.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
-    var shortKey = k.key.length > 20 ? k.key.substring(0, 8) + "..." + k.key.slice(-6) : k.key;
-    var createdAt = k.createdAt ? new Date(k.createdAt).toLocaleDateString("id-ID") : "-";
-    var createdBy = (k.createdBy || "-").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const tableRows = buildTableRows(recentKeys);
+
+  res.setHeader("Content-Type", "text/html");
+  return res.status(200).send(buildHtml(totalKeys, activeKeys, usedKeys, lapanganKeys, tableRows, secret));
+}
+
+function buildTableRows(recentKeys) {
+  if (!recentKeys || recentKeys.length === 0) {
+    return '<tr><td colspan="4" class="px-8 py-16 text-center text-on-surface-variant">' +
+      '<span class="material-symbols-outlined" style="font-size:48px;display:block;margin:0 auto 12px;opacity:.25">vpn_key_off</span>' +
+      '<p class="font-body-md">Belum ada kunci yang diterbitkan.</p></td></tr>';
+  }
+  return recentKeys.map(function(k) {
+    var t = (k.type || "petugas").toLowerCase();
+    var typeBadge =
+      t === "petugas"  ? '<span class="bg-primary/10 text-primary px-3 py-1 rounded-full text-[11px] font-bold uppercase">Petugas</span>' :
+      t === "pengawas" ? '<span class="bg-secondary/10 text-secondary px-3 py-1 rounded-full text-[11px] font-bold uppercase">Pengawas</span>' :
+      t === "lapangan" ? '<span class="bg-secondary/10 text-secondary px-3 py-1 rounded-full text-[11px] font-bold uppercase">Lapangan</span>' :
+                         '<span class="bg-inverse-surface text-inverse-on-surface px-3 py-1 rounded-full text-[11px] font-bold uppercase">Admin</span>';
+    var safe  = k.key.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
+    var short = k.key.length > 20 ? k.key.substring(0, 8) + "..." + k.key.slice(-6) : k.key;
+    var dt    = k.createdAt ? new Date(k.createdAt).toLocaleDateString("id-ID") : "-";
+    var by    = (k.createdBy || "-").replace(/</g, "&lt;").replace(/>/g, "&gt;");
     return (
       '<tr class="group hover:bg-surface-container-low transition-colors" id="row-' + k.key + '">' +
-        '<td class="px-8 py-5">' +
-          '<p class="font-bold text-on-surface">' + createdBy + '</p>' +
-          '<p class="text-xs text-on-surface-variant">' + createdAt + '</p>' +
-        '</td>' +
-        '<td class="px-6 py-5">' + typeBadge + '</td>' +
-        '<td class="px-6 py-5">' +
-          '<div class="flex items-center gap-2">' +
-            '<code class="text-on-surface-variant text-sm">' + shortKey + '</code>' +
-            '<button class="opacity-0 group-hover:opacity-100 p-1 hover:bg-primary/10 rounded transition-all" onclick="copyKey(\'' + safeKey + '\')">' +
-              '<span class="material-symbols-outlined text-[16px] text-primary">content_copy</span>' +
-            '</button>' +
-          '</div>' +
-        '</td>' +
-        '<td class="px-6 py-5 text-right">' +
-          '<button class="p-2 text-on-surface-variant hover:text-error hover:bg-error-container/20 rounded-lg transition-all" onclick="askDelete(\'' + safeKey + '\', this)">' +
-            '<span class="material-symbols-outlined">delete</span>' +
-          '</button>' +
-        '</td>' +
-      '</tr>'
+      '<td class="px-8 py-5"><p class="font-body-md font-bold text-on-surface">' + by + '</p>' +
+      '<p class="text-xs text-on-surface-variant">' + dt + '</p></td>' +
+      '<td class="px-6 py-5">' + typeBadge + '</td>' +
+      '<td class="px-6 py-5"><div class="flex items-center gap-2">' +
+      '<code class="font-code-md text-on-surface-variant text-sm">' + short + '</code>' +
+      '<button class="opacity-0 group-hover:opacity-100 p-1 hover:bg-primary/10 rounded transition-all" onclick="copyKey(\'' + safe + '\')">' +
+      '<span class="material-symbols-outlined text-[16px] text-primary">content_copy</span></button></div></td>' +
+      '<td class="px-6 py-5 text-right">' +
+      '<button class="p-2 text-on-surface-variant hover:text-error hover:bg-error-container/20 rounded-lg transition-all" onclick="askDelete(\'' + safe + '\', this)">' +
+      '<span class="material-symbols-outlined">delete</span></button></td></tr>'
     );
   }).join("");
+}
 
-  if (!tableRows) {
-    tableRows = '<tr><td colspan="4" class="px-8 py-16 text-center text-on-surface-variant">' +
-      '<span class="material-symbols-outlined" style="font-size:48px;display:block;margin:0 auto 12px;opacity:.3">vpn_key_off</span>' +
-      '<p>Belum ada kunci yang diterbitkan.</p></td></tr>';
-  }
+function buildHtml(totalKeys, activeKeys, usedKeys, lapanganKeys, tableRows, secret) {
+  var H = '';
+  H += '<!DOCTYPE html>';
+  H += '<html lang="id" class="light">';
+  H += '<head>';
+  H += '<meta charset="utf-8"/>';
+  H += '<meta name="viewport" content="width=device-width, initial-scale=1.0"/>';
+  H += '<title>BPS SE2026 Admin Panel - Sumberharjo</title>';
+  H += '<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"><\/script>';
+  H += '<link rel="preconnect" href="https://fonts.googleapis.com"/>';
+  H += '<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>';
+  H += '<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet"/>';
+  H += '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200"/>';
+  H += '<script>';
+  H += 'tailwind.config={theme:{extend:{colors:{';
+  H += '"primary":"#003996","primary-container":"#004ec7","on-primary":"#ffffff","on-primary-container":"#bdccff",';
+  H += '"secondary":"#006591","on-secondary":"#ffffff","secondary-container":"#39b8fd",';
+  H += '"surface":"#f8f9ff","surface-container":"#e5eeff","surface-container-low":"#eff4ff",';
+  H += '"surface-container-lowest":"#ffffff","surface-container-high":"#dce9ff","surface-container-highest":"#d3e4fe",';
+  H += '"on-surface":"#0b1c30","on-surface-variant":"#434654",';
+  H += '"outline":"#737685","outline-variant":"#c3c6d6",';
+  H += '"error":"#ba1a1a","error-container":"#ffdad6",';
+  H += '"inverse-surface":"#213145","inverse-on-surface":"#eaf1ff","inverse-primary":"#b3c5ff",';
+  H += '"primary-fixed":"#dae1ff","primary-fixed-dim":"#b3c5ff",';
+  H += '"tertiary":"#772400","tertiary-container":"#9e3300","tertiary-fixed":"#ffdbcf","tertiary-fixed-dim":"#ffb59b",';
+  H += '"background":"#f8f9ff"';
+  H += '},spacing:{';
+  H += '"margin-desktop":"32px","sidebar-width":"260px","container-max-width":"1440px"';
+  H += '},fontFamily:{';
+  H += '"sans":["Inter","sans-serif"],"mono":["monospace"]';
+  H += '},fontSize:{';
+  H += '"body-md":["0.875rem",{lineHeight:"1.5rem"}],';
+  H += '"label-md":["0.75rem",{lineHeight:"1rem",fontWeight:"500"}],';
+  H += '"headline-md":["1.75rem",{lineHeight:"2.25rem"}],';
+  H += '"headline-lg":["2rem",{lineHeight:"2.5rem"}]';
+  H += '}}}};';
+  H += '<\/script>';
+  H += '<style>';
+  H += '.material-symbols-outlined{font-variation-settings:"FILL" 0,"wght" 400,"GRAD" 0,"opsz" 24;display:inline-block;vertical-align:middle}';
+  H += 'body{background-color:#f8f9ff}';
+  H += '.toast{transition:transform .3s cubic-bezier(.175,.885,.32,1.275),opacity .2s ease;transform:translateY(20px);opacity:0}';
+  H += '.toast.show{transform:translateY(0);opacity:1}';
+  H += '.custom-scrollbar::-webkit-scrollbar{width:6px;height:6px}';
+  H += '.custom-scrollbar::-webkit-scrollbar-track{background:transparent}';
+  H += '.custom-scrollbar::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:10px}';
+  H += '.glass-card{background:rgba(255,255,255,.8);backdrop-filter:blur(8px);border:1px solid rgba(226,232,240,.8)}';
+  H += '</style>';
+  H += '</head>';
+  H += '<body class="font-sans text-on-surface antialiased">';
 
-  // HTML Part 1: DOCTYPE + head open + meta + title + tailwind + fonts
-  var p1 = '<!DOCTYPE html>' +
-'<html class="light" lang="id"><head>' +
-'<meta charset="utf-8"/>' +
-'<meta content="width=device-width, initial-scale=1.0" name="viewport"/>' +
-'<title>BPS SE2026 Admin Panel - Sumberharjo</title>' +
-'<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"><\/script>' +
-'<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet"/>' +
-'<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>';
+  // HEADER
+  H += '<header class="fixed top-0 left-0 w-full h-16 flex justify-between items-center px-margin-desktop z-50 bg-surface border-b border-outline-variant">';
+  H += '<div class="flex items-center gap-4">';
+  H += '<button class="md:hidden p-2 rounded-lg hover:bg-surface-container transition-colors" onclick="toggleSidebar()">';
+  H += '<span class="material-symbols-outlined text-on-surface-variant">menu</span>';
+  H += '</button>';
+  H += '<h1 class="font-headline-md text-headline-md font-bold text-primary">BPS SE2026 Admin Panel</h1>';
+  H += '</div>';
+  H += '<div class="flex items-center gap-6">';
+  H += '<span class="material-symbols-outlined text-on-surface-variant" title="Server Status">dns</span>';
+  H += '<div class="relative">';
+  H += '<span class="material-symbols-outlined text-on-surface-variant">notifications</span>';
+  H += '<span class="absolute -top-1 -right-1 w-2 h-2 bg-error rounded-full"></span>';
+  H += '</div>';
+  H += '<div class="hidden md:flex items-center gap-3 pl-6 border-l border-outline-variant">';
+  H += '<span class="text-sm font-medium text-on-surface-variant">Admin Sumberharjo</span>';
+  H += '<span class="material-symbols-outlined text-primary" style="font-variation-settings:\'FILL\' 1">account_circle</span>';
+  H += '</div>';
+  H += '</div>';
+  H += '</header>';
 
-  // HTML Part 2: Tailwind config script
-  var p2 = '<script id="tailwind-config">' +
-'tailwind.config = {' +
-'  darkMode: "class",' +
-'  theme: {' +
-'    extend: {' +
-'      colors: {' +
-'        "primary-fixed-dim":"#b3c5ff","inverse-surface":"#213145","primary-container":"#004ec7",' +
-'        "surface-container-lowest":"#ffffff","secondary-fixed-dim":"#89ceff",' +
-'        "on-surface-variant":"#434654","surface-container-highest":"#d3e4fe",' +
-'        "inverse-on-surface":"#eaf1ff","on-primary-fixed":"#001849","inverse-primary":"#b3c5ff",' +
-'        "surface-container-high":"#dce9ff","tertiary-fixed":"#ffdbcf","secondary":"#006591",' +
-'        "primary-fixed":"#dae1ff","on-secondary-fixed-variant":"#004c6e",' +
-'        "tertiary-fixed-dim":"#ffb59b","on-primary-fixed-variant":"#003fa4",' +
-'        "on-primary-container":"#bdccff","on-tertiary":"#ffffff","surface-bright":"#f8f9ff",' +
-'        "on-surface":"#0b1c30","surface-container":"#e5eeff","secondary-fixed":"#c9e6ff",' +
-'        "surface-variant":"#d3e4fe","surface":"#f8f9ff","on-background":"#0b1c30",' +
-'        "surface-tint":"#1556ce","surface-container-low":"#eff4ff","on-tertiary-fixed":"#380d00",' +
-'        "on-secondary":"#ffffff","on-primary":"#ffffff","error":"#ba1a1a",' +
-'        "on-secondary-container":"#004666","primary":"#003996","tertiary-container":"#9e3300",' +
-'        "surface-dim":"#cbdbf5","on-secondary-fixed":"#001e2f","on-error":"#ffffff",' +
-'        "outline":"#737685","background":"#f8f9ff","error-container":"#ffdad6",' +
-'        "tertiary":"#772400","secondary-container":"#39b8fd","outline-variant":"#c3c6d6",' +
-'        "on-tertiary-container":"#ffbfaa","on-tertiary-fixed-variant":"#812800","on-error-container":"#93000a"' +
-'      },' +
-'      borderRadius: { DEFAULT:"0.125rem", lg:"0.25rem", xl:"0.5rem", full:"0.75rem" },' +
-'      spacing: { "margin-mobile":"16px","unit":"4px","sidebar-width":"260px","gutter":"24px","margin-desktop":"32px","container-max-width":"1440px" },' +
-'      fontFamily: { "code-md":["monospace"],"display-lg":["Inter"],"headline-md":["Inter"],"body-lg":["Inter"],"headline-lg":["Inter"],"label-md":["Inter"],"body-md":["Inter"] },' +
-'      fontSize: {' +
-'        "code-md":["14px",{"lineHeight":"20px","fontWeight":"400"}],' +
-'        "display-lg":["36px",{"lineHeight":"44px","letterSpacing":"-0.02em","fontWeight":"700"}],' +
-'        "headline-md":["20px",{"lineHeight":"28px","fontWeight":"600"}],' +
-'        "body-lg":["16px",{"lineHeight":"24px","fontWeight":"400"}],' +
-'        "headline-lg":["28px",{"lineHeight":"36px","letterSpacing":"-0.01em","fontWeight":"600"}],' +
-'        "label-md":["12px",{"lineHeight":"16px","letterSpacing":"0.05em","fontWeight":"600"}],' +
-'        "body-md":["14px",{"lineHeight":"20px","fontWeight":"400"}]' +
-'      }' +
-'    }' +
-'  }' +
-'}' +
-'<\/script>';
+  // SIDEBAR
+  H += '<aside id="sidebar" class="fixed left-0 top-0 h-full w-[260px] flex flex-col py-6 z-40 bg-surface-container border-r border-outline-variant transition-transform -translate-x-full md:translate-x-0">';
+  H += '<div class="flex items-center gap-3 px-6 mb-8 mt-2">';
+  H += '<div class="w-10 h-10 rounded-2xl bg-primary flex items-center justify-center text-on-primary font-black text-lg flex-shrink-0">S</div>';
+  H += '<div><p class="font-bold text-on-surface text-sm leading-tight">SE2026</p>';
+  H += '<p class="text-xs text-on-surface-variant leading-tight">Sumberharjo</p></div>';
+  H += '</div>';
+  H += '<nav class="flex-1 px-4 space-y-1">';
+  H += '<a href="#" class="flex items-center gap-3 px-4 py-3 rounded-2xl text-on-surface-variant hover:bg-surface-container-low transition-colors">';
+  H += '<span class="material-symbols-outlined text-[20px]">dashboard</span>';
+  H += '<span class="text-sm font-medium">Dashboard</span></a>';
+  H += '<a href="#" class="flex items-center gap-3 px-4 py-3 rounded-r-full bg-primary-container text-on-primary-container border-l-4 border-primary font-semibold">';
+  H += '<span class="material-symbols-outlined text-[20px]" style="font-variation-settings:\'FILL\' 1">vpn_key</span>';
+  H += '<span class="text-sm font-semibold">Kunci Akses</span></a>';
+  H += '<a href="#" class="flex items-center gap-3 px-4 py-3 rounded-2xl text-on-surface-variant hover:bg-surface-container-low transition-colors">';
+  H += '<span class="material-symbols-outlined text-[20px]">article</span>';
+  H += '<span class="text-sm font-medium">Laporan</span></a>';
+  H += '<a href="#" class="flex items-center gap-3 px-4 py-3 rounded-2xl text-on-surface-variant hover:bg-surface-container-low transition-colors">';
+  H += '<span class="material-symbols-outlined text-[20px]">settings</span>';
+  H += '<span class="text-sm font-medium">Pengaturan</span></a>';
+  H += '</nav>';
+  H += '<div class="mx-4 mt-4 p-4 rounded-2xl bg-surface-container-low border border-outline-variant">';
+  H += '<div class="flex items-center gap-2 mb-1">';
+  H += '<span class="w-2 h-2 rounded-full bg-green-500 animate-pulse flex-shrink-0"></span>';
+  H += '<p class="text-xs font-semibold text-on-surface">Status Server</p></div>';
+  H += '<p class="text-xs text-on-surface-variant">Redis Terhubung</p>';
+  H += '</div>';
+  H += '</aside>';
 
-  // HTML Part 3: style + body open + header
-  var p3 = '<style>' +
-'.material-symbols-outlined{font-variation-settings:\'FILL\' 0,\'wght\' 400,\'GRAD\' 0,\'opsz\' 24;display:inline-block;vertical-align:middle}' +
-'body{background-color:#f8f9ff}' +
-'.toast{transition:transform .3s cubic-bezier(.175,.885,.32,1.275),opacity .2s ease;transform:translateY(20px);opacity:0}' +
-'.toast.show{transform:translateY(0);opacity:1}' +
-'.custom-scrollbar::-webkit-scrollbar{width:6px;height:6px}' +
-'.custom-scrollbar::-webkit-scrollbar-track{background:transparent}' +
-'.custom-scrollbar::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:10px}' +
-'.glass-card{background:rgba(255,255,255,.8);backdrop-filter:blur(8px);border:1px solid rgba(226,232,240,.8)}' +
-'</style>' +
-'</head>' +
-'<body class="font-body-md text-on-surface">' +
-'<header class="fixed top-0 left-0 w-full h-16 flex justify-between items-center px-margin-desktop z-50 bg-surface border-b border-outline-variant">' +
-  '<div class="flex items-center gap-4">' +
-    '<span class="md:hidden material-symbols-outlined cursor-pointer text-on-surface-variant" onclick="toggleSidebar()">menu</span>' +
-    '<h1 class="font-headline-md text-headline-md font-bold text-primary">BPS SE2026 Admin Panel</h1>' +
-  '</div>' +
-  '<div class="flex items-center gap-6">' +
-    '<span class="material-symbols-outlined text-on-surface-variant cursor-pointer hover:bg-surface-container-low p-2 rounded-full transition-colors">dns</span>' +
-    '<div class="relative">' +
-      '<span class="material-symbols-outlined text-on-surface-variant cursor-pointer hover:bg-surface-container-low p-2 rounded-full transition-colors">notifications</span>' +
-      '<span class="absolute top-2 right-2 w-2 h-2 bg-error rounded-full"></span>' +
-    '</div>' +
-    '<div class="flex items-center gap-3 pl-4 border-l border-outline-variant">' +
-      '<div class="text-right hidden sm:block">' +
-        '<p class="font-label-md text-label-md text-on-surface font-bold leading-none">Admin Sumberharjo</p>' +
-        '<p class="font-label-md text-label-md text-on-surface-variant">Operator Wilayah</p>' +
-      '</div>' +
-      '<span class="material-symbols-outlined text-primary-container bg-surface-container-highest p-2 rounded-full" style="font-variation-settings:\'FILL\' 1;">account_circle</span>' +
-    '</div>' +
-  '</div>' +
-'</header>';
+  // MAIN
+  H += '<main class="md:ml-[260px] pt-24 px-margin-desktop pb-12 min-h-screen">';
+  H += '<div class="max-w-container-max-width mx-auto">';
 
-  // HTML Part 4: Sidebar
-  var p4 = '<aside class="fixed left-0 top-0 h-full w-[260px] flex flex-col py-6 z-40 bg-surface-container border-r border-outline-variant transition-transform -translate-x-full md:translate-x-0" id="sidebar">' +
-  '<div class="px-6 mb-10 mt-16">' +
-    '<div class="flex items-center gap-3">' +
-      '<div class="w-10 h-10 bg-primary-container rounded-lg flex items-center justify-center text-white font-black text-xl">S</div>' +
-      '<div>' +
-        '<h2 class="font-headline-md text-headline-md font-black text-on-surface">SE2026</h2>' +
-        '<p class="font-label-md text-label-md text-on-surface-variant uppercase tracking-widest">Sumberharjo</p>' +
-      '</div>' +
-    '</div>' +
-  '</div>' +
-  '<nav class="flex-1 px-4 space-y-1">' +
-    '<a class="flex items-center gap-3 px-4 py-3 rounded-r-full text-on-surface-variant hover:bg-surface-container-highest transition-colors group" href="#">' +
-      '<span class="material-symbols-outlined group-hover:text-primary">dashboard</span>' +
-      '<span class="font-label-md text-label-md">Dashboard</span>' +
-    '</a>' +
-    '<a class="flex items-center gap-3 px-4 py-3 bg-primary-container text-on-primary-container border-l-4 border-primary rounded-r-full shadow-sm" href="#">' +
-      '<span class="material-symbols-outlined" style="font-variation-settings:\'FILL\' 1;">vpn_key</span>' +
-      '<span class="font-label-md text-label-md font-bold">Kunci Akses</span>' +
-    '</a>' +
-    '<a class="flex items-center gap-3 px-4 py-3 rounded-r-full text-on-surface-variant hover:bg-surface-container-highest transition-colors group" href="#">' +
-      '<span class="material-symbols-outlined group-hover:text-primary">analytics</span>' +
-      '<span class="font-label-md text-label-md">Laporan</span>' +
-    '</a>' +
-    '<a class="flex items-center gap-3 px-4 py-3 rounded-r-full text-on-surface-variant hover:bg-surface-container-highest transition-colors group" href="#">' +
-      '<span class="material-symbols-outlined group-hover:text-primary">settings</span>' +
-      '<span class="font-label-md text-label-md">Pengaturan</span>' +
-    '</a>' +
-  '</nav>' +
-  '<div class="px-6 py-4">' +
-    '<div class="p-4 bg-primary-fixed-dim/20 rounded-xl border border-primary-fixed-dim/30">' +
-      '<p class="font-label-md text-label-md text-primary font-bold mb-1">Status Server</p>' +
-      '<div class="flex items-center gap-2">' +
-        '<span class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>' +
-        '<span style="font-size:10px" class="text-on-surface-variant">Redis Terhubung</span>' +
-      '</div>' +
-    '</div>' +
-  '</div>' +
-'</aside>';
+  // Breadcrumb
+  H += '<nav class="flex items-center gap-2 text-xs text-on-surface-variant mb-4">';
+  H += '<span>Admin</span>';
+  H += '<span class="material-symbols-outlined text-[14px]">chevron_right</span>';
+  H += '<span class="text-primary font-semibold">Kunci Akses</span>';
+  H += '</nav>';
 
-  // HTML Part 5: Main content open + breadcrumb + page header
-  var p5 = '<main class="md:ml-[260px] pt-24 px-margin-desktop pb-12 min-h-screen">' +
-  '<div class="max-w-container-max-width mx-auto">' +
-    '<div class="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-8">' +
-      '<div>' +
-        '<div class="flex items-center gap-2 text-on-surface-variant font-label-md text-label-md mb-2">' +
-          '<span>Admin</span>' +
-          '<span class="material-symbols-outlined text-[14px]">chevron_right</span>' +
-          '<span class="text-primary font-bold">Kunci Akses</span>' +
-        '</div>' +
-        '<h2 class="font-headline-lg text-headline-lg font-bold text-on-surface">Manajemen Kunci Akses</h2>' +
-        '<p class="text-on-surface-variant font-body-md">Kelola otentikasi petugas lapangan untuk Sensus Ekonomi 2026.</p>' +
-      '</div>' +
-      '<div class="flex items-center gap-3">' +
-        '<button class="flex items-center gap-2 px-4 py-2 bg-surface border border-outline-variant rounded-lg font-label-md text-label-md text-on-surface-variant hover:bg-surface-container-low transition-all" onclick="window.location.reload()">' +
-          '<span class="material-symbols-outlined text-[18px]">refresh</span>Refresh' +
-        '</button>' +
-        '<button class="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg font-label-md text-label-md hover:bg-primary-container transition-all shadow-md active:scale-95" onclick="document.getElementById(\'mintBtn\').click()">' +
-          '<span class="material-symbols-outlined text-[18px]">add</span>Kunci Baru' +
-        '</button>' +
-      '</div>' +
-    '</div>';
+  // Page title
+  H += '<div class="flex items-start justify-between mb-8 flex-wrap gap-4">';
+  H += '<div>';
+  H += '<h2 class="text-3xl font-black text-on-surface mb-1">Manajemen Kunci Akses</h2>';
+  H += '<p class="text-on-surface-variant text-sm">Kelola otentikasi petugas lapangan untuk Sensus Ekonomi 2026.</p>';
+  H += '</div>';
+  H += '<div class="flex gap-3">';
+  H += '<button onclick="location.reload()" class="flex items-center gap-2 px-4 py-2 rounded-xl border border-outline-variant text-on-surface-variant hover:bg-surface-container transition-colors text-sm font-medium">';
+  H += '<span class="material-symbols-outlined text-[18px]">refresh</span><span>Refresh</span></button>';
+  H += '<button onclick="document.getElementById(\'mintBtn\').click()" class="flex items-center gap-2 px-5 py-2 rounded-xl bg-primary text-on-primary hover:bg-primary-container transition-colors text-sm font-bold shadow-md">';
+  H += '<span class="material-symbols-outlined text-[18px]">add</span><span>Kunci Baru</span></button>';
+  H += '</div>';
+  H += '</div>';
 
-  // HTML Part 6: Stats cards with real data
-  var p6 = '<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">' +
-    '<div class="glass-card p-6 rounded-2xl shadow-sm border-t-4 border-primary">' +
-      '<div class="flex justify-between items-start mb-4">' +
-        '<div class="p-2 bg-primary-container/10 rounded-lg">' +
-          '<span class="material-symbols-outlined text-primary">key</span>' +
-        '</div>' +
-        '<span class="text-green-600 bg-green-50 px-2 py-1 rounded text-[10px] font-bold">Total</span>' +
-      '</div>' +
-      '<p class="text-on-surface-variant font-label-md text-label-md">Total Kunci</p>' +
-      '<p class="font-headline-lg text-headline-lg font-black text-on-surface">' + totalKeys + '</p>' +
-    '</div>' +
-    '<div class="glass-card p-6 rounded-2xl shadow-sm border-t-4 border-secondary">' +
-      '<div class="flex justify-between items-start mb-4">' +
-        '<div class="p-2 bg-secondary-container/10 rounded-lg">' +
-          '<span class="material-symbols-outlined text-secondary">vpn_key</span>' +
-        '</div>' +
-        '<span class="text-on-surface-variant bg-surface-container px-2 py-1 rounded text-[10px] font-bold">Aktif</span>' +
-      '</div>' +
-      '<p class="text-on-surface-variant font-label-md text-label-md">Kunci Tersedia</p>' +
-      '<p class="font-headline-lg text-headline-lg font-black text-on-surface">' + activeKeys + '</p>' +
-    '</div>' +
-    '<div class="glass-card p-6 rounded-2xl shadow-sm border-t-4 border-tertiary-container">' +
-      '<div class="flex justify-between items-start mb-4">' +
-        '<div class="p-2 bg-tertiary-container/10 rounded-lg">' +
-          '<span class="material-symbols-outlined text-tertiary-container">task_alt</span>' +
-        '</div>' +
-        '<span class="text-tertiary-container bg-tertiary-fixed px-2 py-1 rounded text-[10px] font-bold">Terpakai</span>' +
-      '</div>' +
-      '<p class="text-on-surface-variant font-label-md text-label-md">Kunci Digunakan</p>' +
-      '<p class="font-headline-lg text-headline-lg font-black text-on-surface">' + usedKeys + '</p>' +
-    '</div>' +
-    '<div class="glass-card p-6 rounded-2xl shadow-sm border-t-4 border-error">' +
-      '<div class="flex justify-between items-start mb-4">' +
-        '<div class="p-2 bg-error-container/10 rounded-lg">' +
-          '<span class="material-symbols-outlined text-error">map</span>' +
-        '</div>' +
-        '<span class="text-error bg-error-container px-2 py-1 rounded text-[10px] font-bold">Lapangan</span>' +
-      '</div>' +
-      '<p class="text-on-surface-variant font-label-md text-label-md">Kunci Lapangan</p>' +
-      '<p class="font-headline-lg text-headline-lg font-black text-on-surface">' + lapanganKeys + '</p>' +
-    '</div>' +
-  '</div>';
+  // Stats cards
+  H += '<div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">';
 
-  // HTML Part 7: Content grid open + Form (left column)
-  var p7 = '<div class="grid grid-cols-1 lg:grid-cols-3 gap-8">' +
-    '<div class="lg:col-span-1 space-y-6">' +
-      '<section class="bg-white p-8 rounded-3xl shadow-sm border border-outline-variant sticky top-24">' +
-        '<h3 class="font-headline-md text-headline-md font-bold mb-6 flex items-center gap-2 text-on-surface">' +
-          '<span class="material-symbols-outlined text-primary">add_circle</span>' +
-          'Buat Kunci Baru' +
-        '</h3>' +
-        '<div class="space-y-5">' +
-          '<div>' +
-            '<label class="block font-label-md text-label-md text-on-surface-variant mb-2">Nama / Catatan Petugas</label>' +
-            '<input class="w-full px-4 py-3 rounded-xl border border-outline-variant focus:border-primary focus:ring-4 focus:ring-primary/10 outline-none transition-all font-body-md" id="noteIn" placeholder="Contoh: Budi Santoso - SLS 001" type="text"/>' +
-          '</div>' +
-          '<div>' +
-            '<label class="block font-label-md text-label-md text-on-surface-variant mb-2">Tipe Otoritas</label>' +
-            '<select class="w-full px-4 py-3 rounded-xl border border-outline-variant focus:border-primary focus:ring-4 focus:ring-primary/10 outline-none transition-all font-body-md" id="typeIn">' +
-              '<option value="petugas">Petugas Lapangan (PCL)</option>' +
-              '<option value="pengawas">Pengawas (PML)</option>' +
-              '<option value="admin">Administrator Wilayah</option>' +
-            '</select>' +
-          '</div>' +
-          '<button class="w-full py-4 bg-primary text-white font-bold rounded-xl shadow-lg shadow-primary/20 hover:bg-primary-container active:scale-[0.98] transition-all flex items-center justify-center gap-2 group" id="mintBtn" onclick="mint()">' +
-            '<span>Generate Kunci Akses</span>' +
-            '<span class="material-symbols-outlined transition-transform group-hover:translate-x-1">arrow_forward</span>' +
-          '</button>' +
-          '<div class="hidden" id="res">' +
-            '<div class="mt-4 p-4 rounded-2xl bg-surface-container border-2 border-dashed border-primary/30 flex flex-col gap-3">' +
-              '<div class="flex justify-between items-center">' +
-                '<span class="px-2 py-1 rounded text-[10px] font-black uppercase tracking-wider text-white bg-primary" id="resBadge">PETUGAS</span>' +
-                '<span class="text-[10px] text-on-surface-variant">BARU DIBUAT</span>' +
-              '</div>' +
-              '<div class="flex items-center gap-2 bg-white p-3 rounded-lg border border-outline-variant">' +
-                '<code class="flex-1 font-code-md text-primary font-bold overflow-hidden truncate" id="resKey">-</code>' +
-                '<button class="p-2 hover:bg-surface-container rounded-md text-primary transition-colors" onclick="copyKey(document.getElementById(\'resKey\').innerText)">' +
-                  '<span class="material-symbols-outlined">content_copy</span>' +
-                '</button>' +
-              '</div>' +
-              '<p class="text-[11px] text-on-surface-variant italic leading-tight">Simpan kunci ini. Kunci hanya ditampilkan sekali untuk alasan keamanan.</p>' +
-            '</div>' +
-          '</div>' +
-        '</div>' +
-      '</section>' +
-    '</div>';
+  H += '<div class="glass-card rounded-2xl p-5 border-t-4 border-primary">';
+  H += '<div class="flex items-center justify-between mb-3">';
+  H += '<span class="material-symbols-outlined text-primary" style="font-size:28px">key</span>';
+  H += '<span class="text-3xl font-black text-primary">' + totalKeys + '</span>';
+  H += '</div>';
+  H += '<p class="text-sm font-medium text-on-surface-variant">Total Kunci</p>';
+  H += '</div>';
 
-  // HTML Part 8: Right column - table
-  var p8 = '<div class="lg:col-span-2 space-y-6">' +
-    '<section class="bg-white rounded-3xl shadow-sm border border-outline-variant overflow-hidden">' +
-      '<div class="p-6 md:p-8 border-b border-outline-variant flex flex-col md:flex-row md:items-center justify-between gap-4">' +
-        '<h3 class="font-headline-md text-headline-md font-bold text-on-surface">Daftar Kunci Aktif</h3>' +
-        '<div class="flex flex-wrap gap-2">' +
-          '<button class="filter-chip px-4 py-1.5 rounded-full border border-primary bg-primary-container/10 text-primary text-label-md font-bold transition-all" onclick="filterKeys(\'all\', this)">Semua</button>' +
-          '<button class="filter-chip px-4 py-1.5 rounded-full border border-outline-variant text-on-surface-variant text-label-md font-bold hover:bg-surface-container transition-all" onclick="filterKeys(\'petugas\', this)">Petugas</button>' +
-          '<button class="filter-chip px-4 py-1.5 rounded-full border border-outline-variant text-on-surface-variant text-label-md font-bold hover:bg-surface-container transition-all" onclick="filterKeys(\'pengawas\', this)">Pengawas</button>' +
-          '<button class="filter-chip px-4 py-1.5 rounded-full border border-outline-variant text-on-surface-variant text-label-md font-bold hover:bg-surface-container transition-all" onclick="filterKeys(\'admin\', this)">Admin</button>' +
-        '</div>' +
-      '</div>' +
-      '<div class="overflow-x-auto custom-scrollbar">' +
-        '<table class="w-full text-left border-collapse">' +
-          '<thead class="bg-surface-container-low border-b border-outline-variant">' +
-            '<tr>' +
-              '<th class="px-8 py-4 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider">Identitas / Catatan</th>' +
-              '<th class="px-6 py-4 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider">Tipe</th>' +
-              '<th class="px-6 py-4 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider">Kunci Akses</th>' +
-              '<th class="px-6 py-4 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider text-right">Aksi</th>' +
-            '</tr>' +
-          '</thead>' +
-          '<tbody class="divide-y divide-outline-variant" id="keyList">' +
-            tableRows +
-          '</tbody>' +
-        '</table>' +
-      '</div>' +
-      '<div class="p-6 bg-surface-container-low border-t border-outline-variant flex justify-between items-center">' +
-        '<span class="text-xs text-on-surface-variant">Menampilkan ' + totalKeys + ' dari ' + totalKeys + ' kunci akses</span>' +
-        '<button onclick="window.location.reload()" class="text-xs text-primary font-bold hover:underline flex items-center gap-1">' +
-          '<span class="material-symbols-outlined text-[14px]">refresh</span>Muat ulang' +
-        '</button>' +
-      '</div>' +
-    '</section>' +
-  '</div>' +
-  '</div>' + // end grid
-  '</div>' + // end max-w
-  '</main>';
+  H += '<div class="glass-card rounded-2xl p-5 border-t-4 border-secondary">';
+  H += '<div class="flex items-center justify-between mb-3">';
+  H += '<span class="material-symbols-outlined text-secondary" style="font-size:28px">person</span>';
+  H += '<span class="text-3xl font-black text-secondary">' + activeKeys + '</span>';
+  H += '</div>';
+  H += '<p class="text-sm font-medium text-on-surface-variant">Kunci Tersedia</p>';
+  H += '</div>';
 
-  // HTML Part 9: Footer + Delete modal + Toast notifications
-  var p9 = '<footer class="w-full py-6 px-margin-desktop flex flex-col md:flex-row justify-between items-center bg-surface-container-lowest md:ml-[260px] md:max-w-[calc(100%-260px)] border-t border-outline-variant gap-4">' +
-  '<p class="font-label-md text-label-md font-bold text-on-surface-variant text-center md:text-left">&#169; 2024 Badan Pusat Statistik - SE2026 Sumberharjo</p>' +
-  '<div class="flex gap-6">' +
-    '<a class="text-on-surface-variant hover:text-primary font-label-md text-label-md transition-colors" href="#">Panduan Pengguna</a>' +
-    '<a class="text-on-surface-variant hover:text-primary font-label-md text-label-md transition-colors" href="#">Kebijakan Privasi</a>' +
-    '<a class="text-on-surface-variant hover:text-primary font-label-md text-label-md transition-colors" href="#">Hubungi IT</a>' +
-  '</div>' +
-'</footer>' +
-'<div class="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center hidden opacity-0 transition-opacity duration-300" id="overlay">' +
-  '<div class="bg-white rounded-3xl p-8 max-w-md w-[90%] shadow-2xl scale-95 transition-transform duration-300">' +
-    '<div class="w-16 h-16 bg-error/10 rounded-full flex items-center justify-center text-error mb-6 mx-auto">' +
-      '<span class="material-symbols-outlined text-4xl">warning</span>' +
-    '</div>' +
-    '<h3 class="font-headline-md text-headline-md font-bold text-on-surface text-center mb-2">Hapus Kunci Akses?</h3>' +
-    '<p class="text-center text-on-surface-variant mb-8">Tindakan ini tidak dapat dibatalkan. Petugas yang menggunakan kunci ini akan langsung kehilangan akses ke aplikasi SE2026.</p>' +
-    '<div class="grid grid-cols-2 gap-4">' +
-      '<button class="py-3 px-4 rounded-xl border border-outline-variant font-bold text-on-surface-variant hover:bg-surface-container transition-all" onclick="closeModal()">Batal</button>' +
-      '<button class="py-3 px-4 rounded-xl bg-error text-white font-bold hover:bg-error/90 shadow-lg shadow-error/20 transition-all" id="confirmDeleteBtn">Ya, Hapus</button>' +
-    '</div>' +
-  '</div>' +
-'</div>' +
-'<div class="fixed bottom-8 right-8 z-[110] flex flex-col gap-3">' +
-  '<div class="toast flex items-center gap-3 bg-white border-l-4 border-green-500 p-4 rounded-lg shadow-xl min-w-[300px]" id="t-ok">' +
-    '<span class="material-symbols-outlined text-green-500">check_circle</span>' +
-    '<div class="flex-1"><p class="font-bold text-on-surface text-sm">Berhasil</p>' +
-    '<p class="text-on-surface-variant text-xs" id="t-ok-msg">Aksi berhasil dilakukan.</p></div>' +
-  '</div>' +
-  '<div class="toast flex items-center gap-3 bg-white border-l-4 border-error p-4 rounded-lg shadow-xl min-w-[300px]" id="t-err">' +
-    '<span class="material-symbols-outlined text-error">error</span>' +
-    '<div class="flex-1"><p class="font-bold text-on-surface text-sm">Gagal</p>' +
-    '<p class="text-on-surface-variant text-xs" id="t-err-msg">Terjadi kesalahan pada sistem.</p></div>' +
-  '</div>' +
-  '<div class="toast flex items-center gap-3 bg-white border-l-4 border-primary p-4 rounded-lg shadow-xl min-w-[300px]" id="t-info">' +
-    '<span class="material-symbols-outlined text-primary">info</span>' +
-    '<div class="flex-1"><p class="font-bold text-on-surface text-sm">Informasi</p>' +
-    '<p class="text-on-surface-variant text-xs" id="t-info-msg">Catatan sistem diperbarui.</p></div>' +
-  '</div>' +
-'</div>';
+  H += '<div class="glass-card rounded-2xl p-5 border-t-4 border-tertiary-container">';
+  H += '<div class="flex items-center justify-between mb-3">';
+  H += '<span class="material-symbols-outlined text-tertiary" style="font-size:28px">task_alt</span>';
+  H += '<span class="text-3xl font-black text-tertiary">' + usedKeys + '</span>';
+  H += '</div>';
+  H += '<p class="text-sm font-medium text-on-surface-variant">Kunci Terpakai</p>';
+  H += '</div>';
 
-  // HTML Part 10: JavaScript logic (inside script tag, all as string concat)
-  var p10 = '<script>' +
-'var SECRET = new URLSearchParams(window.location.search).get("secret") || "";' +
-'var currentDeleteKey = "", currentDeleteBtn = null;' +
+  H += '<div class="glass-card rounded-2xl p-5 border-t-4 border-error">';
+  H += '<div class="flex items-center justify-between mb-3">';
+  H += '<span class="material-symbols-outlined text-error" style="font-size:28px">warning</span>';
+  H += '<span class="text-3xl font-black text-error">' + lapanganKeys + '</span>';
+  H += '</div>';
+  H += '<p class="text-sm font-medium text-on-surface-variant">Kunci Lapangan</p>';
+  H += '</div>';
 
-'function toggleSidebar() {' +
-  'document.getElementById("sidebar").classList.toggle("-translate-x-full");' +
-'}' +
+  H += '</div>';
 
-'async function mint() {' +
-  'var note = document.getElementById("noteIn").value.trim();' +
-  'var type = document.getElementById("typeIn").value;' +
-  'var btn = document.getElementById("mintBtn");' +
-  'if (!note) { showToast("err", "Mohon isi nama atau catatan petugas."); return; }' +
-  'btn.disabled = true;' +
-  'btn.innerHTML = "<span class=\\"material-symbols-outlined\\">sync</span> Memproses...";' +
-  'try {' +
-    'var r = await fetch("/api/admin?secret=" + encodeURIComponent(SECRET) + "&action=mint",' +
-      '{ method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ note: note, type: type }) });' +
-    'var d = await r.json();' +
-    'if (d.success) {' +
-      'document.getElementById("resKey").innerText = d.key;' +
-      'var badge = document.getElementById("resBadge");' +
-      'badge.innerText = type.toUpperCase();' +
-      'badge.className = "px-2 py-1 rounded text-[10px] font-black uppercase tracking-wider text-white " +' +
-        '(type === "petugas" ? "bg-primary" : type === "pengawas" ? "bg-secondary" : "bg-inverse-surface");' +
-      'document.getElementById("res").classList.remove("hidden");' +
-      'document.getElementById("noteIn").value = "";' +
-      'var list = document.getElementById("keyList");' +
-      'var emptyTd = list.querySelector("td[colspan]"); if (emptyTd) emptyTd.closest("tr").remove();' +
-      'var sk = d.key.length > 20 ? d.key.substring(0,8) + "..." + d.key.slice(-6) : d.key;' +
-      'var safe = d.key.replace(/\\\\\\\\/g, "\\\\\\\\").replace(/\'/g, "\\\\\'");' +
-      'var tb = type === "petugas"' +
-        '? "<span class=\\"bg-primary/10 text-primary px-3 py-1 rounded-full text-[11px] font-bold uppercase\\">Petugas</span>"' +
-        ': type === "pengawas"' +
-        '? "<span class=\\"bg-secondary/10 text-secondary px-3 py-1 rounded-full text-[11px] font-bold uppercase\\">Pengawas</span>"' +
-        ': "<span class=\\"bg-inverse-surface text-inverse-on-surface px-3 py-1 rounded-full text-[11px] font-bold uppercase\\">Admin</span>";' +
-      'var row = document.createElement("tr");' +
-      'row.id = "row-" + d.key;' +
-      'row.className = "group hover:bg-surface-container-low transition-colors";' +
-      'row.innerHTML =' +
-        '"<td class=\\"px-8 py-5\\"><p class=\\"font-bold text-on-surface\\">" + note + "</p><p class=\\"text-xs text-on-surface-variant\\">Baru dibuat</p></td>"' +
-        '+ "<td class=\\"px-6 py-5\\">" + tb + "</td>"' +
-        '+ "<td class=\\"px-6 py-5\\"><div class=\\"flex items-center gap-2\\"><code class=\\"text-on-surface-variant text-sm\\">" + sk + "</code>"' +
-        '+ "<button class=\\"opacity-0 group-hover:opacity-100 p-1 hover:bg-primary/10 rounded transition-all\\" onclick=\\"copyKey(\'" + safe + "\')\\">"' +
-        '+ "<span class=\\"material-symbols-outlined text-[16px] text-primary\\">content_copy</span></button></div></td>"' +
-        '+ "<td class=\\"px-6 py-5 text-right\\"><button class=\\"p-2 text-on-surface-variant hover:text-error hover:bg-error-container/20 rounded-lg transition-all\\" onclick=\\"askDelete(\'" + safe + "\', this)\\">"' +
-        '+ "<span class=\\"material-symbols-outlined\\">delete</span></button></td>";' +
-      'list.insertBefore(row, list.firstChild);' +
-      'showToast("ok", "Kunci akses baru berhasil dibuat.");' +
-    '} else { showToast("err", d.message || "Gagal."); }' +
-  '} catch(e) { showToast("err", "Error: " + e.message); }' +
-  'btn.disabled = false;' +
-  'btn.innerHTML = "<span>Generate Kunci Akses</span><span class=\\"material-symbols-outlined\\">arrow_forward</span>";' +
-'}' +
+  // Content grid: form + table
+  H += '<div class="grid grid-cols-1 md:grid-cols-3 gap-6">';
 
-'function copyKey(k) { navigator.clipboard.writeText(k).then(function() { showToast("info", "Kunci disalin ke papan klip."); }); }' +
+  // LEFT: Form
+  H += '<div class="md:col-span-1">';
+  H += '<div class="glass-card rounded-2xl p-6">';
+  H += '<h3 class="font-bold text-on-surface text-base mb-5 flex items-center gap-2">';
+  H += '<span class="material-symbols-outlined text-primary text-[20px]">add_circle</span>';
+  H += 'Buat Kunci Baru</h3>';
 
-'function askDelete(key, btn) {' +
-  'currentDeleteKey = key; currentDeleteBtn = btn;' +
-  'var ov = document.getElementById("overlay");' +
-  'ov.classList.remove("hidden");' +
-  'setTimeout(function() { ov.classList.add("opacity-100"); ov.querySelector("div").classList.remove("scale-95"); }, 10);' +
-  'document.getElementById("confirmDeleteBtn").onclick = doDelete;' +
-'}' +
+  H += '<div class="space-y-4">';
+  H += '<div>';
+  H += '<label class="block text-xs font-semibold text-on-surface-variant mb-1.5 uppercase tracking-wide">Nama / Catatan Petugas</label>';
+  H += '<input id="noteIn" type="text" placeholder="cth: Ahmad Fauzi - PCL-01"';
+  H += ' class="w-full px-4 py-2.5 rounded-xl border border-outline-variant bg-surface text-on-surface text-sm';
+  H += ' focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all" />';
+  H += '</div>';
 
-'function closeModal() {' +
-  'var ov = document.getElementById("overlay");' +
-  'ov.classList.remove("opacity-100");' +
-  'ov.querySelector("div").classList.add("scale-95");' +
-  'setTimeout(function() { ov.classList.add("hidden"); }, 300);' +
-'}' +
+  H += '<div>';
+  H += '<label class="block text-xs font-semibold text-on-surface-variant mb-1.5 uppercase tracking-wide">Tipe Kunci</label>';
+  H += '<select id="typeIn" class="w-full px-4 py-2.5 rounded-xl border border-outline-variant bg-surface text-on-surface text-sm';
+  H += ' focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all">';
+  H += '<option value="petugas">Petugas Lapangan (PCL)</option>';
+  H += '<option value="pengawas">Pengawas (PML)</option>';
+  H += '<option value="admin">Administrator Wilayah</option>';
+  H += '</select>';
+  H += '</div>';
 
-'async function doDelete() {' +
-  'var key = currentDeleteKey;' +
-  'closeModal();' +
-  'try {' +
-    'var r = await fetch("/api/admin?secret=" + encodeURIComponent(SECRET) + "&action=delete",' +
-      '{ method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ key: key }) });' +
-    'var d = await r.json();' +
-    'if (d.success) {' +
-      'var row = document.getElementById("row-" + key);' +
-      'if (row) { row.style.opacity = "0.3"; setTimeout(function() { row.remove(); }, 300); }' +
-      'showToast("ok", "Kunci akses berhasil dihapus.");' +
-    '} else { showToast("err", d.message || "Gagal menghapus."); }' +
-  '} catch(e) { showToast("err", "Error: " + e.message); }' +
-'}' +
+  H += '<button id="mintBtn" onclick="mint()"';
+  H += ' class="w-full flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-primary text-on-primary';
+  H += ' hover:bg-primary-container transition-colors font-bold text-sm shadow-md">';
+  H += '<span>Generate Kunci Akses</span>';
+  H += '<span class="material-symbols-outlined">arrow_forward</span>';
+  H += '</button>';
+  H += '</div>';
 
-'function filterKeys(type, el) {' +
-  'document.querySelectorAll(".filter-chip").forEach(function(c) {' +
-    'c.classList.remove("border-primary", "bg-primary-container/10", "text-primary");' +
-    'c.classList.add("border-outline-variant", "text-on-surface-variant");' +
-  '});' +
-  'el.classList.add("border-primary", "bg-primary-container/10", "text-primary");' +
-  'el.classList.remove("border-outline-variant", "text-on-surface-variant");' +
-  'document.querySelectorAll("#keyList tr").forEach(function(row) {' +
-    'var cell = row.querySelector("td:nth-child(2) span");' +
-    'if (!cell) return;' +
-    'row.style.display = (type === "all" || cell.innerText.toLowerCase().trim() === type) ? "" : "none";' +
-  '});' +
-'}' +
+  // Result area
+  H += '<div id="res" class="hidden mt-5 p-4 rounded-xl bg-green-50 border border-green-200">';
+  H += '<div class="flex items-center gap-2 mb-2">';
+  H += '<span id="resBadge" class="px-2 py-1 rounded text-[10px] font-black uppercase tracking-wider text-white bg-primary">PETUGAS</span>';
+  H += '<span class="text-xs font-semibold text-green-700">Kunci Berhasil Dibuat</span>';
+  H += '</div>';
+  H += '<div class="flex items-center gap-2 mb-2">';
+  H += '<code id="resKey" class="text-xs text-on-surface break-all flex-1 font-mono bg-white rounded px-2 py-1 border border-green-200"></code>';
+  H += '<button onclick="copyKey(document.getElementById(\'resKey\').innerText)"';
+  H += ' class="flex-shrink-0 p-1.5 rounded-lg hover:bg-green-100 transition-colors">';
+  H += '<span class="material-symbols-outlined text-[16px] text-primary">content_copy</span></button>';
+  H += '</div>';
+  H += '<p class="text-[11px] text-amber-700 bg-amber-50 rounded px-2 py-1 flex items-center gap-1">';
+  H += '<span class="material-symbols-outlined text-[14px]">warning</span>';
+  H += 'Salin dan simpan kunci ini. Tidak akan ditampilkan ulang.</p>';
+  H += '</div>';
 
-'function showToast(type, msg) {' +
-  'var el = document.getElementById("t-" + type);' +
-  'document.getElementById("t-" + type + "-msg").innerText = msg;' +
-  'el.classList.add("show");' +
-  'setTimeout(function() { el.classList.remove("show"); }, 3000);' +
-'}' +
+  H += '</div>';
+  H += '</div>';
 
-'window.addEventListener("resize", function() {' +
-  'var sb = document.getElementById("sidebar");' +
-  'if (window.innerWidth >= 768) sb.classList.remove("-translate-x-full");' +
-  'else sb.classList.add("-translate-x-full");' +
-'});' +
-'<\/script>' +
-'</body></html>';
+  // RIGHT: Table
+  H += '<div class="md:col-span-2">';
+  H += '<div class="glass-card rounded-2xl overflow-hidden">';
 
-  var html = p1 + p2 + p3 + p4 + p5 + p6 + p7 + p8 + p9 + p10;
-  res.setHeader("Content-Type", "text/html");
-  return res.status(200).send(html);
+  // Table header + filter chips
+  H += '<div class="px-6 py-4 border-b border-outline-variant flex items-center justify-between flex-wrap gap-3">';
+  H += '<h3 class="font-bold text-on-surface text-base flex items-center gap-2">';
+  H += '<span class="material-symbols-outlined text-primary text-[20px]">list</span>';
+  H += 'Daftar Kunci Terdaftar</h3>';
+  H += '<div class="flex gap-2 flex-wrap">';
+  H += '<button class="filter-chip px-3 py-1 rounded-full text-xs font-semibold border transition-colors border-primary bg-primary-container/10 text-primary" onclick="filterKeys(\'all\', this)">Semua</button>';
+  H += '<button class="filter-chip px-3 py-1 rounded-full text-xs font-semibold border transition-colors border-outline-variant text-on-surface-variant" onclick="filterKeys(\'petugas\', this)">Petugas</button>';
+  H += '<button class="filter-chip px-3 py-1 rounded-full text-xs font-semibold border transition-colors border-outline-variant text-on-surface-variant" onclick="filterKeys(\'pengawas\', this)">Pengawas</button>';
+  H += '<button class="filter-chip px-3 py-1 rounded-full text-xs font-semibold border transition-colors border-outline-variant text-on-surface-variant" onclick="filterKeys(\'admin\', this)">Admin</button>';
+  H += '</div>';
+  H += '</div>';
+
+  // Table
+  H += '<div class="overflow-x-auto custom-scrollbar">';
+  H += '<table class="w-full">';
+  H += '<thead class="bg-surface-container-low">';
+  H += '<tr>';
+  H += '<th class="px-8 py-3 text-left text-xs font-bold text-on-surface-variant uppercase tracking-wider">Identitas / Catatan</th>';
+  H += '<th class="px-6 py-3 text-left text-xs font-bold text-on-surface-variant uppercase tracking-wider">Tipe</th>';
+  H += '<th class="px-6 py-3 text-left text-xs font-bold text-on-surface-variant uppercase tracking-wider">Kunci Akses</th>';
+  H += '<th class="px-6 py-3 text-right text-xs font-bold text-on-surface-variant uppercase tracking-wider">Aksi</th>';
+  H += '</tr>';
+  H += '</thead>';
+  H += '<tbody id="keyList" class="divide-y divide-outline-variant">';
+  H += tableRows;
+  H += '</tbody>';
+  H += '</table>';
+  H += '</div>';
+
+  // Table footer
+  H += '<div class="px-6 py-3 border-t border-outline-variant flex items-center justify-between text-xs text-on-surface-variant bg-surface-container-lowest">';
+  H += '<span>Menampilkan ' + totalKeys + ' dari ' + totalKeys + ' kunci</span>';
+  H += '<button onclick="location.reload()" class="flex items-center gap-1 hover:text-primary transition-colors">';
+  H += '<span class="material-symbols-outlined text-[14px]">refresh</span><span>Refresh</span></button>';
+  H += '</div>';
+
+  H += '</div>';
+  H += '</div>';
+
+  H += '</div>';
+  H += '</div>';
+  H += '</main>';
+
+  // FOOTER
+  H += '<footer class="w-full py-6 px-margin-desktop flex flex-col md:flex-row justify-between items-center bg-surface-container-lowest md:ml-[260px] md:max-w-[calc(100%-260px)] border-t border-outline-variant gap-4">';
+  H += '<p class="text-xs text-on-surface-variant">&copy; 2024 Badan Pusat Statistik &mdash; SE2026 Sumberharjo</p>';
+  H += '<div class="flex items-center gap-4 text-xs text-on-surface-variant">';
+  H += '<a href="#" class="hover:text-primary transition-colors">Panduan Pengguna</a>';
+  H += '<span class="text-outline-variant">|</span>';
+  H += '<a href="#" class="hover:text-primary transition-colors">Kebijakan Privasi</a>';
+  H += '<span class="text-outline-variant">|</span>';
+  H += '<a href="#" class="hover:text-primary transition-colors">Hubungi IT</a>';
+  H += '</div>';
+  H += '</footer>';
+
+  // DELETE MODAL
+  H += '<div id="overlay" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center hidden opacity-0 transition-opacity duration-300">';
+  H += '<div class="bg-white rounded-3xl p-8 max-w-md w-[90%] shadow-2xl scale-95 transition-transform duration-300">';
+  H += '<div class="flex flex-col items-center text-center">';
+  H += '<div class="w-16 h-16 rounded-full bg-error-container flex items-center justify-center mb-4">';
+  H += '<span class="material-symbols-outlined text-error" style="font-size:32px">warning</span>';
+  H += '</div>';
+  H += '<h3 class="text-xl font-black text-on-surface mb-2">Hapus Kunci Akses?</h3>';
+  H += '<p class="text-sm text-on-surface-variant mb-6">Tindakan ini tidak dapat dibatalkan. Petugas yang menggunakan kunci ini tidak akan bisa masuk setelah dihapus.</p>';
+  H += '<div class="flex gap-3 w-full">';
+  H += '<button onclick="closeModal()" class="flex-1 px-5 py-2.5 rounded-xl border border-outline-variant text-on-surface-variant hover:bg-surface-container transition-colors font-semibold text-sm">Batal</button>';
+  H += '<button id="confirmDeleteBtn" class="flex-1 px-5 py-2.5 rounded-xl bg-error text-white hover:opacity-90 transition-opacity font-bold text-sm">Ya, Hapus</button>';
+  H += '</div>';
+  H += '</div>';
+  H += '</div>';
+  H += '</div>';
+
+  // TOASTS
+  H += '<div class="fixed bottom-8 right-8 z-[110] flex flex-col gap-3">';
+  H += '<div id="t-ok" class="toast flex items-start gap-3 bg-white rounded-2xl shadow-xl border-l-4 border-green-500 px-5 py-4 min-w-[280px]">';
+  H += '<span class="material-symbols-outlined text-green-500 flex-shrink-0" style="font-variation-settings:\'FILL\' 1">check_circle</span>';
+  H += '<div><p class="font-bold text-sm text-on-surface">Berhasil</p>';
+  H += '<p id="t-ok-msg" class="text-xs text-on-surface-variant mt-0.5"></p></div>';
+  H += '</div>';
+  H += '<div id="t-err" class="toast flex items-start gap-3 bg-white rounded-2xl shadow-xl border-l-4 border-error px-5 py-4 min-w-[280px]">';
+  H += '<span class="material-symbols-outlined text-error flex-shrink-0" style="font-variation-settings:\'FILL\' 1">error</span>';
+  H += '<div><p class="font-bold text-sm text-on-surface">Gagal</p>';
+  H += '<p id="t-err-msg" class="text-xs text-on-surface-variant mt-0.5"></p></div>';
+  H += '</div>';
+  H += '<div id="t-info" class="toast flex items-start gap-3 bg-white rounded-2xl shadow-xl border-l-4 border-primary px-5 py-4 min-w-[280px]">';
+  H += '<span class="material-symbols-outlined text-primary flex-shrink-0" style="font-variation-settings:\'FILL\' 1">info</span>';
+  H += '<div><p class="font-bold text-sm text-on-surface">Informasi</p>';
+  H += '<p id="t-info-msg" class="text-xs text-on-surface-variant mt-0.5"></p></div>';
+  H += '</div>';
+  H += '</div>';
+
+  // JAVASCRIPT
+  H += '<script>';
+  H += 'var SECRET = new URLSearchParams(window.location.search).get(\'secret\') || \'\';';
+  H += 'var currentDeleteKey = \'\', currentDeleteBtn = null;';
+
+  H += 'function toggleSidebar() {';
+  H += '  document.getElementById(\'sidebar\').classList.toggle(\'-translate-x-full\');';
+  H += '}';
+
+  H += 'async function mint() {';
+  H += '  var note = document.getElementById(\'noteIn\').value.trim();';
+  H += '  var type = document.getElementById(\'typeIn\').value;';
+  H += '  var btn = document.getElementById(\'mintBtn\');';
+  H += '  if (!note) { showToast(\'err\', \'Mohon isi nama atau catatan petugas.\'); return; }';
+  H += '  btn.disabled = true;';
+  H += '  btn.innerHTML = \'<span class="material-symbols-outlined">sync<\\/span> Memproses...\';';
+  H += '  try {';
+  H += '    var r = await fetch(\'/api/admin?secret=\' + encodeURIComponent(SECRET) + \'&action=mint\',';
+  H += '      { method: \'POST\', headers: {\'Content-Type\':\'application/json\'}, body: JSON.stringify({note:note,type:type}) });';
+  H += '    var d = await r.json();';
+  H += '    if (d.success) {';
+  H += '      document.getElementById(\'resKey\').innerText = d.key;';
+  H += '      var badge = document.getElementById(\'resBadge\');';
+  H += '      badge.innerText = type.toUpperCase();';
+  H += '      badge.className = \'px-2 py-1 rounded text-[10px] font-black uppercase tracking-wider text-white \' +';
+  H += '        (type === \'petugas\' ? \'bg-primary\' : type === \'pengawas\' ? \'bg-secondary\' : \'bg-inverse-surface\');';
+  H += '      document.getElementById(\'res\').classList.remove(\'hidden\');';
+  H += '      document.getElementById(\'noteIn\').value = \'\';';
+  H += '      var list = document.getElementById(\'keyList\');';
+  H += '      var emptyTd = list.querySelector(\'td[colspan]\');';
+  H += '      if (emptyTd) emptyTd.closest(\'tr\').remove();';
+  H += '      var sk = d.key.length > 20 ? d.key.substring(0,8) + \'...\' + d.key.slice(-6) : d.key;';
+  H += '      var safe = d.key.replace(/\\\\/g,\'\\\\\\\\\').replace(/\'/g,"\\\\\'");';
+  H += '      var tb = type===\'petugas\' ? \'<span class="bg-primary/10 text-primary px-3 py-1 rounded-full text-[11px] font-bold uppercase">Petugas<\\/span>\'';
+  H += '             : type===\'pengawas\' ? \'<span class="bg-secondary/10 text-secondary px-3 py-1 rounded-full text-[11px] font-bold uppercase">Pengawas<\\/span>\'';
+  H += '             : \'<span class="bg-inverse-surface text-inverse-on-surface px-3 py-1 rounded-full text-[11px] font-bold uppercase">Admin<\\/span>\';';
+  H += '      var row = document.createElement(\'tr\');';
+  H += '      row.id = \'row-\' + d.key;';
+  H += '      row.className = \'group hover:bg-surface-container-low transition-colors\';';
+  H += '      row.innerHTML = \'<td class="px-8 py-5"><p class="font-bold text-on-surface">\' + note + \'<\\/p><p class="text-xs text-on-surface-variant">Baru dibuat<\\/p><\\/td>\'';
+  H += '        + \'<td class="px-6 py-5">\' + tb + \'<\\/td>\'';
+  H += '        + \'<td class="px-6 py-5"><div class="flex items-center gap-2"><code class="text-on-surface-variant text-sm">\' + sk + \'<\\/code>\'';
+  H += '        + \'<button class="opacity-0 group-hover:opacity-100 p-1 hover:bg-primary/10 rounded transition-all" onclick="copyKey(\\\'\' + safe + \'\\\')">\'';
+  H += '        + \'<span class="material-symbols-outlined text-[16px] text-primary">content_copy<\\/span><\\/button><\\/div><\\/td>\'';
+  H += '        + \'<td class="px-6 py-5 text-right"><button class="p-2 text-on-surface-variant hover:text-error hover:bg-error-container/20 rounded-lg transition-all" onclick="askDelete(\\\'\' + safe + \'\\\', this)">\'';
+  H += '        + \'<span class="material-symbols-outlined">delete<\\/span><\\/button><\\/td>\';';
+  H += '      list.insertBefore(row, list.firstChild);';
+  H += '      showToast(\'ok\', \'Kunci akses baru berhasil dibuat.\');';
+  H += '    } else { showToast(\'err\', d.message || \'Gagal.\'); }';
+  H += '  } catch(e) { showToast(\'err\', \'Error: \' + e.message); }';
+  H += '  btn.disabled = false;';
+  H += '  btn.innerHTML = \'<span>Generate Kunci Akses<\\/span><span class="material-symbols-outlined">arrow_forward<\\/span>\';';
+  H += '}';
+
+  H += 'function copyKey(k) { navigator.clipboard.writeText(k).then(function(){ showToast(\'info\',\'Kunci disalin ke papan klip.\'); }); }';
+
+  H += 'function askDelete(key, btn) {';
+  H += '  currentDeleteKey = key; currentDeleteBtn = btn;';
+  H += '  var ov = document.getElementById(\'overlay\');';
+  H += '  ov.classList.remove(\'hidden\');';
+  H += '  setTimeout(function(){ ov.classList.add(\'opacity-100\'); ov.querySelector(\'div\').classList.remove(\'scale-95\'); }, 10);';
+  H += '  document.getElementById(\'confirmDeleteBtn\').onclick = doDelete;';
+  H += '}';
+
+  H += 'function closeModal() {';
+  H += '  var ov = document.getElementById(\'overlay\');';
+  H += '  ov.classList.remove(\'opacity-100\');';
+  H += '  ov.querySelector(\'div\').classList.add(\'scale-95\');';
+  H += '  setTimeout(function(){ ov.classList.add(\'hidden\'); }, 300);';
+  H += '}';
+
+  H += 'async function doDelete() {';
+  H += '  var key = currentDeleteKey;';
+  H += '  closeModal();';
+  H += '  try {';
+  H += '    var r = await fetch(\'/api/admin?secret=\' + encodeURIComponent(SECRET) + \'&action=delete\',';
+  H += '      { method:\'POST\', headers:{\'Content-Type\':\'application/json\'}, body:JSON.stringify({key:key}) });';
+  H += '    var d = await r.json();';
+  H += '    if (d.success) {';
+  H += '      var row = document.getElementById(\'row-\' + key);';
+  H += '      if (row) { row.style.opacity=\'0.3\'; setTimeout(function(){ row.remove(); }, 300); }';
+  H += '      showToast(\'ok\', \'Kunci akses berhasil dihapus.\');';
+  H += '    } else { showToast(\'err\', d.message || \'Gagal.\'); }';
+  H += '  } catch(e) { showToast(\'err\',\'Error: \'+e.message); }';
+  H += '}';
+
+  H += 'function filterKeys(type, el) {';
+  H += '  document.querySelectorAll(\'.filter-chip\').forEach(function(c){';
+  H += '    c.classList.remove(\'border-primary\',\'bg-primary-container/10\',\'text-primary\');';
+  H += '    c.classList.add(\'border-outline-variant\',\'text-on-surface-variant\');';
+  H += '  });';
+  H += '  el.classList.add(\'border-primary\',\'bg-primary-container/10\',\'text-primary\');';
+  H += '  el.classList.remove(\'border-outline-variant\',\'text-on-surface-variant\');';
+  H += '  document.querySelectorAll(\'#keyList tr\').forEach(function(row){';
+  H += '    var cell = row.querySelector(\'td:nth-child(2) span\');';
+  H += '    if (!cell) return;';
+  H += '    row.style.display = (type===\'all\' || cell.innerText.toLowerCase().trim()===type) ? \'\' : \'none\';';
+  H += '  });';
+  H += '}';
+
+  H += 'function showToast(type, msg) {';
+  H += '  var el = document.getElementById(\'t-\'+type);';
+  H += '  document.getElementById(\'t-\'+type+\'-msg\').innerText = msg;';
+  H += '  el.classList.add(\'show\');';
+  H += '  setTimeout(function(){ el.classList.remove(\'show\'); }, 3000);';
+  H += '}';
+
+  H += 'window.addEventListener(\'resize\', function(){';
+  H += '  var sb = document.getElementById(\'sidebar\');';
+  H += '  if(window.innerWidth>=768) sb.classList.remove(\'-translate-x-full\');';
+  H += '  else sb.classList.add(\'-translate-x-full\');';
+  H += '});';
+
+  H += '<\/script>';
+  H += '</body>';
+  H += '</html>';
+  return H;
 }
