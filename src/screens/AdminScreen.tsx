@@ -3,8 +3,19 @@
 // Fitur: Login admin, dashboard stats, buat kunci, lihat & hapus kunci
 // UI: Material Design 3 — Light Mode, warna BPS biru
 
+import React, { useCallback, useState } from "react";
+import {
+    ActivityIndicator,
+    Platform,
+    Pressable,
+    ScrollView,
+    Text,
+    TextInput,
+    useWindowDimensions,
+    View,
+} from "react-native";
 
-const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL ?? "";
+const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL ?? "https://bps-sumberharjo.vercel.app";
 
 // ─── Tipe data ────────────────────────────────────────────────────────────────
 type KeyType = "lapangan" | "kalkulator";
