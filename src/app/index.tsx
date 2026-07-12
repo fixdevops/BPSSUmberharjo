@@ -32,6 +32,7 @@ import { Stepper } from "../components/ui/Stepper";
 
 // ── Screen lapangan ───────────────────────────────────────────────────────────
 import { isAccessGranted, isLapanganGranted, revalidateKey } from "../lib/keyAuth";
+import { AdminScreen } from "../screens/AdminScreen";
 import { DataLapanganScreen } from "../screens/DataLapanganScreen";
 import { DetailBangunanScreen } from "../screens/DetailBangunanScreen";
 import { FormBangunanScreen } from "../screens/FormBangunanScreen";
@@ -372,6 +373,11 @@ export default function HomeScreen() {
           )}
         </View>
 
+        {/* ── TAB: ADMIN ──────────────────────────────────────────────── */}
+        <View style={{ flex: 1, display: activePage === "admin" ? "flex" : "none" }}>
+          <AdminScreen onBack={() => setActivePage("settings")} />
+        </View>
+
         {/* ── TAB: DATA LAPANGAN ──────────────────────────────────────────── */}
         <View style={{ flex: 1, display: activePage === "lapangan" ? "flex" : "none" }}>
           {lapanganGranted ? (
@@ -401,7 +407,10 @@ export default function HomeScreen() {
             <BerandaKalkulator />
           </View>
           <View style={{ display: activePage === "settings" ? "flex" : "none" }}>
-            <SettingsScreen onLapanganUnlocked={() => setLapanganGranted(isLapanganGranted())} />
+            <SettingsScreen
+              onLapanganUnlocked={() => setLapanganGranted(isLapanganGranted())}
+              onAdminPress={() => setActivePage("admin")}
+            />
           </View>
 
           {/* Tab estimasi — selalu mounted agar state tidak hilang saat pindah tab */}

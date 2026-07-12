@@ -178,7 +178,13 @@ function LapanganKeySection({ onUnlocked }: { onUnlocked: () => void }) {
 }
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
-export function SettingsScreen({ onLapanganUnlocked }: { onLapanganUnlocked?: () => void }) {
+export function SettingsScreen({
+  onLapanganUnlocked,
+  onAdminPress,
+}: {
+  onLapanganUnlocked?: () => void;
+  onAdminPress?: () => void;
+}) {
   const [lapanganActive, setLapanganActive] = useState(isLapanganGranted());
 
   function handleUnlocked() {
@@ -204,7 +210,31 @@ export function SettingsScreen({ onLapanganUnlocked }: { onLapanganUnlocked?: ()
         </View>
       </View>
 
-      {/* ── Section: Kunci Lapangan ─────────────────────────────────────── */}
+      {/* ── Section: Admin Panel ────────────────────────────────────────── */}
+      {onAdminPress && (
+        <View style={{ marginBottom: 16 }}>
+          <Text style={{ fontSize: 12, fontWeight: "700", color: T.onSurfaceVariant, marginBottom: 8, textTransform: "uppercase", letterSpacing: 0.5 }}>
+            Panel Administrator
+          </Text>
+          <Pressable
+            onPress={onAdminPress}
+            style={({ pressed }) => ({
+              flexDirection: "row", alignItems: "center", gap: 14,
+              backgroundColor: T.primary, borderRadius: 14,
+              padding: 16, opacity: pressed ? 0.85 : 1,
+            })}
+          >
+            <View style={{ width: 40, height: 40, borderRadius: 10, backgroundColor: "rgba(255,255,255,0.2)", alignItems: "center", justifyContent: "center" }}>
+              <Icon name="shield" size={22} color="#fff" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontSize: 15, fontWeight: "800", color: "#fff" }}>Admin Panel</Text>
+              <Text style={{ fontSize: 12, color: "rgba(255,255,255,0.8)" }}>Manajemen kunci akses SE2026</Text>
+            </View>
+            <Icon name="arrow-right" size={18} color="rgba(255,255,255,0.7)" />
+          </Pressable>
+        </View>
+      )}
       <View style={{ marginBottom: 16 }}>
         <Text style={{ fontSize: 12, fontWeight: "700", color: T.onSurfaceVariant, marginBottom: 8, textTransform: "uppercase", letterSpacing: 0.5 }}>
           Akses Fitur Lapangan

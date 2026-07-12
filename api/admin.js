@@ -83,12 +83,13 @@ export default async function handler(req, res) {
   const totalKeys    = recentKeys.length;
   const activeKeys   = recentKeys.filter(k => !k.used).length;
   const usedKeys     = recentKeys.filter(k => k.used).length;
-  const lapanganKeys = recentKeys.filter(k => k.type === "lapangan").length;
+  const lapanganKeys   = recentKeys.filter(k => k.type === "lapangan").length;
+  const kalkulatorKeys = recentKeys.filter(k => k.type === "kalkulator").length;
 
   const tableRows = buildTableRows(recentKeys);
 
   res.setHeader("Content-Type", "text/html");
-  return res.status(200).send(buildHtml(totalKeys, activeKeys, usedKeys, lapanganKeys, tableRows, secret));
+  return res.status(200).send(buildHtml(totalKeys, activeKeys, usedKeys, lapanganKeys, kalkulatorKeys, tableRows, secret));
 }
 
 function buildTableRows(recentKeys) {
@@ -100,10 +101,9 @@ function buildTableRows(recentKeys) {
   return recentKeys.map(function(k) {
     var t = (k.type || "petugas").toLowerCase();
     var typeBadge =
-      t === "petugas"  ? '<span class="bg-primary/10 text-primary px-3 py-1 rounded-full text-[11px] font-bold uppercase">Petugas</span>' :
-      t === "pengawas" ? '<span class="bg-secondary/10 text-secondary px-3 py-1 rounded-full text-[11px] font-bold uppercase">Pengawas</span>' :
-      t === "lapangan" ? '<span class="bg-secondary/10 text-secondary px-3 py-1 rounded-full text-[11px] font-bold uppercase">Lapangan</span>' :
-                         '<span class="bg-inverse-surface text-inverse-on-surface px-3 py-1 rounded-full text-[11px] font-bold uppercase">Admin</span>';
+      t === "lapangan"   ? '<span class="bg-primary/10 text-primary px-3 py-1 rounded-full text-[11px] font-bold uppercase">Lapangan</span>' :
+      t === "kalkulator" ? '<span class="bg-secondary/10 text-secondary px-3 py-1 rounded-full text-[11px] font-bold uppercase">Kalkulator</span>' :
+                           '<span class="bg-inverse-surface text-inverse-on-surface px-3 py-1 rounded-full text-[11px] font-bold uppercase">' + (k.type || "?").toUpperCase() + '</span>';
     var safe  = k.key.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
     var short = k.key.length > 20 ? k.key.substring(0, 8) + "..." + k.key.slice(-6) : k.key;
     var dt    = k.createdAt ? new Date(k.createdAt).toLocaleDateString("id-ID") : "-";
@@ -113,7 +113,7 @@ function buildTableRows(recentKeys) {
       '<td class="px-8 py-5"><p class="font-body-md font-bold text-on-surface">' + by + '</p>' +
       '<p class="text-xs text-on-surface-variant">' + dt + '</p></td>' +
       '<td class="px-6 py-5">' + typeBadge + '</td>' +
-      '<td class="px-6 py-5"><div class="flex items-center gap-2">' +
+      '<td class="table-col-key px-6 py-5"><div class="flex items-center gap-2">' +
       '<code class="font-code-md text-on-surface-variant text-sm">' + short + '</code>' +
       '<button class="opacity-0 group-hover:opacity-100 p-1 hover:bg-primary/10 rounded transition-all" onclick="copyKey(\'' + safe + '\')">' +
       '<span class="material-symbols-outlined text-[16px] text-primary">content_copy</span></button></div></td>' +
@@ -124,7 +124,7 @@ function buildTableRows(recentKeys) {
   }).join("");
 }
 
-function buildHtml(totalKeys, activeKeys, usedKeys, lapanganKeys, tableRows, secret) {
+function buildHtml(totalKeys, activeKeys, usedKeys, lapanganKeys, kalkulatorKeys, tableRows, secret) {
   var H = '';
   H += '<!DOCTYPE html>';
   H += '<html lang="id" class="light">';
@@ -170,6 +170,15 @@ function buildHtml(totalKeys, activeKeys, usedKeys, lapanganKeys, tableRows, sec
   H += '.custom-scrollbar::-webkit-scrollbar-track{background:transparent}';
   H += '.custom-scrollbar::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:10px}';
   H += '.glass-card{background:rgba(255,255,255,.8);backdrop-filter:blur(8px);border:1px solid rgba(226,232,240,.8)}';
+  H += '#sidebar{transition:transform .25s ease}';
+  H += '#sidebar-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:35}';
+  H += '@media(max-width:767px){';
+  H += '  main{padding-left:16px!important;padding-right:16px!important}';
+  H += '  .stat-val{font-size:1.5rem!important}';
+  H += '  .table-col-key{display:none}';
+  H += '  .table-col-by{display:none}';
+  H += '  .toast-wrap{right:12px!important;bottom:12px!important;min-width:240px}';
+  H += '}';
   H += '</style>';
   H += '</head>';
   H += '<body class="font-sans text-on-surface antialiased">';
@@ -195,12 +204,19 @@ function buildHtml(totalKeys, activeKeys, usedKeys, lapanganKeys, tableRows, sec
   H += '</div>';
   H += '</header>';
 
+  // SIDEBAR OVERLAY (mobile)
+  H += '<div id="sidebar-overlay" onclick="closeSidebar()"></div>';
+
   // SIDEBAR
-  H += '<aside id="sidebar" class="fixed left-0 top-0 h-full w-[260px] flex flex-col py-6 z-40 bg-surface-container border-r border-outline-variant transition-transform -translate-x-full md:translate-x-0">';
-  H += '<div class="flex items-center gap-3 px-6 mb-8 mt-2">';
+  H += '<aside id="sidebar" class="fixed left-0 top-0 h-full w-[260px] flex flex-col py-6 z-40 bg-surface-container border-r border-outline-variant -translate-x-full md:translate-x-0">';
+  H += '<div class="flex items-center justify-between px-6 mb-8 mt-2">';
+  H += '<div class="flex items-center gap-3">';
   H += '<div class="w-10 h-10 rounded-2xl bg-primary flex items-center justify-center text-on-primary font-black text-lg flex-shrink-0">S</div>';
   H += '<div><p class="font-bold text-on-surface text-sm leading-tight">SE2026</p>';
   H += '<p class="text-xs text-on-surface-variant leading-tight">Sumberharjo</p></div>';
+  H += '</div>';
+  H += '<button class="md:hidden p-1 rounded-lg hover:bg-surface-container-low" onclick="closeSidebar()">';
+  H += '<span class="material-symbols-outlined text-on-surface-variant text-[20px]">close</span></button>';
   H += '</div>';
   H += '<nav class="flex-1 px-4 space-y-1">';
   H += '<a href="#" class="flex items-center gap-3 px-4 py-3 rounded-2xl text-on-surface-variant hover:bg-surface-container-low transition-colors">';
@@ -255,33 +271,33 @@ function buildHtml(totalKeys, activeKeys, usedKeys, lapanganKeys, tableRows, sec
   H += '<div class="glass-card rounded-2xl p-5 border-t-4 border-primary">';
   H += '<div class="flex items-center justify-between mb-3">';
   H += '<span class="material-symbols-outlined text-primary" style="font-size:28px">key</span>';
-  H += '<span class="text-3xl font-black text-primary">' + totalKeys + '</span>';
+  H += '<span class="stat-val text-3xl font-black text-primary">' + totalKeys + '</span>';
   H += '</div>';
   H += '<p class="text-sm font-medium text-on-surface-variant">Total Kunci</p>';
   H += '</div>';
 
   H += '<div class="glass-card rounded-2xl p-5 border-t-4 border-secondary">';
   H += '<div class="flex items-center justify-between mb-3">';
-  H += '<span class="material-symbols-outlined text-secondary" style="font-size:28px">person</span>';
-  H += '<span class="text-3xl font-black text-secondary">' + activeKeys + '</span>';
+  H += '<span class="material-symbols-outlined text-secondary" style="font-size:28px">key_off</span>';
+  H += '<span class="stat-val text-3xl font-black text-secondary">' + activeKeys + '</span>';
   H += '</div>';
   H += '<p class="text-sm font-medium text-on-surface-variant">Kunci Tersedia</p>';
   H += '</div>';
 
   H += '<div class="glass-card rounded-2xl p-5 border-t-4 border-tertiary-container">';
   H += '<div class="flex items-center justify-between mb-3">';
-  H += '<span class="material-symbols-outlined text-tertiary" style="font-size:28px">task_alt</span>';
-  H += '<span class="text-3xl font-black text-tertiary">' + usedKeys + '</span>';
+  H += '<span class="material-symbols-outlined text-tertiary" style="font-size:28px">map</span>';
+  H += '<span class="stat-val text-3xl font-black text-tertiary">' + lapanganKeys + '</span>';
   H += '</div>';
-  H += '<p class="text-sm font-medium text-on-surface-variant">Kunci Terpakai</p>';
+  H += '<p class="text-sm font-medium text-on-surface-variant">Kunci Lapangan</p>';
   H += '</div>';
 
   H += '<div class="glass-card rounded-2xl p-5 border-t-4 border-error">';
   H += '<div class="flex items-center justify-between mb-3">';
-  H += '<span class="material-symbols-outlined text-error" style="font-size:28px">warning</span>';
-  H += '<span class="text-3xl font-black text-error">' + lapanganKeys + '</span>';
+  H += '<span class="material-symbols-outlined text-error" style="font-size:28px">calculate</span>';
+  H += '<span class="stat-val text-3xl font-black text-error">' + kalkulatorKeys + '</span>';
   H += '</div>';
-  H += '<p class="text-sm font-medium text-on-surface-variant">Kunci Lapangan</p>';
+  H += '<p class="text-sm font-medium text-on-surface-variant">Kunci Kalkulator</p>';
   H += '</div>';
 
   H += '</div>';
@@ -308,9 +324,8 @@ function buildHtml(totalKeys, activeKeys, usedKeys, lapanganKeys, tableRows, sec
   H += '<label class="block text-xs font-semibold text-on-surface-variant mb-1.5 uppercase tracking-wide">Tipe Kunci</label>';
   H += '<select id="typeIn" class="w-full px-4 py-2.5 rounded-xl border border-outline-variant bg-surface text-on-surface text-sm';
   H += ' focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all">';
-  H += '<option value="petugas">Petugas Lapangan (PCL)</option>';
-  H += '<option value="pengawas">Pengawas (PML)</option>';
-  H += '<option value="admin">Administrator Wilayah</option>';
+  H += '<option value="lapangan">Lapangan (Data Lapangan)</option>';
+  H += '<option value="kalkulator">Kalkulator (BPS Kalkulator)</option>';
   H += '</select>';
   H += '</div>';
 
@@ -325,7 +340,7 @@ function buildHtml(totalKeys, activeKeys, usedKeys, lapanganKeys, tableRows, sec
   // Result area
   H += '<div id="res" class="hidden mt-5 p-4 rounded-xl bg-green-50 border border-green-200">';
   H += '<div class="flex items-center gap-2 mb-2">';
-  H += '<span id="resBadge" class="px-2 py-1 rounded text-[10px] font-black uppercase tracking-wider text-white bg-primary">PETUGAS</span>';
+  H += '<span id="resBadge" class="px-2 py-1 rounded text-[10px] font-black uppercase tracking-wider text-white bg-primary">LAPANGAN</span>';
   H += '<span class="text-xs font-semibold text-green-700">Kunci Berhasil Dibuat</span>';
   H += '</div>';
   H += '<div class="flex items-center gap-2 mb-2">';
@@ -353,9 +368,8 @@ function buildHtml(totalKeys, activeKeys, usedKeys, lapanganKeys, tableRows, sec
   H += 'Daftar Kunci Terdaftar</h3>';
   H += '<div class="flex gap-2 flex-wrap">';
   H += '<button class="filter-chip px-3 py-1 rounded-full text-xs font-semibold border transition-colors border-primary bg-primary-container/10 text-primary" onclick="filterKeys(\'all\', this)">Semua</button>';
-  H += '<button class="filter-chip px-3 py-1 rounded-full text-xs font-semibold border transition-colors border-outline-variant text-on-surface-variant" onclick="filterKeys(\'petugas\', this)">Petugas</button>';
-  H += '<button class="filter-chip px-3 py-1 rounded-full text-xs font-semibold border transition-colors border-outline-variant text-on-surface-variant" onclick="filterKeys(\'pengawas\', this)">Pengawas</button>';
-  H += '<button class="filter-chip px-3 py-1 rounded-full text-xs font-semibold border transition-colors border-outline-variant text-on-surface-variant" onclick="filterKeys(\'admin\', this)">Admin</button>';
+  H += '<button class="filter-chip px-3 py-1 rounded-full text-xs font-semibold border transition-colors border-outline-variant text-on-surface-variant" onclick="filterKeys(\'lapangan\', this)">Lapangan</button>';
+  H += '<button class="filter-chip px-3 py-1 rounded-full text-xs font-semibold border transition-colors border-outline-variant text-on-surface-variant" onclick="filterKeys(\'kalkulator\', this)">Kalkulator</button>';
   H += '</div>';
   H += '</div>';
 
@@ -366,7 +380,7 @@ function buildHtml(totalKeys, activeKeys, usedKeys, lapanganKeys, tableRows, sec
   H += '<tr>';
   H += '<th class="px-8 py-3 text-left text-xs font-bold text-on-surface-variant uppercase tracking-wider">Identitas / Catatan</th>';
   H += '<th class="px-6 py-3 text-left text-xs font-bold text-on-surface-variant uppercase tracking-wider">Tipe</th>';
-  H += '<th class="px-6 py-3 text-left text-xs font-bold text-on-surface-variant uppercase tracking-wider">Kunci Akses</th>';
+  H += '<th class="table-col-key px-6 py-3 text-left text-xs font-bold text-on-surface-variant uppercase tracking-wider">Kunci Akses</th>';
   H += '<th class="px-6 py-3 text-right text-xs font-bold text-on-surface-variant uppercase tracking-wider">Aksi</th>';
   H += '</tr>';
   H += '</thead>';
@@ -420,7 +434,7 @@ function buildHtml(totalKeys, activeKeys, usedKeys, lapanganKeys, tableRows, sec
   H += '</div>';
 
   // TOASTS
-  H += '<div class="fixed bottom-8 right-8 z-[110] flex flex-col gap-3">';
+  H += '<div class="toast-wrap fixed bottom-8 right-8 z-[110] flex flex-col gap-3">';
   H += '<div id="t-ok" class="toast flex items-start gap-3 bg-white rounded-2xl shadow-xl border-l-4 border-green-500 px-5 py-4 min-w-[280px]">';
   H += '<span class="material-symbols-outlined text-green-500 flex-shrink-0" style="font-variation-settings:\'FILL\' 1">check_circle</span>';
   H += '<div><p class="font-bold text-sm text-on-surface">Berhasil</p>';
@@ -444,7 +458,14 @@ function buildHtml(totalKeys, activeKeys, usedKeys, lapanganKeys, tableRows, sec
   H += 'var currentDeleteKey = \'\', currentDeleteBtn = null;';
 
   H += 'function toggleSidebar() {';
-  H += '  document.getElementById(\'sidebar\').classList.toggle(\'-translate-x-full\');';
+  H += '  var sb = document.getElementById(\'sidebar\');';
+  H += '  var ov = document.getElementById(\'sidebar-overlay\');';
+  H += '  sb.classList.toggle(\'-translate-x-full\');';
+  H += '  ov.style.display = sb.classList.contains(\'-translate-x-full\') ? \'none\' : \'block\';';
+  H += '}';
+  H += 'function closeSidebar() {';
+  H += '  document.getElementById(\'sidebar\').classList.add(\'-translate-x-full\');';
+  H += '  document.getElementById(\'sidebar-overlay\').style.display = \'none\';';
   H += '}';
 
   H += 'async function mint() {';
@@ -463,7 +484,7 @@ function buildHtml(totalKeys, activeKeys, usedKeys, lapanganKeys, tableRows, sec
   H += '      var badge = document.getElementById(\'resBadge\');';
   H += '      badge.innerText = type.toUpperCase();';
   H += '      badge.className = \'px-2 py-1 rounded text-[10px] font-black uppercase tracking-wider text-white \' +';
-  H += '        (type === \'petugas\' ? \'bg-primary\' : type === \'pengawas\' ? \'bg-secondary\' : \'bg-inverse-surface\');';
+  H += '        (type === \'lapangan\' ? \'bg-primary\' : \'bg-secondary\');';
   H += '      document.getElementById(\'res\').classList.remove(\'hidden\');';
   H += '      document.getElementById(\'noteIn\').value = \'\';';
   H += '      var list = document.getElementById(\'keyList\');';
@@ -471,15 +492,14 @@ function buildHtml(totalKeys, activeKeys, usedKeys, lapanganKeys, tableRows, sec
   H += '      if (emptyTd) emptyTd.closest(\'tr\').remove();';
   H += '      var sk = d.key.length > 20 ? d.key.substring(0,8) + \'...\' + d.key.slice(-6) : d.key;';
   H += '      var safe = d.key.replace(/\\\\/g,\'\\\\\\\\\').replace(/\'/g,"\\\\\'");';
-  H += '      var tb = type===\'petugas\' ? \'<span class="bg-primary/10 text-primary px-3 py-1 rounded-full text-[11px] font-bold uppercase">Petugas<\\/span>\'';
-  H += '             : type===\'pengawas\' ? \'<span class="bg-secondary/10 text-secondary px-3 py-1 rounded-full text-[11px] font-bold uppercase">Pengawas<\\/span>\'';
-  H += '             : \'<span class="bg-inverse-surface text-inverse-on-surface px-3 py-1 rounded-full text-[11px] font-bold uppercase">Admin<\\/span>\';';
+  H += '      var tb = type===\'lapangan\' ? \'<span class="bg-primary/10 text-primary px-3 py-1 rounded-full text-[11px] font-bold uppercase">Lapangan<\\/span>\'';
+  H += '             : \'<span class="bg-secondary/10 text-secondary px-3 py-1 rounded-full text-[11px] font-bold uppercase">Kalkulator<\\/span>\';';
   H += '      var row = document.createElement(\'tr\');';
   H += '      row.id = \'row-\' + d.key;';
   H += '      row.className = \'group hover:bg-surface-container-low transition-colors\';';
   H += '      row.innerHTML = \'<td class="px-8 py-5"><p class="font-bold text-on-surface">\' + note + \'<\\/p><p class="text-xs text-on-surface-variant">Baru dibuat<\\/p><\\/td>\'';
   H += '        + \'<td class="px-6 py-5">\' + tb + \'<\\/td>\'';
-  H += '        + \'<td class="px-6 py-5"><div class="flex items-center gap-2"><code class="text-on-surface-variant text-sm">\' + sk + \'<\\/code>\'';
+  H += '        + \'<td class="table-col-key px-6 py-5"><div class="flex items-center gap-2"><code class="text-on-surface-variant text-sm">\' + sk + \'<\\/code>\'';
   H += '        + \'<button class="opacity-0 group-hover:opacity-100 p-1 hover:bg-primary/10 rounded transition-all" onclick="copyKey(\\\'\' + safe + \'\\\')">\'';
   H += '        + \'<span class="material-symbols-outlined text-[16px] text-primary">content_copy<\\/span><\\/button><\\/div><\\/td>\'';
   H += '        + \'<td class="px-6 py-5 text-right"><button class="p-2 text-on-surface-variant hover:text-error hover:bg-error-container/20 rounded-lg transition-all" onclick="askDelete(\\\'\' + safe + \'\\\', this)">\'';
@@ -547,8 +567,9 @@ function buildHtml(totalKeys, activeKeys, usedKeys, lapanganKeys, tableRows, sec
 
   H += 'window.addEventListener(\'resize\', function(){';
   H += '  var sb = document.getElementById(\'sidebar\');';
-  H += '  if(window.innerWidth>=768) sb.classList.remove(\'-translate-x-full\');';
-  H += '  else sb.classList.add(\'-translate-x-full\');';
+  H += '  var ov = document.getElementById(\'sidebar-overlay\');';
+  H += '  if(window.innerWidth>=768){ sb.classList.remove(\'-translate-x-full\'); ov.style.display=\'none\'; }';
+  H += '  else { sb.classList.add(\'-translate-x-full\'); ov.style.display=\'none\'; }';
   H += '});';
 
   H += '<\/script>';

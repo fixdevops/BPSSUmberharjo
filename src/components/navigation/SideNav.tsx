@@ -11,6 +11,7 @@ const NAV_ITEMS = [
   { icon: "map-pin",   label: "Peta GPS",           page: "map"       },
   { icon: "database",  label: "Data Lapangan",      page: "lapangan"  },
   { icon: "settings",  label: "Pengaturan",         page: "settings"  },
+  { icon: "shield",    label: "Admin",              page: "admin"     },
 ];
 
 export function SideNav({

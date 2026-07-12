@@ -50,6 +50,12 @@ export function Icon({ name, size = 20, color = T.onSurfaceVariant }: {
     case "help":           return <Svg width={size} height={size} viewBox={v}><Circle {...s} cx="12" cy="12" r="10"/><Path {...s} d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><Line {...s} x1="12" y1="17" x2="12.01" y2="17"/></Svg>;
     case "logout":         return <Svg width={size} height={size} viewBox={v}><Path {...s} d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><Polyline {...s} points="16 17 21 12 16 7"/><Line {...s} x1="21" y1="12" x2="9" y2="12"/></Svg>;
     case "verified":       return <Svg width={size} height={size} viewBox={v}><Path {...s} d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><Polyline {...s} points="22 4 12 14.01 9 11.01"/></Svg>;
+    case "shield":         return <Svg width={size} height={size} viewBox={v}><Path {...s} d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></Svg>;
+    case "key":            return <Svg width={size} height={size} viewBox={v}><Path {...s} d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></Svg>;
+    case "eye":            return <Svg width={size} height={size} viewBox={v}><Path {...s} d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><Circle {...s} cx="12" cy="12" r="3"/></Svg>;
+    case "eye-off":        return <Svg width={size} height={size} viewBox={v}><Path {...s} d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><Line {...s} x1="1" y1="1" x2="23" y2="23"/></Svg>;
+    case "unlock":         return <Svg width={size} height={size} viewBox={v}><Rect {...s} x="3" y="11" width="18" height="11" rx="2" ry="2"/><Path {...s} d="M7 11V7a5 5 0 0 1 9.9-1"/></Svg>;
+    case "alert-circle":   return <Svg width={size} height={size} viewBox={v}><Circle {...s} cx="12" cy="12" r="10"/><Line {...s} x1="12" y1="8" x2="12" y2="12"/><Line {...s} x1="12" y1="16" x2="12.01" y2="16"/></Svg>;
     default:               return <Svg width={size} height={size} viewBox={v}><Circle {...s} cx="12" cy="12" r="10"/></Svg>;
   }
 }
