@@ -215,31 +215,25 @@ function buildHtml(totalKeys, activeKeys, usedKeys, lapanganKeys, kalkulatorKeys
   H += '<div id="sidebar-overlay" onclick="closeSidebar()"></div>';
 
   // SIDEBAR
-  H += '<aside id="sidebar" class="fixed left-0 top-0 h-full w-[260px] flex flex-col py-6 z-40 bg-surface-container border-r border-outline-variant -translate-x-full md:translate-x-0">';
-  H += '<div class="flex items-center justify-between px-6 mb-8 mt-2">';
-  H += '<div class="flex items-center gap-3">';
-  H += '<div class="w-10 h-10 rounded-2xl bg-primary flex items-center justify-center text-on-primary font-black text-lg flex-shrink-0">S</div>';
-  H += '<div><p class="font-bold text-on-surface text-sm leading-tight">SE2026</p>';
-  H += '<p class="text-xs text-on-surface-variant leading-tight">Sumberharjo</p></div>';
+  H += '<aside id="sidebar" class="fixed left-0 top-0 h-full w-[260px] flex flex-col z-40 bg-surface-container border-r border-outline-variant -translate-x-full md:translate-x-0">';
+
+  // Sidebar header — hanya judul + tombol close mobile
+  H += '<div class="flex items-center justify-between px-5 h-16 border-b border-outline-variant flex-shrink-0">';
+  H += '<span class="text-sm font-bold text-primary">BPS SE2026</span>';
+  H += '<button class="md:hidden p-1.5 rounded-lg hover:bg-surface-container-low" onclick="closeSidebar()">';
+  H += '<span class="material-symbols-outlined text-on-surface-variant" style="font-size:20px">close</span></button>';
   H += '</div>';
-  H += '<button class="md:hidden p-1 rounded-lg hover:bg-surface-container-low" onclick="closeSidebar()">';
-  H += '<span class="material-symbols-outlined text-on-surface-variant text-[20px]">close</span></button>';
-  H += '</div>';
-  H += '<nav class="flex-1 px-4 space-y-1">';
-  H += '<a href="#" class="flex items-center gap-3 px-4 py-3 rounded-2xl text-on-surface-variant hover:bg-surface-container-low transition-colors">';
-  H += '<span class="material-symbols-outlined text-[20px]">dashboard</span>';
-  H += '<span class="text-sm font-medium">Dashboard</span></a>';
-  H += '<a href="#" class="flex items-center gap-3 px-4 py-3 rounded-r-full bg-primary-container text-on-primary-container border-l-4 border-primary font-semibold">';
+
+  // Nav — hanya Beranda & Kunci Akses
+  H += '<nav class="flex-1 px-3 pt-4 space-y-1">';
+  H += '<a href="#" class="flex items-center gap-3 px-4 py-3 rounded-xl text-on-surface-variant hover:bg-surface-container-low transition-colors">';
+  H += '<span class="material-symbols-outlined text-[20px]">home</span>';
+  H += '<span class="text-sm font-medium">Beranda</span></a>';
+  H += '<a href="#" class="flex items-center gap-3 px-4 py-3 rounded-xl bg-primary/10 text-primary border-l-4 border-primary">';
   H += '<span class="material-symbols-outlined text-[20px]" style="font-variation-settings:\'FILL\' 1">vpn_key</span>';
   H += '<span class="text-sm font-semibold">Kunci Akses</span></a>';
-  H += '<a href="#" class="flex items-center gap-3 px-4 py-3 rounded-2xl text-on-surface-variant hover:bg-surface-container-low transition-colors">';
-  H += '<span class="material-symbols-outlined text-[20px]">article</span>';
-  H += '<span class="text-sm font-medium">Laporan</span></a>';
-  H += '<a href="#" class="flex items-center gap-3 px-4 py-3 rounded-2xl text-on-surface-variant hover:bg-surface-container-low transition-colors">';
-  H += '<span class="material-symbols-outlined text-[20px]">settings</span>';
-  H += '<span class="text-sm font-medium">Pengaturan</span></a>';
   H += '</nav>';
-  H += '<div class="mx-4 mt-4 p-4 rounded-2xl bg-surface-container-low border border-outline-variant">';
+  H += '<div class="mx-3 p-4 rounded-xl bg-surface-container-low border border-outline-variant">';
   H += '<div class="flex items-center gap-2 mb-1">';
   H += '<span class="w-2 h-2 rounded-full bg-green-500 animate-pulse flex-shrink-0"></span>';
   H += '<p class="text-xs font-semibold text-on-surface">Status Server</p></div>';
