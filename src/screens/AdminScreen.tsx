@@ -455,3 +455,300 @@ function AdminDashboard({ secret, onLogout }: { secret: string; onLogout: () => 
   const tersediaKeys  = keys.filter(k => !k.used).length;
   const lapanganCount = keys.filter(k => k.type === "lapangan").length;
   const kalkulatorCount = keys.filter(k => k.type === "kalkulator").length;
+
+  // ── RENDER ──────────────────────────────────────────────────────────────────
+  return (
+    <View style={{ flex: 1, backgroundColor: A.bg }}>
+
+      {/* ── Header ── */}
+      <View style={[{
+        height: 56, flexDirection: "row", alignItems: "center",
+        paddingHorizontal: isMobile ? 16 : 24,
+        backgroundColor: A.surface,
+        borderBottomWidth: 1, borderColor: A.outlineVariant,
+        justifyContent: "space-between",
+      }, sh(1, 0.04, 4, 2) as any]}>
+        <Text style={{ fontSize: 16, fontWeight: "800", color: A.primary }}>
+          BPS SE2026 · Admin
+        </Text>
+        <Pressable
+          onPress={onLogout}
+          style={({ pressed }) => [{
+            paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8,
+            backgroundColor: A.errorContainer, opacity: pressed ? 0.7 : 1,
+          }]}
+        >
+          <Text style={{ fontSize: 12, fontWeight: "700", color: A.error }}>Keluar</Text>
+        </Pressable>
+      </View>
+
+      <ScrollView contentContainerStyle={{ padding: isMobile ? 16 : 24, gap: 20 }}>
+
+        {/* ── Breadcrumb ── */}
+        <Text style={{ fontSize: 12, color: A.textMuted }}>
+          Admin {">"} <Text style={{ color: A.primary, fontWeight: "700" }}>Kunci Akses</Text>
+        </Text>
+
+        <Text style={{ fontSize: isMobile ? 22 : 26, fontWeight: "900", color: A.onSurface, marginTop: -4 }}>
+          Manajemen Kunci Akses
+        </Text>
+
+        {/* ── Stat Cards ── */}
+        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 10 }}>
+          <StatCard label="Total Kunci"       value={totalKeys}       topColor={A.primary}   icon="🔑" />
+          <StatCard label="Tersedia"          value={tersediaKeys}    topColor={A.secondary}  icon="✅" />
+          <StatCard label="Kunci Lapangan"    value={lapanganCount}   topColor="#1a7a3c"      icon="🗺️" />
+          <StatCard label="Kunci Kalkulator"  value={kalkulatorCount} topColor="#772400"      icon="🧮" />
+        </View>
+
+        {/* ── Layout: 1 kolom (mobile) / 2 kolom (tablet+) ── */}
+        <View style={{
+          flexDirection: isMobile ? "column" : "row",
+          gap: 16, alignItems: "flex-start",
+        }}>
+
+          {/* ── Form Buat Kunci ── */}
+          <View style={[{
+            backgroundColor: A.surface, borderRadius: 16,
+            borderWidth: 1, borderColor: A.outlineVariant,
+            padding: 20,
+            width: isMobile ? "100%" : isTablet ? "45%" : "35%",
+          }, sh(2, 0.05, 8, 2) as any]}>
+            <Text style={{ fontSize: 14, fontWeight: "800", color: A.onSurface, marginBottom: 16 }}>
+              ➕ Buat Kunci Baru
+            </Text>
+
+            {/* Nama */}
+            <Text style={{ fontSize: 11, fontWeight: "700", color: A.onSurfaceVariant, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6 }}>
+              Nama / Catatan
+            </Text>
+            <View style={{
+              flexDirection: "row", alignItems: "center",
+              borderWidth: 1.5, borderColor: A.outlineVariant, borderRadius: 10,
+              paddingHorizontal: 12, paddingVertical: Platform.OS === "web" ? 10 : 4,
+              marginBottom: 14,
+            }}>
+              <TextInput
+                style={{
+                  flex: 1, fontSize: 13, color: A.text,
+                  ...(Platform.OS === "web" ? { outlineStyle: "none" } : {}),
+                } as any}
+                placeholder="cth: Ahmad Fauzi - PCL-01"
+                placeholderTextColor={A.textMuted}
+                value={note}
+                onChangeText={setNote}
+                editable={!minting}
+              />
+            </View>
+
+            {/* Tipe Kunci */}
+            <Text style={{ fontSize: 11, fontWeight: "700", color: A.onSurfaceVariant, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6 }}>
+              Tipe Kunci
+            </Text>
+            <View style={{ flexDirection: "row", gap: 8, marginBottom: 18 }}>
+              {(["lapangan", "kalkulator"] as KeyType[]).map(t => (
+                <Pressable
+                  key={t}
+                  onPress={() => setKeyType(t)}
+                  style={[{
+                    flex: 1, paddingVertical: 10, borderRadius: 10, alignItems: "center",
+                    borderWidth: 1.5,
+                    borderColor: keyType === t ? (t === "lapangan" ? A.primary : A.secondary) : A.outlineVariant,
+                    backgroundColor: keyType === t
+                      ? (t === "lapangan" ? "rgba(0,57,150,0.08)" : "rgba(0,101,145,0.08)")
+                      : A.surface,
+                  }]}
+                >
+                  <Text style={{ fontSize: 16, marginBottom: 2 }}>{t === "lapangan" ? "🗺️" : "🧮"}</Text>
+                  <Text style={{
+                    fontSize: 11, fontWeight: "700", textTransform: "capitalize",
+                    color: keyType === t ? (t === "lapangan" ? A.primary : A.secondary) : A.textMuted,
+                  }}>
+                    {t === "lapangan" ? "Lapangan" : "Kalkulator"}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+
+            {/* Tombol Generate */}
+            <Pressable
+              onPress={handleMint}
+              disabled={minting}
+              style={({ pressed }) => [{
+                backgroundColor: A.primary, borderRadius: 10,
+                paddingVertical: 13, alignItems: "center", justifyContent: "center",
+                flexDirection: "row", gap: 8,
+                opacity: pressed || minting ? 0.8 : 1,
+              }, sh(2, 0.08, 8, 3) as any]}
+            >
+              {minting
+                ? <ActivityIndicator size="small" color={A.onPrimary} />
+                : <Text style={{ fontSize: 13, fontWeight: "700", color: A.onPrimary }}>Generate Kunci Akses</Text>
+              }
+            </Pressable>
+
+            {/* Hasil kunci baru */}
+            {newKey && (
+              <View style={{
+                marginTop: 14, padding: 14, borderRadius: 12,
+                backgroundColor: A.successBg, borderWidth: 1, borderColor: "#b7e4c7",
+              }}>
+                <Text style={{ fontSize: 11, fontWeight: "700", color: A.success, marginBottom: 6 }}>
+                  ✅ Kunci Berhasil Dibuat
+                </Text>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                  <Text style={{
+                    flex: 1, fontSize: 11, color: A.onSurface, fontWeight: "600",
+                    fontFamily: Platform.OS === "web" ? "monospace" : undefined,
+                  }} numberOfLines={2}>
+                    {newKey}
+                  </Text>
+                  <Pressable onPress={() => copyKey(newKey)}
+                    style={({ pressed }) => [{ padding: 6, borderRadius: 8, backgroundColor: A.surface, opacity: pressed ? 0.7 : 1 }]}
+                  >
+                    <Text style={{ fontSize: 14 }}>📋</Text>
+                  </Pressable>
+                </View>
+                <Text style={{ fontSize: 10, color: "#6b7280", marginTop: 6 }}>
+                  ⚠️ Salin dan simpan. Tidak akan ditampilkan ulang.
+                </Text>
+              </View>
+            )}
+          </View>
+
+          {/* ── Tabel Kunci ── */}
+          <View style={[{
+            flex: 1, backgroundColor: A.surface, borderRadius: 16,
+            borderWidth: 1, borderColor: A.outlineVariant, overflow: "hidden",
+            width: isMobile ? "100%" : undefined,
+          }, sh(2, 0.05, 8, 2) as any]}>
+
+            {/* Header tabel + filter */}
+            <View style={{
+              flexDirection: isMobile ? "column" : "row",
+              alignItems: isMobile ? "flex-start" : "center",
+              justifyContent: "space-between",
+              padding: 16, borderBottomWidth: 1, borderColor: A.outlineVariant, gap: 10,
+            }}>
+              <Text style={{ fontSize: 13, fontWeight: "800", color: A.onSurface }}>
+                📋 Daftar Kunci Terdaftar
+              </Text>
+              <View style={{ flexDirection: "row", gap: 6, flexWrap: "wrap" }}>
+                {(["all", "lapangan", "kalkulator"] as const).map(f => (
+                  <Pressable
+                    key={f}
+                    onPress={() => setFilter(f)}
+                    style={[{
+                      paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20,
+                      borderWidth: 1,
+                      borderColor: filter === f ? A.primary : A.outlineVariant,
+                      backgroundColor: filter === f ? "rgba(0,57,150,0.08)" : A.surface,
+                    }]}
+                  >
+                    <Text style={{
+                      fontSize: 11, fontWeight: "700",
+                      color: filter === f ? A.primary : A.textMuted,
+                      textTransform: "capitalize",
+                    }}>
+                      {f === "all" ? "Semua" : f === "lapangan" ? "Lapangan" : "Kalkulator"}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+            </View>
+
+            {/* Header kolom */}
+            <View style={{
+              flexDirection: "row", paddingHorizontal: isMobile ? 12 : 16, paddingVertical: 8,
+              backgroundColor: A.surfaceContainerLow,
+              borderBottomWidth: 1, borderColor: A.outlineVariant,
+            }}>
+              <Text style={{ flex: 2, fontSize: 10, fontWeight: "700", color: A.textMuted, textTransform: "uppercase" }}>Identitas</Text>
+              <Text style={{ flex: 1, fontSize: 10, fontWeight: "700", color: A.textMuted, textTransform: "uppercase" }}>Tipe</Text>
+              {!isMobile && <Text style={{ flex: 2, fontSize: 10, fontWeight: "700", color: A.textMuted, textTransform: "uppercase" }}>Kunci</Text>}
+              <Text style={{ flex: 1, fontSize: 10, fontWeight: "700", color: A.textMuted, textTransform: "uppercase" }}>Status</Text>
+              <Text style={{ fontSize: 10, fontWeight: "700", color: A.textMuted, textTransform: "uppercase" }}>Aksi</Text>
+            </View>
+
+            {/* Isi tabel */}
+            {loading ? (
+              <View style={{ padding: 40, alignItems: "center" }}>
+                <ActivityIndicator size="large" color={A.primary} />
+                <Text style={{ fontSize: 12, color: A.textMuted, marginTop: 8 }}>Memuat kunci...</Text>
+              </View>
+            ) : filtered.length === 0 ? (
+              <View style={{ padding: 40, alignItems: "center" }}>
+                <Text style={{ fontSize: 32, marginBottom: 8 }}>🔑</Text>
+                <Text style={{ fontSize: 13, color: A.textMuted }}>Belum ada kunci yang diterbitkan.</Text>
+              </View>
+            ) : (
+              filtered.map((item, index) => (
+                <KeyRow
+                  key={item.key}
+                  item={item}
+                  index={index}
+                  onDelete={(k) => setToDelete(k)}
+                  onCopy={copyKey}
+                  deleting={deleting}
+                  isMobile={isMobile}
+                />
+              ))
+            )}
+
+            {/* Footer tabel */}
+            <View style={{
+              flexDirection: "row", justifyContent: "space-between", alignItems: "center",
+              padding: 12, borderTopWidth: 1, borderColor: A.outlineVariant,
+              backgroundColor: A.surfaceContainerLow,
+            }}>
+              <Text style={{ fontSize: 11, color: A.textMuted }}>
+                {filtered.length} dari {totalKeys} kunci
+              </Text>
+              <Pressable onPress={loadKeys} style={({ pressed }) => [{ opacity: pressed ? 0.7 : 1 }]}>
+                <Text style={{ fontSize: 11, fontWeight: "700", color: A.primary }}>🔄 Refresh</Text>
+              </Pressable>
+            </View>
+          </View>
+
+        </View>
+      </ScrollView>
+
+      {/* ── Toast ── */}
+      {toast && (
+        <View style={[{
+          position: "absolute", bottom: 24, right: 16, left: 16,
+          backgroundColor: A.surface, borderRadius: 12,
+          borderLeftWidth: 4, borderLeftColor: toast.ok ? A.success : A.error,
+          padding: 14, flexDirection: "row", alignItems: "center", gap: 10,
+          zIndex: 200,
+        }, sh(4, 0.12, 12, 6) as any]}>
+          <Text style={{ fontSize: 16 }}>{toast.ok ? "✅" : "❌"}</Text>
+          <Text style={{ flex: 1, fontSize: 13, color: A.onSurface, fontWeight: "600" }}>{toast.msg}</Text>
+        </View>
+      )}
+
+      {/* ── Confirm Delete Modal ── */}
+      <ConfirmDeleteModal
+        keyToDelete={toDelete}
+        onConfirm={() => toDelete && handleDelete(toDelete)}
+        onCancel={() => setToDelete(null)}
+      />
+    </View>
+  );
+}
+
+// ─── Export default: AdminScreen ──────────────────────────────────────────────
+export function AdminScreen({ onBack }: { onBack?: () => void }) {
+  const [secret, setSecret] = useState<string | null>(null);
+
+  if (!secret) {
+    return <AdminLoginScreen onLogin={(s) => setSecret(s)} />;
+  }
+
+  return (
+    <AdminDashboard
+      secret={secret}
+      onLogout={() => setSecret(null)}
+    />
+  );
+}
