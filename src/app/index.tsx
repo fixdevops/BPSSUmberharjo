@@ -87,22 +87,29 @@ export default function HomeScreen() {
   const [accessGranted,   setAccessGranted]   = useState<boolean>(() => isAccessGranted());
   const [lapanganGranted, setLapanganGranted] = useState<boolean>(() => isLapanganGranted());
 
-  // Revalidasi kunci ke server saat app pertama dibuka
+  // Revalidasi kunci ke server saat app pertama dibuka + polling setiap 30 detik
   // (cek apakah kunci belum dicabut admin)
   useEffect(() => {
-    if (!accessGranted) return; // belum login, tidak perlu cek
-    revalidateKey().then((valid) => {
+    if (!accessGranted) return;
+
+    // Cek pertama kali
+    const check = async () => {
+      const valid = await revalidateKey();
       if (!valid) {
-        // Kunci dicabut admin → paksa login ulang
         setAccessGranted(false);
         setLapanganGranted(false);
       } else {
-        // Refresh tipe kunci (mungkin berubah di server)
         setLapanganGranted(isLapanganGranted());
       }
-    });
+    };
+
+    check();
+
+    // Polling setiap 30 detik — saat kunci dihapus admin, user otomatis keluar
+    const interval = setInterval(check, 30_000);
+    return () => clearInterval(interval);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [accessGranted]);
 
   // ── Tab aktif ────────────────────────────────────────────────────────────
   const [activePage, setActivePage] = useState<string>("estimasi");
