@@ -1,7 +1,7 @@
 {
   "name": "bpssumberharjo",
   "main": "expo-router/entry",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "dependencies": {
     "@expo/ui": "~56.0.21",
     "@expo/vector-icons": "^15.1.1",

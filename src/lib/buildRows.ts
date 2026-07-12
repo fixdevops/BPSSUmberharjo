@@ -87,29 +87,30 @@ export function buildRows(params: {
         label: "26.a. Upah Tenaga Kerja",
         value: rp(h.gajiTK),
         explain: isKering
-          ? `Upah TK tembakau kering — dibayar 1 kali (Rp 77.000/orang):\n\n` +
-            `  • Makani   : ${h.orgMakani ?? 0} orang × Rp 77.000 = ${rp(h.biayaMakani ?? 0)}\n` +
-            `  • Ngrajang : ${h.orgNgrajang ?? 0} orang × Rp 77.000 = ${rp(h.biayaRajang ?? 0)}\n` +
-            `  • Mepe     : ${h.orgMepe ?? 0} orang × Rp 77.000 = ${rp(h.biayaMepe ?? 0)}\n\n` +
+          ? `Upah TK tembakau kering — dibayar 1 kali (Rp ${TB.upahPerOrang.toLocaleString("id-ID")}/orang):\n\n` +
+            `  • Makani   : ${h.orgMakani ?? 0} orang × Rp ${TB.upahPerOrang.toLocaleString("id-ID")} = ${rp((h.orgMakani ?? 0) * TB.upahPerOrang)}\n` +
+            `  • Ngrajang : ${h.orgNgrajang ?? 0} orang × Rp ${TB.upahPerOrang.toLocaleString("id-ID")} = ${rp((h.orgNgrajang ?? 0) * TB.upahPerOrang)}\n` +
+            `  • Mepe     : ${h.orgMepe ?? 0} orang × Rp ${TB.upahPerOrang.toLocaleString("id-ID")} = ${rp((h.orgMepe ?? 0) * TB.upahPerOrang)}\n\n` +
             `  Total 26.a = ${rp(h.gajiTK)}\n\n` +
-            `  Default referensi 1.500 m²: makani=2, ngrajang=2, mepe=3 → 7 × Rp 77.000 = Rp 539.000`
-          : `Upah TK tembakau basah — dibayar 1 kali (Rp 77.000/orang):\n\n` +
-            `  • Kowak  : ${h.orgKowak ?? 0} orang × Rp 77.000 = ${rp(h.biayaKowak ?? 0)}\n` +
-            `  • Macul  : ${h.orgMacul ?? 0} orang × Rp 77.000 = ${rp(h.biayaMacul ?? 0)}\n` +
+            `  (Nilai per orang diambil dari konstanta TB.upahPerOrang — konsisten dengan form input)`
+          : `Upah TK tembakau basah — dibayar 1 kali (Rp ${TB.upahPerOrang.toLocaleString("id-ID")}/orang):\n\n` +
+            `  • Kowak  : ${h.orgKowak ?? 0} orang × Rp ${TB.upahPerOrang.toLocaleString("id-ID")} = ${rp((h.orgKowak ?? 0) * TB.upahPerOrang)}\n` +
+            `  • Macul  : ${h.orgMacul ?? 0} orang × Rp ${TB.upahPerOrang.toLocaleString("id-ID")} = ${rp((h.orgMacul ?? 0) * TB.upahPerOrang)}\n` +
             `  • Matun  : 0 orang (tidak ada penyiangan) = Rp 0\n` +
-            `  • Panen  : ${h.orgPanen ?? 0} orang × Rp 77.000 = ${rp(h.biayaPanen ?? 0)}\n\n` +
+            `  • Panen  : ${h.orgPanen ?? 0} orang × Rp ${TB.upahPerOrang.toLocaleString("id-ID")} = ${rp((h.orgPanen ?? 0) * TB.upahPerOrang)}\n\n` +
             `  Total 26.a = ${rp(h.gajiTK)}\n\n` +
-            `  Default 1.500 m²: kowak=2, macul=2, matun=0, panen=1 → 5 × Rp 77.000 = Rp 385.000`,
+            `  (Nilai per orang diambil dari konstanta TB.upahPerOrang — konsisten dengan form input)`,
       },
       {
         label: "26.b. Biaya Produksi",
         value: rp(h.biayaProd),
         explain: isKering
           ? `Biaya Produksi (26.b) — Tembakau Kering:\n\n` +
-            `  Biaya produksi Rp 2.300/m² × ${(h.luasM2_t ?? 0).toLocaleString("id-ID")} m² = ${rp(h.biayaProd)}\n\n` +
-            `  Komponen: saprotan (pupuk/pestisida budidaya) + bahan baku proses rajangan.`
+            `  Bahan baku daun basah (dua usaha terpisah):\n` +
+            `  ${Math.round(h.kgBasah).toLocaleString("id-ID")} kg × Rp ${TB.hargaBasah.toLocaleString("id-ID")}/kg = ${rp(h.biayaProd)}\n\n` +
+            `  (Dihitung dinamis: kgBasah × hargaBasah — otomatis sinkron jika harga pasar berubah)`
           : `Biaya Produksi (26.b) — Tembakau Basah:\n\n` +
-            `  Biaya produksi Rp ${TB.biayaProdBasahPerM2.toLocaleString("id-ID")}/m² × ${(h.luasM2_t ?? 0).toLocaleString("id-ID")} m² = ${rp(h.biayaProd)}\n\n` +
+            `  Rp ${TB.biayaProdBasahPerM2.toLocaleString("id-ID")}/m² × ${(h.luasM2_t ?? 0).toLocaleString("id-ID")} m² = ${rp(h.biayaProd)}\n\n` +
             `  Komponen: pupuk kandang, pupuk urea, ZA/KCl, pestisida.`,
       },
       {

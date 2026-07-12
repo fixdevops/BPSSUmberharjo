@@ -89,6 +89,7 @@ export const saprotanDetail: Record<string, ItemSaprotan[]> = {
   ],
   // Tembakau Rajangan (pascapanen): hanya bahan baku + sarana proses rajangan
   // Satuan per 100 kg daun basah yang diproses
+  // Harga bahan baku = harga jual daun basah petani (Rp4.000/kg) — dua usaha terpisah
   "Tembakau Kering": [
     { nama: "Tembakau basah (bahan baku)", vol: 100, satuan: "kg",   harga: 4_000   },
     { nama: "Widek (bambu rajang)",        vol: 1,   satuan: "unit", harga: 200_000 }, // masuk aset
@@ -125,12 +126,12 @@ export function explainSaprotan(kom: string, ha: number, totalBiaya: number): st
     );
   }
 
-  // Tembakau Kering (Rajangan): biaya per 100 kg daun basah yang diproses
+  // Tembakau Kering (Rajangan): biaya bahan baku = harga pasar daun basah (dua usaha terpisah)
   if (kom === "Tembakau Kering") {
     // ha = kgBasah (total kg basah yang diproses)
     const kgBasahTotal = ha * 100; // ha dipakai sebagai satuan "per 100 kg"
     const lines = items.map((item) => {
-      // vol per 100 kg: tembakau matang 100 kg, widek 1 unit
+      // vol per 100 kg: tembakau basah 100 kg, widek 1 unit
       const totalItem = item.vol * item.harga * (kgBasahTotal / 100);
       const volActual = item.vol * (kgBasahTotal / 100);
       const volStr = volActual % 1 === 0 ? volActual.toFixed(0) : volActual.toFixed(1);
@@ -139,11 +140,11 @@ export function explainSaprotan(kom: string, ha: number, totalBiaya: number): st
     const perSatuanTotal = items.reduce((s, i) => s + i.vol * i.harga, 0);
     return (
       `Biaya Produksi (26.b) — Usaha Rajangan Tembakau:\n` +
-      `Hanya komponen yang digunakan dalam proses rajangan (pascapanen):\n\n` +
+      `Pengrajang membeli daun basah dari petani (dua usaha terpisah):\n\n` +
       lines.join("\n") +
       `\n\n  Per 100 kg basah = Rp ${Math.round(perSatuanTotal).toLocaleString("id-ID")}` +
       `\n  Total (${Math.round(kgBasahTotal).toLocaleString("id-ID")} kg basah) = Rp ${Math.round(totalBiaya).toLocaleString("id-ID")}` +
-      `\n\n  ⚠ Tidak termasuk biaya budidaya (pupuk, pestisida). Tembakau matang dibeli sebagai bahan baku siap rajang.`
+      `\n\n  ⚠ Harga beli daun basah = Rp 4.000/kg (sinkron dengan harga jual petani basah).\n  Tidak termasuk biaya budidaya — bahan baku dibeli siap rajang.`
     );
   }
 
@@ -229,7 +230,7 @@ export const TEMBAKAU = {
   // ── TEMBAKAU BASAH ───────────────────────────────────────────────────────
   // Produktivitas: 1,00 kg/m² (default), sebelum faktor kondisi
   prodBasahPerM2:       1.00,    // kg/m² tembakau basah
-  hargaBasah:           4_500,   // Rp/kg daun basah
+  hargaBasah:           4_000,   // Rp/kg daun basah
 
   // Biaya per m² — BASAH
   biayaProdBasahPerM2:  1_800,   // Rp/m² (saprotan: pupuk, pestisida)
@@ -242,7 +243,9 @@ export const TEMBAKAU = {
   hargaKering:          60_000,  // Rp/kg rajangan kering
 
   // Biaya per m² — KERING
-  biayaProdKeringPerM2: 2_300,   // Rp/m² (saprotan + bahan baku)
+  // Bahan baku dihitung DINAMIS: kgBasah × hargaBasah (tidak pakai konstanta ini di jalur kering)
+  // Konstanta ini hanya referensi dokumentasi: ~Rp4.000 bahan baku + Rp300 saprotan rajang
+  biayaProdKeringPerM2: 4_300,   // Rp/m² — REFERENSI SAJA, jalur kering hitung dinamis dari hargaBasah
   biayaOpsKeringPerM2:    500,   // Rp/m² (operasional)
   biayaPengeringanPerM2:  700,   // Rp/m² (pengeringan/fermentasi)
 
@@ -869,7 +872,9 @@ export function hitungEstimasi(params: HitungParams): any | null {
     // TEMBAKAU KERING — berbasis luas m²
     // Produksi  = Luas(m²) × 0,16 × Faktor Kondisi
     // Pendapatan = Produksi × Rp60.000
-    // Biaya     = Luas × (Rp2.300 + Rp500 + Rp700) per m²
+    // Biaya     = bahan baku (kgBasah × hargaBasah) + ops + pengeringan + gaji TK
+    //            Bahan baku dihitung DINAMIS dari hargaBasah (sinkron dengan usaha basah)
+    //            Dua usaha TERPISAH: pengrajang beli daun basah dari petani di harga pasar
     // Laba      = Pendapatan − (Biaya + Gaji TK)
     // ══════════════════════════════════════════════════════════════════════
     if (isKering) {
@@ -883,15 +888,17 @@ export function hitungEstimasi(params: HitungParams): any | null {
 
       // ── Produksi ──────────────────────────────────────────────────────
       const kgKering = luasM2_t * TB.prodKeringPerM2 * _faktorTembakau; // 0,16 kg/m²
-      const kgBasah  = luasM2_t * TB.prodBasahPerM2  * _faktorTembakau; // setara basah (info)
+      const kgBasah  = luasM2_t * TB.prodBasahPerM2  * _faktorTembakau; // setara basah (bahan baku)
 
       // ── Nilai produksi ────────────────────────────────────────────────
       const nilaiProd = Math.round(kgKering * TB.hargaKering); // Rp60.000/kg
 
       // ── Biaya per m² ─────────────────────────────────────────────────
-      const biayaProd        = Math.round(luasM2_t * TB.biayaProdKeringPerM2);  // Rp2.300
-      const ops              = Math.round(luasM2_t * TB.biayaOpsKeringPerM2);   // Rp500
-      const biayaPengeringan = Math.round(luasM2_t * TB.biayaPengeringanPerM2); // Rp700
+      // biayaProd = bahan baku (kgBasah × hargaBasah) — dihitung dinamis, sinkron dengan harga jual basah
+      // Dua usaha terpisah: pengrajang beli daun basah dari petani di harga pasar (TB.hargaBasah)
+      const biayaProd        = Math.round(kgBasah * TB.hargaBasah);                 // dinamis: kg basah × Rp4.500
+      const ops              = Math.round(luasM2_t * TB.biayaOpsKeringPerM2);       // Rp500/m²
+      const biayaPengeringan = Math.round(luasM2_t * TB.biayaPengeringanPerM2);     // Rp700/m²
 
       // ── Pekerja & Gaji TK ─────────────────────────────────────────────
       const refM2        = 1_500;
