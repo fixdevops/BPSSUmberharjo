@@ -98,7 +98,7 @@ export function LuasField({
           style={[ui.input, { flex: 1, borderTopRightRadius: 0, borderBottomRightRadius: 0, borderRightWidth: 0 }]}
           value={luas}
           onChangeText={(v) => setLuas(formatRibuanDesimalInput(v))}
-          placeholder="contoh: 6.660 atau 6.660,5 atau 6660.5"
+          placeholder="contoh: 6.660 atau 6.660.5"
           placeholderTextColor={T.outline}
           keyboardType="decimal-pad"
         />
@@ -108,7 +108,7 @@ export function LuasField({
       </View>
       {luas !== "" && luasNum > 0 && (
         <Text style={{ fontSize: 10, color: T.secondary, marginTop: 3 }}>
-          = {(luasNum / 10000).toLocaleString("id-ID", { minimumFractionDigits: 4, maximumFractionDigits: 4 })} ha
+          = {(luasNum / 10000).toLocaleString("en-US", { minimumFractionDigits: 4, maximumFractionDigits: 4 })} ha
         </Text>
       )}
     </View>

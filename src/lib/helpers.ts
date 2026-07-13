@@ -20,73 +20,70 @@ export function formatRibuanInput(raw: string): string {
 }
 
 /**
- * Format angka dengan pemisah ribuan + boleh desimal (koma id-ID).
+ * Format angka dengan pemisah ribuan titik + boleh desimal dengan titik.
  * Cocok untuk luas (m²), hasil panen (kg/kuintal/ton), bobot.
- * Menerima titik ATAU koma sebagai pemisah desimal.
- * Contoh: "6660,5"  → "6.660,5"
- *         "6660.5"  → "6.660,5"
- *         "1.5"     → "1,5"
- *         "1500"    → "1.500"
- *         "1,5"     → "1,5"
+ * Hanya menerima titik sebagai pemisah desimal (BUKAN koma).
+ * Contoh: "6660.5"   → "6.660.5"
+ *         "6660"     → "6.660"
+ *         "1.5"      → "1.5"
+ *         "1500"     → "1.500"
+ *         "1500.25"  → "1.500.25"
+ *
+ * Aturan: titik TERAKHIR adalah pemisah desimal.
+ *         titik sebelumnya adalah pemisah ribuan (dicetak ulang).
  */
 export function formatRibuanDesimalInput(raw: string): string {
-  // Hanya izinkan digit, koma, dan titik
-  const cleaned = raw.replace(/[^0-9.,]/g, "");
+  // Hanya izinkan digit dan titik (koma diabaikan)
+  const cleaned = raw.replace(/[^0-9.]/g, "");
   if (!cleaned) return "";
 
-  // Deteksi apakah ada pemisah desimal (koma atau titik)
-  // Aturan: karakter TERAKHIR yang berupa koma/titik dianggap pemisah desimal
-  // — kecuali kalau titiknya adalah pemisah ribuan (digit sesudahnya > 3 digit)
-  const lastDot   = cleaned.lastIndexOf(".");
-  const lastComma = cleaned.lastIndexOf(",");
+  const lastDot = cleaned.lastIndexOf(".");
 
-  // Mana yang lebih kanan = pemisah desimal
-  const sepPos  = Math.max(lastDot, lastComma);
-  const sepChar = sepPos >= 0 ? cleaned[sepPos] : null;
-
-  let intRaw: string;
-  let decRaw: string | null = null;
-
-  if (sepChar !== null) {
-    const afterSep = cleaned.slice(sepPos + 1);
-    // Titik dianggap pemisah RIBUAN (bukan desimal) jika sesudahnya tepat 3 digit
-    // dan tidak ada karakter lain setelahnya (mis: "1.000" bukan "1.5")
-    const isThousSep = sepChar === "." && /^\d{3}$/.test(afterSep);
-
-    if (isThousSep) {
-      // Seluruh string adalah angka bulat — buang semua titik
-      intRaw = cleaned.replace(/\./g, "");
-      decRaw = null;
-    } else {
-      // Ada desimal
-      intRaw = cleaned.slice(0, sepPos).replace(/[.,]/g, "");
-      decRaw = afterSep.replace(/[.,]/g, "");
-    }
-  } else {
-    intRaw = cleaned.replace(/[.,]/g, "");
-    decRaw = null;
+  if (lastDot === -1) {
+    // Tidak ada titik → angka bulat, format ribuan biasa
+    const digits = cleaned.replace(/\./g, "");
+    return parseInt(digits, 10).toLocaleString("id-ID");
   }
 
-  if (!intRaw && decRaw === null) return "";
+  // Ada titik → titik terakhir = pemisah desimal
+  const intRaw = cleaned.slice(0, lastDot).replace(/\./g, "");
+  const decRaw = cleaned.slice(lastDot + 1).replace(/\./g, "");
 
   const intFormatted = intRaw
     ? parseInt(intRaw, 10).toLocaleString("id-ID")
     : "0";
 
-  return decRaw !== null ? `${intFormatted},${decRaw}` : intFormatted;
+  return `${intFormatted}.${decRaw}`;
 }
 
 /**
  * Bersihkan format ribuan kembali ke angka murni.
- * "1.000.000" → 1000000  |  "6.660,5" → 6660.5
+ * Format: titik sebagai pemisah ribuan, titik TERAKHIR sebagai desimal.
+ * "1.000.000"   → 1000000
+ * "6.660.5"     → 6660.5
+ * "1.500.25"    → 1500.25
  */
 export function parseFormatted(val: string): number {
-  return parseFloat(val.replace(/\./g, "").replace(",", ".")) || 0;
+  const str = val.trim();
+  if (!str) return 0;
+  const lastDot = str.lastIndexOf(".");
+  if (lastDot === -1) {
+    // Tidak ada titik sama sekali
+    return parseFloat(str.replace(/[^0-9]/g, "")) || 0;
+  }
+  const afterLast = str.slice(lastDot + 1);
+  // Jika setelah titik terakhir tepat 3 digit → titik itu pemisah ribuan, bukan desimal
+  if (/^\d{3}$/.test(afterLast)) {
+    return parseFloat(str.replace(/\./g, "")) || 0;
+  }
+  // Titik terakhir = pemisah desimal, titik sebelumnya = ribuan
+  const intPart = str.slice(0, lastDot).replace(/\./g, "");
+  return parseFloat(`${intPart}.${afterLast}`) || 0;
 }
 
 /** Bersihkan format ribuan lalu parse ke number */
 export function parseRupiah(val: string): number {
-  return parseFloat(val.replace(/\./g, "").replace(",", ".")) || 0;
+  return parseFormatted(val);
 }
 
 /** Salin teks ke clipboard, tampilkan toast/alert sesuai platform */

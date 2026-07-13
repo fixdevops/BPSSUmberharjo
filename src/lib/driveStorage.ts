@@ -99,7 +99,13 @@ export async function syncFromDrive(): Promise<boolean> {
       _driveReady = true;
       return false;
     }
-    setStatus("error");
+    console.warn("[Drive] syncFromDrive gagal:", e.message);
+    // Token expired/invalid → minta login ulang
+    if (e.message?.includes("expired") || e.message?.includes("401") || e.message?.includes("Sesi")) {
+      setStatus("not_logged_in");
+    } else {
+      setStatus("error");
+    }
     return false;
   }
 }
@@ -121,7 +127,12 @@ export function scheduleDriveSync(): void {
       setStatus("synced");
     } catch (e: any) {
       console.warn("[Drive] Sync gagal:", e.message);
-      setStatus("error");
+      // Jika token expired → minta login ulang, bukan error merah
+      if (e.message?.includes("expired") || e.message?.includes("401")) {
+        setStatus("not_logged_in");
+      } else {
+        setStatus("error");
+      }
     }
   }, 2000); // tunggu 2 detik setelah operasi terakhir
 }
@@ -135,7 +146,12 @@ export async function forceDriveSync(): Promise<void> {
     await uploadToDrive();
     setStatus("synced");
   } catch (e: any) {
-    setStatus("error");
+    // Token expired? minta login ulang
+    if (e.message?.includes("expired") || e.message?.includes("401")) {
+      setStatus("not_logged_in");
+    } else {
+      setStatus("error");
+    }
     throw e;
   }
 }
