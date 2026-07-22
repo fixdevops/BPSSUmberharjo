@@ -79,23 +79,37 @@ export function KalkulatorProgres() {
 
   // grid 3 kolom di tablet, 2 kolom di mobile
   const cols = isMobile ? 2 : 3;
+  // flexBasis per cell = (100% - gap*(cols-1)) / cols
+  // Pakai pendekatan aman: render per-baris manual
+  const rows2: (typeof FIELDS)[] = [];
+  for (let i = 0; i < FIELDS.length; i += cols) {
+    rows2.push(FIELDS.slice(i, i + cols));
+  }
 
   return (
     <SectionCard icon="bar-chart-2" title="Progres SE2026">
 
       {/* ── Grid input ── */}
-      <View style={[st.grid, { gap: 8 }]}>
-        {FIELDS.map((f) => (
-          <View key={f.key} style={[st.cell, { width: `${100 / cols - 1}%` as any }]}>
-            <Text style={st.cellLabel}>{f.label}</Text>
-            <TextInput
-              style={st.cellInput}
-              value={vals[f.key]}
-              onChangeText={(v) => set(f.key, v)}
-              keyboardType="numeric"
-              selectTextOnFocus
-              accessibilityLabel={f.label}
-            />
+      <View style={st.grid}>
+        {rows2.map((row, ri) => (
+          <View key={ri} style={st.gridRow}>
+            {row.map((f) => (
+              <View key={f.key} style={st.cell}>
+                <Text style={st.cellLabel}>{f.label}</Text>
+                <TextInput
+                  style={st.cellInput}
+                  value={vals[f.key]}
+                  onChangeText={(v) => set(f.key, v)}
+                  keyboardType="numeric"
+                  selectTextOnFocus
+                  accessibilityLabel={f.label}
+                />
+              </View>
+            ))}
+            {/* Isi sisa slot kosong agar kolom terakhir tidak meregang */}
+            {row.length < cols && Array.from({ length: cols - row.length }).map((_, ei) => (
+              <View key={`empty-${ei}`} style={st.cell} />
+            ))}
           </View>
         ))}
       </View>
@@ -156,8 +170,9 @@ export function KalkulatorProgres() {
 // ─── Styles ──────────────────────────────────────────────────────────────────
 const st = StyleSheet.create({
   // grid
-  grid: { flexDirection: "row", flexWrap: "wrap", marginBottom: 12 },
-  cell: { gap: 4 },
+  grid:    { gap: 8, marginBottom: 12 },
+  gridRow: { flexDirection: "row", gap: 8 },
+  cell:    { flex: 1, gap: 4 },
   cellLabel: {
     fontSize: 11, fontWeight: "600",
     color: T.onSurfaceVariant, textTransform: "uppercase", letterSpacing: 0.4,
