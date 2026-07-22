@@ -6,6 +6,7 @@ import { useBreakpoints } from "../hooks/useBreakpoints";
 import { copyToClipboard, formatRibuanInput, parseFormatted, rp } from "../lib/helpers";
 import { ui } from "../styles/ui";
 import { Icon } from "./Icon";
+import { KalkulatorProgres } from "./KalkulatorProgres";
 import { SectionCard } from "./ui/SectionCard";
 
 type SumberPendapatan = { id: string; jumlah: string };
@@ -231,6 +232,9 @@ export function BerandaKalkulator() {
           </View>
         </View>
       )}
+
+      {/* Kalkulator Progres SE2026 */}
+      <KalkulatorProgres />
 
       <View style={ui.footer}>
         <Text style={ui.footerText}>© 2026 BPS Sumberharjo – SE2026</Text>
